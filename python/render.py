@@ -93,7 +93,7 @@ def build_line_multi(spec, source, df):
     legend_items = []
     for col, color in zip(value_cols, palette):
         r = fig.line(x=x_col, y=col, source=source, line_color=color, line_width=2)
-        fig.circle(x=x_col, y=col, source=source, fill_color=color, size=6, line_color="white")
+        fig.scatter(x=x_col, y=col, source=source, fill_color=color, size=6, line_color="white")
         legend_items.append(LegendItem(label=col, renderers=[r]))
 
     fig.add_layout(Legend(items=legend_items), "right")
