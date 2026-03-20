@@ -7,7 +7,9 @@
     {% if bokeh_css_url %}
     <link rel="stylesheet" href="{{ bokeh_css_url }}">
     {% endif %}
-    <script src="{{ bokeh_js_url }}"></script>
+    {% for js_url in bokeh_js_urls %}
+    <script src="{{ js_url }}"></script>
+    {% endfor %}
     <style>
         *, *::before, *::after { box-sizing: border-box; }
 
