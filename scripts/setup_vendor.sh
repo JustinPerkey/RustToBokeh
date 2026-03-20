@@ -42,7 +42,13 @@ detect_platform() {
 }
 
 PLATFORM="$(detect_platform)"
-ARCHIVE="cpython-${PYTHON_VERSION}+${RELEASE_TAG}-${PLATFORM}-install_only.tar.gz"
+
+# Windows builds from python-build-standalone include "-shared" in the name.
+case "$PLATFORM" in
+    *windows*) VARIANT="-shared" ;;
+    *)         VARIANT="" ;;
+esac
+ARCHIVE="cpython-${PYTHON_VERSION}+${RELEASE_TAG}-${PLATFORM}${VARIANT}-install_only.tar.gz"
 URL="${BASE_URL}/${ARCHIVE}"
 
 # ── Determine Python executable path ────────────────────────────────────────

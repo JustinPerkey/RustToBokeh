@@ -245,7 +245,7 @@ _BUILDERS = {
 
 # ── Render one HTML file per page ────────────────────────────────────────────
 
-bokeh_js_url = CDN.js_files[0]
+bokeh_js_urls = CDN.js_files
 bokeh_css_url = CDN.css_files[0] if CDN.css_files else ""
 template = Template(html_template)
 
@@ -362,7 +362,7 @@ for page in pages:
     html = template.render(
         title=page["title"],
         nav_pages=this_nav,
-        bokeh_js_url=bokeh_js_url,
+        bokeh_js_urls=bokeh_js_urls,
         bokeh_css_url=bokeh_css_url,
         plot_script=script,
         plots=plots,
