@@ -1,2 +1,3 @@
 [env]
 PYO3_PYTHON = { value = "vendor/python/python.exe", relative = true }
+PYTHONHOME = { value = "vendor/python", relative = true }

@@ -30,3 +30,7 @@ vendor/
 __pycache__/
 *.pyc
 *.pyo
+
+# Generated HTML output
+output/
+output.html

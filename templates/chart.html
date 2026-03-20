@@ -11,90 +11,73 @@
     <script src="{{ js_url }}"></script>
     {% endfor %}
     <style>
-        *, *::before, *::after { box-sizing: border-box; }
-
+        * { box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
-            padding: 0 24px 40px;
+            padding: 0 20px 40px;
             background: #f8f9fa;
             color: #333;
         }
-
-        /* ── Navigation ── */
         nav {
             display: flex;
-            align-items: center;
-            gap: 4px;
-            padding: 12px 0;
-            border-bottom: 2px solid #e8eef7;
-            margin-bottom: 28px;
-        }
-        nav .brand {
-            font-weight: 700;
-            color: #2c3e50;
-            margin-right: 16px;
-            font-size: 1.05em;
-            letter-spacing: -0.3px;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 14px 0;
+            margin-bottom: 8px;
+            border-bottom: 2px solid #e0e0e0;
+            position: sticky;
+            top: 0;
+            background: #f8f9fa;
+            z-index: 100;
         }
         nav a {
             text-decoration: none;
-            color: #4C72B0;
-            padding: 5px 14px;
-            border-radius: 5px;
-            font-size: 0.93em;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 0.85em;
             font-weight: 500;
-            transition: background 0.15s;
+            color: #4C72B0;
+            background: #e8eef7;
+            transition: background 0.15s, color 0.15s;
         }
-        nav a:hover { background: #e8eef7; }
-        nav a.active {
-            background: #4C72B0;
-            color: white;
-        }
-
-        /* ── Page header ── */
+        nav a:hover { background: #4C72B0; color: white; }
+        nav a.active { background: #4C72B0; color: white; font-weight: 700; }
         h1 {
             color: #2c3e50;
-            margin: 0 0 20px;
-            font-size: 1.6em;
+            border-bottom: 3px solid #4C72B0;
+            padding-bottom: 12px;
+            margin: 16px 0 8px;
         }
-
-        /* ── Responsive chart grid ── */
-        /* Narrow charts tile side-by-side; charts with .chart-wide span full row. */
-        .chart-grid {
+        .subtitle {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+        .grid-layout {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
-            gap: 24px;
-            align-items: start;
+            grid-template-columns: repeat({{ grid_cols }}, 1fr);
+            gap: 20px;
+            margin-bottom: 24px;
         }
-        .chart-wide {
-            grid-column: 1 / -1;
-        }
-
-        /* Widget row (e.g. RangeSlider) spans full width, no card styling */
-        .widget-container {
-            padding: 8px 4px 0;
-        }
-
         .chart-container {
             background: white;
             border-radius: 8px;
-            padding: 20px;
+            padding: 16px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            min-width: 0; /* allow grid cells to shrink below content size */
+            min-width: 0;
         }
         .chart-title {
             color: #2c3e50;
-            font-size: 1.05em;
-            margin: 0 0 12px;
+            font-size: 1.0em;
+            margin: 0 0 10px 0;
             padding-bottom: 8px;
             border-bottom: 1px solid #e8eef7;
         }
-
         footer {
-            margin-top: 32px;
-            color: #aaa;
+            margin-top: 20px;
+            color: #999;
             font-size: 0.8em;
             text-align: center;
         }
@@ -106,44 +89,37 @@
             padding: 2px 7px;
             margin: 0 2px;
             font-weight: 600;
-            font-size: 0.86em;
+            font-size: 0.85em;
         }
     </style>
 </head>
 <body>
     <nav>
-        <span class="brand">RustToBokeh</span>
-        {% for page in nav_pages %}
-        <a href="{{ page.href }}"{% if page.active %} class="active"{% endif %}>{{ page.label }}</a>
+        {% for link in nav_links %}
+        <a href="{{ link.slug }}.html"
+           {% if link.slug == current_slug %}class="active"{% endif %}>
+            {{ link.label }}
+        </a>
         {% endfor %}
     </nav>
-
     <h1>{{ title }}</h1>
-
-    <div class="chart-grid">
-    {% for plot in plots %}
-        {% if plot.kind == "widget" %}
-        <div class="widget-container chart-wide">{{ plot.div }}</div>
-        {% else %}
-        {# Charts with width > 700 span the full grid row. #}
-        <div class="chart-container{% if plot.width > 700 %} chart-wide{% endif %}">
+    <p class="subtitle">
+        <span class="tech-badge">Polars</span>
+        <span class="tech-badge">Arrow IPC</span>
+        <span class="tech-badge">Bokeh</span>
+        <span class="tech-badge">PyO3</span>
+        <span class="tech-badge">Jinja2</span>
+    </p>
+    <div class="grid-layout">
+        {% for plot in plots %}
+        <div class="chart-container"
+             style="grid-row: {{ plot.grid_row }}; grid-column: {{ plot.grid_col }} / span {{ plot.grid_col_span }};">
             <h2 class="chart-title">{{ plot.title }}</h2>
             {{ plot.div }}
         </div>
-        {% endif %}
-    {% endfor %}
+        {% endfor %}
     </div>
-
     {{ plot_script }}
-
-    <footer>
-        Generated by RustToBokeh &mdash;
-        <span class="tech-badge">Rust</span>
-        <span class="tech-badge">Polars</span>
-        <span class="tech-badge">Arrow IPC</span>
-        <span class="tech-badge">PyO3</span>
-        <span class="tech-badge">Bokeh</span>
-        <span class="tech-badge">Jinja2</span>
-    </footer>
+    <footer>Generated by RustToBokeh</footer>
 </body>
 </html>
