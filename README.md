@@ -23,29 +23,24 @@ The Python script and HTML template are embedded into the binary at compile time
 ## Prerequisites
 
 - Rust toolchain (1.75+)
-- Python 3.10+
+- `curl` or `wget` (for downloading Python)
+- No Python installation required
 
-## Python Environment Setup
+## Setup
 
-Create a local virtual environment and install the pinned dependencies (do this once after cloning):
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate        # Linux/macOS
-# .venv\Scripts\activate         # Windows
-pip install -r requirements.txt
-```
-
-PyO3 links against the Python interpreter at build time. Export this before building so it uses the venv Python with the installed packages:
+Run the vendor script once after cloning. It downloads a standalone Python build (no system Python needed) and installs the required pip packages:
 
 ```bash
-export PYO3_PYTHON=$(pwd)/.venv/bin/python    # Linux/macOS
-# $env:PYO3_PYTHON="$PWD\.venv\Scripts\python.exe"   # Windows PowerShell
+bash scripts/setup_vendor.sh
 ```
+
+This creates `vendor/python/` with a portable Python interpreter and writes `.cargo/config.toml` to point PyO3 at it.
+
+### Offline builds
+
+To make the project buildable on a machine with no internet access, comment out the `vendor/` line in `.gitignore` and commit the `vendor/python/` directory. This adds ~300 MB to the repo but allows cloning and building with zero downloads.
 
 ## Building & Running
-
-With `PYO3_PYTHON` exported (see above), build and run:
 
 ```bash
 cargo build --release
