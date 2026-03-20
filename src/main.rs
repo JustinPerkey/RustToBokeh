@@ -79,63 +79,52 @@ fn serialize_df(df: &mut DataFrame) -> Vec<u8> {
 
 enum ChartType {
     GroupedBar,
+    LineMulti,
 }
 
 impl ChartType {
     fn as_str(&self) -> &'static str {
         match self {
             ChartType::GroupedBar => "grouped_bar",
+            ChartType::LineMulti => "line_multi",
         }
     }
 }
 
+/// Describes a single chart panel. `source_key` links to an entry in the
+/// `frames` dict; charts sharing the same key share one ColumnDataSource,
+/// enabling linked hover/selection in the browser.
 struct ChartSpec {
     title: String,
     chart_type: ChartType,
-    bytes: Vec<u8>,
+    /// Must match a key in the `frames` dict passed to Python.
+    source_key: String,
     x_col: String,
-    group_col: String,
-    value_col: String,
+    /// Column names for the value series (wide-format DataFrame).
+    value_cols: Vec<String>,
     y_label: String,
+    /// Layout hint for Jinja: charts wider than 700 span the full grid row.
+    width: u32,
+    height: u32,
 }
 
+/// Wide format: one row per month, one column per series.
 fn build_monthly_dataframe() -> DataFrame {
     df![
-        "month" => [
-            "Jan","Jan","Feb","Feb","Mar","Mar","Apr","Apr",
-            "May","May","Jun","Jun","Jul","Jul","Aug","Aug",
-            "Sep","Sep","Oct","Oct","Nov","Nov","Dec","Dec"
-        ],
-        "category" => [
-            "Revenue","Expenses","Revenue","Expenses","Revenue","Expenses",
-            "Revenue","Expenses","Revenue","Expenses","Revenue","Expenses",
-            "Revenue","Expenses","Revenue","Expenses","Revenue","Expenses",
-            "Revenue","Expenses","Revenue","Expenses","Revenue","Expenses"
-        ],
-        "value" => [
-            120.5, 95.0,  135.2, 102.5, 148.7, 110.3, 162.3, 118.7,
-            175.0, 125.2, 190.8, 132.8, 205.1, 140.1, 198.4, 136.5,
-            210.7, 145.2, 225.3, 152.7, 240.6, 160.3, 280.9, 175.5f64
-        ]
+        "month"    => ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
+        "Revenue"  => [120.5,135.2,148.7,162.3,175.0,190.8,205.1,198.4,210.7,225.3,240.6,280.9f64],
+        "Expenses" => [ 95.0,102.5,110.3,118.7,125.2,132.8,140.1,136.5,145.2,152.7,160.3,175.5f64],
     ]
     .expect("Failed to build monthly DataFrame")
 }
 
+/// Wide format: one row per quarter, one column per product.
 fn build_quarterly_dataframe() -> DataFrame {
     df![
-        "quarter" => ["Q1","Q1","Q1","Q2","Q2","Q2","Q3","Q3","Q3","Q4","Q4","Q4"],
-        "product" => [
-            "Product A","Product B","Product C",
-            "Product A","Product B","Product C",
-            "Product A","Product B","Product C",
-            "Product A","Product B","Product C"
-        ],
-        "value" => [
-            320.5, 210.0, 140.3,
-            410.2, 275.8, 165.0,
-            390.7, 305.3, 195.5,
-            520.1, 380.6, 240.9f64
-        ]
+        "quarter"   => ["Q1","Q2","Q3","Q4"],
+        "Product A" => [320.5, 410.2, 390.7, 520.1f64],
+        "Product B" => [210.0, 275.8, 305.3, 380.6f64],
+        "Product C" => [140.3, 165.0, 195.5, 240.9f64],
     ]
     .expect("Failed to build quarterly DataFrame")
 }
@@ -149,24 +138,48 @@ fn main() -> PyResult<()> {
     println!("Monthly DataFrame:\n{}", monthly_df);
     println!("Quarterly DataFrame:\n{}", quarterly_df);
 
+    // One entry per unique dataset; key becomes the source_key referenced by specs.
+    let frame_data: Vec<(&str, Vec<u8>)> = vec![
+        ("monthly", serialize_df(&mut monthly_df)),
+        ("quarterly", serialize_df(&mut quarterly_df)),
+    ];
+
     let specs: Vec<ChartSpec> = vec![
         ChartSpec {
             title: "Monthly Revenue vs Expenses (2024)".to_string(),
             chart_type: ChartType::GroupedBar,
-            bytes: serialize_df(&mut monthly_df),
+            source_key: "monthly".to_string(),
             x_col: "month".to_string(),
-            group_col: "category".to_string(),
-            value_col: "value".to_string(),
+            value_cols: vec!["Revenue".to_string(), "Expenses".to_string()],
             y_label: "Amount (USD thousands)".to_string(),
+            width: 900,
+            height: 400,
+        },
+        // Shares the same ColumnDataSource as the bar chart above —
+        // hover/selection in one panel is reflected in the other.
+        ChartSpec {
+            title: "Monthly Trends".to_string(),
+            chart_type: ChartType::LineMulti,
+            source_key: "monthly".to_string(),
+            x_col: "month".to_string(),
+            value_cols: vec!["Revenue".to_string(), "Expenses".to_string()],
+            y_label: "Amount (USD thousands)".to_string(),
+            width: 500,
+            height: 350,
         },
         ChartSpec {
             title: "Quarterly Product Revenue".to_string(),
             chart_type: ChartType::GroupedBar,
-            bytes: serialize_df(&mut quarterly_df),
+            source_key: "quarterly".to_string(),
             x_col: "quarter".to_string(),
-            group_col: "product".to_string(),
-            value_col: "value".to_string(),
+            value_cols: vec![
+                "Product A".to_string(),
+                "Product B".to_string(),
+                "Product C".to_string(),
+            ],
             y_label: "Revenue (USD thousands)".to_string(),
+            width: 500,
+            height: 400,
         },
     ];
 
@@ -174,20 +187,33 @@ fn main() -> PyResult<()> {
     let html_template = include_str!("../templates/chart.html");
 
     Python::with_gil(|py| {
+        // frames dict: source_key -> Arrow IPC bytes
+        let frames = PyDict::new(py);
+        for (key, bytes) in &frame_data {
+            frames.set_item(*key, PyBytes::new(py, bytes))?;
+        }
+
+        // chart_specs list: one dict per panel
         let chart_specs = PyList::empty(py);
         for spec in &specs {
             let d = PyDict::new(py);
             d.set_item("title", &spec.title)?;
             d.set_item("chart_type", spec.chart_type.as_str())?;
-            d.set_item("bytes", PyBytes::new(py, &spec.bytes))?;
+            d.set_item("source_key", &spec.source_key)?;
             d.set_item("x_col", &spec.x_col)?;
-            d.set_item("group_col", &spec.group_col)?;
-            d.set_item("value_col", &spec.value_col)?;
+            let value_cols = PyList::empty(py);
+            for col in &spec.value_cols {
+                value_cols.append(col.as_str())?;
+            }
+            d.set_item("value_cols", value_cols)?;
             d.set_item("y_label", &spec.y_label)?;
+            d.set_item("width", spec.width)?;
+            d.set_item("height", spec.height)?;
             chart_specs.append(d)?;
         }
 
         let locals = PyDict::new(py);
+        locals.set_item("frames", frames)?;
         locals.set_item("chart_specs", chart_specs)?;
         locals.set_item("html_template", html_template)?;
         locals.set_item("output_path", "output.html")?;
