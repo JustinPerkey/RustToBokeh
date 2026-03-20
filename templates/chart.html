@@ -70,6 +70,11 @@
             grid-column: 1 / -1;
         }
 
+        /* Widget row (e.g. RangeSlider) spans full width, no card styling */
+        .widget-container {
+            padding: 8px 4px 0;
+        }
+
         .chart-container {
             background: white;
             border-radius: 8px;
@@ -115,11 +120,15 @@
 
     <div class="chart-grid">
     {% for plot in plots %}
+        {% if plot.kind == "widget" %}
+        <div class="widget-container chart-wide">{{ plot.div }}</div>
+        {% else %}
         {# Charts with width > 700 span the full grid row. #}
         <div class="chart-container{% if plot.width > 700 %} chart-wide{% endif %}">
             <h2 class="chart-title">{{ plot.title }}</h2>
             {{ plot.div }}
         </div>
+        {% endif %}
     {% endfor %}
     </div>
 
