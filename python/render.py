@@ -69,32 +69,34 @@ def build_grouped_bar(spec, source_cache, view=None):
     df = dataframes[key]
     x_col, group_col, value_col = spec["x_col"], spec["group_col"], spec["value_col"]
 
+    source = _get_flat_source(key, source_cache)
+    vkw = dict(view=view) if view else {}
+
+    # Add factor tuples column for FactorRange if not already present
+    factor_col = "_factors_" + x_col + "_" + group_col
+    if factor_col not in source.data:
+        source.data[factor_col] = [
+            (str(x), str(g))
+            for x, g in zip(source.data[x_col], source.data[group_col])
+        ]
+
     groups = df[group_col].unique(maintain_order=True).to_list()
-    x_factors = [
-        (str(x), str(g))
-        for x, g in zip(df[x_col].to_list(), df[group_col].to_list())
-    ]
-
-    cache_key = key + "__grouped_bar"
-    if cache_key in source_cache:
-        source = source_cache[cache_key]
-    else:
-        source = ColumnDataSource(dict(x=x_factors, counts=df[value_col].to_list()))
-        source_cache[cache_key] = source
-
     palette = _PALETTE[: len(groups)]
     fig = figure(
-        x_range=FactorRange(*x_factors),
+        x_range=FactorRange(*source.data[factor_col]),
         height=400,
         title=spec["title"],
         toolbar_location="above",
-        tools="pan,wheel_zoom,box_zoom,reset,save,hover",
+        tools="pan,wheel_zoom,box_zoom,reset,save,hover,box_select,tap",
         sizing_mode="stretch_width",
     )
     fig.vbar(
-        x="x", top="counts", width=0.9, source=source,
+        x=factor_col, top=value_col, width=0.9, source=source,
         line_color="white",
-        fill_color=factor_cmap("x", palette=palette, factors=groups, start=1, end=2),
+        fill_color=factor_cmap(factor_col, palette=palette, factors=groups, start=1, end=2),
+        selection_fill_color="firebrick",
+        nonselection_fill_alpha=0.2,
+        **vkw,
     )
     fig.x_range.range_padding = 0.1
     fig.xaxis.major_label_orientation = 1.0
@@ -117,7 +119,7 @@ def build_line_multi(spec, source_cache, view=None):
         height=400,
         title=spec["title"],
         toolbar_location="above",
-        tools="pan,wheel_zoom,box_zoom,reset,save,hover",
+        tools="pan,wheel_zoom,box_zoom,reset,save,hover,box_select,tap",
         sizing_mode="stretch_width",
         x_range=df[x_col].to_list(),
     )
@@ -126,7 +128,10 @@ def build_line_multi(spec, source_cache, view=None):
         fig.line(x=x_col, y=col, source=source, line_width=2.5,
                  color=color, legend_label=col, **vkw)
         fig.scatter(x=x_col, y=col, source=source, size=7,
-                    color=color, legend_label=col, **vkw)
+                    color=color, legend_label=col,
+                    selection_color="firebrick",
+                    nonselection_alpha=0.3,
+                    **vkw)
     fig.yaxis.axis_label = spec.get("y_label", "")
     fig.legend.location = "top_left"
     fig.legend.click_policy = "hide"
@@ -139,27 +144,24 @@ def build_hbar(spec, source_cache, view=None):
     cat_col = spec["category_col"]
     val_col = spec["value_col"]
 
-    cache_key = key + "__hbar"
-    if cache_key in source_cache:
-        source = source_cache[cache_key]
-    else:
-        cats = df[cat_col].to_list()
-        vals = df[val_col].to_list()
-        source = ColumnDataSource(dict(categories=cats, values=vals))
-        source_cache[cache_key] = source
+    source = _get_flat_source(key, source_cache)
+    vkw = dict(view=view) if view else {}
 
-    cats = source.data["categories"]
+    cats = df[cat_col].to_list()
     fig = figure(
         y_range=list(reversed(cats)),
         height=max(300, len(cats) * 40 + 80),
         title=spec["title"],
         toolbar_location="above",
-        tools="pan,wheel_zoom,box_zoom,reset,save,hover",
+        tools="pan,wheel_zoom,box_zoom,reset,save,hover,box_select,tap",
         sizing_mode="stretch_width",
     )
     fig.hbar(
-        y="categories", right="values", height=0.7, source=source,
+        y=cat_col, right=val_col, height=0.7, source=source,
         line_color="white", fill_color="#4C72B0",
+        selection_fill_color="firebrick",
+        nonselection_fill_alpha=0.2,
+        **vkw,
     )
     fig.xaxis.axis_label = spec.get("x_label", "")
     fig.ygrid.grid_line_color = None
@@ -178,12 +180,14 @@ def build_scatter(spec, source_cache, view=None):
         height=400,
         title=spec["title"],
         toolbar_location="above",
-        tools="pan,wheel_zoom,box_zoom,reset,save,hover",
+        tools="pan,wheel_zoom,box_zoom,reset,save,hover,box_select,tap",
         sizing_mode="stretch_width",
     )
     fig.scatter(
         x=x_col, y=y_col, source=source,
         size=10, color="#4C72B0", alpha=0.7,
+        selection_color="firebrick",
+        nonselection_alpha=0.2,
         **vkw,
     )
     fig.xaxis.axis_label = spec.get("x_label", "")
