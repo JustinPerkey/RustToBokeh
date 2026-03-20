@@ -86,15 +86,29 @@ def build_grouped_bar(spec, source, df):
 
 
 def build_line_multi(spec, source, df):
-    """One line per value column, sharing the same ColumnDataSource."""
+    """One line per value column, sharing the same ColumnDataSource.
+
+    CDSView/IndexFilter is incompatible with connected glyphs (E-1024), so
+    index filtering is handled differently per glyph type:
+      - Line:    restrict figure x_range to the filtered x values; Bokeh only
+                 renders segments whose endpoints are within the categorical range.
+      - Scatter: apply CDSView+IndexFilter normally (discrete glyph, no issue).
+    """
     x_col = spec["x_col"]
     value_cols = spec["value_cols"]
     x_vals = df[x_col].to_list()
     palette = _DEFAULT_PALETTE[:len(value_cols)]
-    view = _make_view(spec["indices"])
+    indices = spec["indices"]
+
+    if indices is not None:
+        display_x = [x_vals[i] for i in indices]
+        scatter_view = CDSView(filter=IndexFilter(indices=list(indices)))
+    else:
+        display_x = x_vals
+        scatter_view = None
 
     fig = figure(
-        x_range=x_vals,
+        x_range=display_x,
         height=spec["height"],
         sizing_mode="stretch_width",
         title=spec["title"],
@@ -104,11 +118,11 @@ def build_line_multi(spec, source, df):
 
     legend_items = []
     for col, color in zip(value_cols, palette):
-        kw = dict(x=x_col, y=col, source=source)
-        if view is not None:
-            kw["view"] = view
-        r = fig.line(**kw, line_color=color, line_width=2)
-        fig.scatter(**kw, fill_color=color, size=6, line_color="white")
+        r = fig.line(x=x_col, y=col, source=source, line_color=color, line_width=2)
+        scatter_kw = dict(x=x_col, y=col, source=source, fill_color=color, size=6, line_color="white")
+        if scatter_view is not None:
+            scatter_kw["view"] = scatter_view
+        fig.scatter(**scatter_kw)
         legend_items.append(LegendItem(label=col, renderers=[r]))
 
     fig.add_layout(Legend(items=legend_items), "right")
