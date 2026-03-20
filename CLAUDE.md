@@ -55,17 +55,22 @@ RustToBokeh/
 [Python - python/render.py]
   │  Deserialize Arrow IPC bytes → Polars DataFrames
   │  Build charts from ChartSpec dicts (grouped bar, line, hbar, scatter)
-  │  Charts sharing the same source_key share one ColumnDataSource (linked selection)
-  │  Pages with has_filter=true get a RangeSlider driving source.data mutation
+  │  Line/scatter charts sharing the same source_key share one ColumnDataSource (linked selection)
+  │  Build Bokeh filter objects (BooleanFilter, GroupFilter, IndexFilter) from FilterSpecs
+  │  Combine filters via IntersectionFilter → CDSView on filtered chart renderers
+  │  Create widgets (RangeSlider, Select, Switch, Slider) with CustomJS callbacks
   │  Render each Page to its own HTML file via Jinja2
   │  Write output/<slug>.html files with inter-page navigation
 ```
 
 Key architectural concepts:
 - `include_str!()` embeds `render.py` and `chart.html` as string literals at **compile time** — no file I/O needed at runtime for these resources.
-- **ChartSpec**: declarative chart definition (type, data source key, columns, dimensions). Defined in Rust, consumed by Python.
-- **Page**: groups ChartSpecs into a single HTML file. Each page embeds only the data it needs.
-- **Shared ColumnDataSource**: charts on the same page that reference the same `source_key` share one CDS, enabling linked hover/selection without custom JS.
+- **ChartSpec**: declarative chart definition (type, data source key, columns, dimensions, `filtered` flag). Defined in Rust, consumed by Python.
+- **FilterSpec**: declarative filter definition (source_key, column, label, `FilterConfig` variant). Defined in Rust per-page, consumed by Python to build Bokeh filter objects and widgets.
+- **FilterConfig** enum: `Range` (RangeSlider → BooleanFilter), `Select` (dropdown with "All" → BooleanFilter), `Group` (dropdown → GroupFilter), `Threshold` (Switch toggle → BooleanFilter), `TopN` (Slider → IndexFilter).
+- **Page**: groups ChartSpecs + FilterSpecs into a single HTML file. Each page embeds only the data it needs.
+- **Shared ColumnDataSource**: line/scatter charts on the same page that reference the same `source_key` share one flat CDS, enabling linked hover/selection. Grouped bar and hbar use chart-type-specific CDS shapes.
+- **CDSView filtering**: filtered charts receive a `CDSView` with combined Bokeh filter objects (via `IntersectionFilter` when multiple filters target the same source). Widgets update filter properties via `CustomJS` callbacks.
 
 ---
 
@@ -127,7 +132,9 @@ Python versions are pinned in `requirements.txt`.
 - Use Polars `df!` macro for DataFrame construction in **wide format** (one row per category, one column per series).
 - Serialize DataFrames with `IpcWriter` writing into a `std::io::Cursor`.
 - Define charts declaratively using `ChartSpec` and group them into `Page` structs.
-- Charts sharing a `source_key` within a page will share a single `ColumnDataSource` in the browser.
+- Line/scatter charts sharing a `source_key` within a page share a single flat `ColumnDataSource` in the browser.
+- Define filters declaratively using `FilterSpec` with a `FilterConfig` enum variant (`Range`, `Select`, `Group`, `Threshold`, `TopN`).
+- Mark charts as `filtered: true` to opt them into CDSView-based filtering.
 - Pass data to Python as PyO3 dicts/lists (not `HashMap`).
 - Use `.expect()` for error handling (acceptable for this demo; update to `?` propagation if error handling is needed in production extensions).
 - Imports grouped by crate: `polars`, then `pyo3`, then `std`.
@@ -146,11 +153,12 @@ Python versions are pinned in `requirements.txt`.
 
 ### Python (`python/render.py`)
 
-- Script-style execution (no classes or top-level functions) — data arrives via injected local variables.
-- Available variables at runtime: `frames` (dict of `str → bytes`), `pages` (list of page dicts), `html_template` (str), `output_dir` (str).
+- Script-style execution with helper functions — data arrives via injected local variables.
+- Available variables at runtime: `frames` (dict of `str → bytes`), `pages` (list of page dicts), `nav_links` (list), `html_template` (str), `output_dir` (str).
 - Deserialize frames: `polars.read_ipc(io.BytesIO(frames["key"]))`.
 - Chart rendering is driven by ChartSpec dicts — the Python code is generic, not per-chart.
-- Uses Bokeh's `ColumnDataSource`, `FactorRange`, `factor_cmap()`, and `CustomJS` for interactivity.
+- Uses Bokeh's `ColumnDataSource`, `CDSView`, `FactorRange`, `factor_cmap()`, and `CustomJS` for interactivity.
+- Filtering uses Bokeh native filter models: `BooleanFilter`, `GroupFilter`, `IndexFilter`, combined via `IntersectionFilter`.
 - Use `bokeh.embed.components()` for embedding and Bokeh CDN for JS/CSS resources.
 
 ### HTML Template (`templates/chart.html`)
@@ -172,8 +180,22 @@ Python versions are pinned in `requirements.txt`.
 
 ### Add a New Page
 
-1. **In `src/main.rs`**: Add a `Page` to the `pages` vec with desired `ChartSpec`s. Add any new DataFrames to `frame_data`.
+1. **In `src/main.rs`**: Add a `Page` to the `pages` vec with desired `ChartSpec`s and `filters: vec![]`. Add any new DataFrames to `frame_data`.
 2. Navigation updates automatically — no template changes needed.
+
+### Add a Filter to a Page
+
+1. **In `src/main.rs`**: Add a `FilterSpec` to the page's `filters` vec with the desired `FilterConfig` variant.
+2. Set `filtered: true` on any `ChartSpec`s that should respond to the filter (must share the same `source_key`).
+3. Available filter types: `Range` (RangeSlider), `Select` (dropdown with "All"), `Group` (dropdown, single group — uses `GroupFilter`), `Threshold` (toggle switch), `TopN` (slider for top N rows — uses `IndexFilter`).
+4. Multiple filters on the same `source_key` combine via `IntersectionFilter` automatically.
+5. Python handles widget creation and `CustomJS` callbacks generically — no Python changes needed for existing filter types.
+
+### Add a New Filter Type
+
+1. **In `src/main.rs`**: Add a variant to `FilterConfig` with its parameters.
+2. **In `src/main.rs`**: Add serialization for the new variant in the PyO3 bridge `match` block.
+3. **In `python/render.py`**: Add a handler in `build_filter_objects()` that creates the Bokeh filter model, widget, and `CustomJS` callback.
 
 ---
 

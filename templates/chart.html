@@ -91,6 +91,35 @@
             font-weight: 600;
             font-size: 0.85em;
         }
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            align-items: center;
+        }
+        .filter-bar-label {
+            font-weight: 600;
+            color: #4C72B0;
+            font-size: 0.85em;
+            white-space: nowrap;
+        }
+        .filter-widget {
+            flex: 1;
+            min-width: 200px;
+        }
+        .switch-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9em;
+            color: #2c3e50;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -110,6 +139,23 @@
         <span class="tech-badge">PyO3</span>
         <span class="tech-badge">Jinja2</span>
     </p>
+    {% if filter_items %}
+    <div class="filter-bar">
+        <span class="filter-bar-label">Filters</span>
+        {% for item in filter_items %}
+        <div class="filter-widget">
+            {% if item.label %}
+            <label class="switch-label">
+                {{ item.div }}
+                <span>{{ item.label }}</span>
+            </label>
+            {% else %}
+            {{ item.div }}
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
     <div class="grid-layout">
         {% for plot in plots %}
         <div class="chart-container"

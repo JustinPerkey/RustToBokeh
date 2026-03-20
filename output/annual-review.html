@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Annual Review — RustToBokeh</title>
+    
+    
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.6.3.min.js"></script>
+    
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.6.3.min.js"></script>
+    
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.6.3.min.js"></script>
+    
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.6.3.min.js"></script>
+    
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-mathjax-3.6.3.min.js"></script>
+    
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 0 20px 40px;
+            background: #f8f9fa;
+            color: #333;
+        }
+        nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 14px 0;
+            margin-bottom: 8px;
+            border-bottom: 2px solid #e0e0e0;
+            position: sticky;
+            top: 0;
+            background: #f8f9fa;
+            z-index: 100;
+        }
+        nav a {
+            text-decoration: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            font-weight: 500;
+            color: #4C72B0;
+            background: #e8eef7;
+            transition: background 0.15s, color 0.15s;
+        }
+        nav a:hover { background: #4C72B0; color: white; }
+        nav a.active { background: #4C72B0; color: white; font-weight: 700; }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #4C72B0;
+            padding-bottom: 12px;
+            margin: 16px 0 8px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+        .grid-layout {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+        .chart-container {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            min-width: 0;
+        }
+        .chart-title {
+            color: #2c3e50;
+            font-size: 1.0em;
+            margin: 0 0 10px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e8eef7;
+        }
+        footer {
+            margin-top: 20px;
+            color: #999;
+            font-size: 0.8em;
+            text-align: center;
+        }
+        .tech-badge {
+            display: inline-block;
+            background: #e8eef7;
+            color: #4C72B0;
+            border-radius: 4px;
+            padding: 2px 7px;
+            margin: 0 2px;
+            font-weight: 600;
+            font-size: 0.85em;
+        }
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            align-items: center;
+        }
+        .filter-bar-label {
+            font-weight: 600;
+            color: #4C72B0;
+            font-size: 0.85em;
+            white-space: nowrap;
+        }
+        .filter-widget {
+            flex: 1;
+            min-width: 200px;
+        }
+        .switch-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9em;
+            color: #2c3e50;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        
+        <a href="executive-summary.html"
+           >
+            Executive
+        </a>
+        
+        <a href="revenue-overview.html"
+           >
+            Revenue
+        </a>
+        
+        <a href="expense-analysis.html"
+           >
+            Expenses
+        </a>
+        
+        <a href="quarterly-performance.html"
+           >
+            Quarterly
+        </a>
+        
+        <a href="product-analysis.html"
+           >
+            Products
+        </a>
+        
+        <a href="regional-breakdown.html"
+           >
+            Regions
+        </a>
+        
+        <a href="team-metrics.html"
+           >
+            Team
+        </a>
+        
+        <a href="customer-insights.html"
+           >
+            Customers
+        </a>
+        
+        <a href="web-analytics.html"
+           >
+            Web
+        </a>
+        
+        <a href="market-position.html"
+           >
+            Market
+        </a>
+        
+        <a href="budget-management.html"
+           >
+            Budget
+        </a>
+        
+        <a href="project-portfolio.html"
+           >
+            Projects
+        </a>
+        
+        <a href="growth-indicators.html"
+           >
+            Growth
+        </a>
+        
+        <a href="cost-optimization.html"
+           >
+            Costs
+        </a>
+        
+        <a href="marketing-roi.html"
+           >
+            Marketing
+        </a>
+        
+        <a href="operations-dashboard.html"
+           >
+            Operations
+        </a>
+        
+        <a href="financial-health.html"
+           >
+            Finance
+        </a>
+        
+        <a href="workforce-planning.html"
+           >
+            Workforce
+        </a>
+        
+        <a href="forecast-targets.html"
+           >
+            Forecast
+        </a>
+        
+        <a href="annual-review.html"
+           class="active">
+            Annual
+        </a>
+        
+    </nav>
+    <h1>Annual Review</h1>
+    <p class="subtitle">
+        <span class="tech-badge">Polars</span>
+        <span class="tech-badge">Arrow IPC</span>
+        <span class="tech-badge">Bokeh</span>
+        <span class="tech-badge">PyO3</span>
+        <span class="tech-badge">Jinja2</span>
+    </p>
+    
+    <div class="grid-layout">
+        
+        <div class="chart-container"
+             style="grid-row: 1; grid-column: 1 / span 2;">
+            <h2 class="chart-title">Monthly Revenue vs Expenses</h2>
+            <div id="e5c3c8f2-b331-43c6-b988-be0e43a47399" data-root-id="p4602" style="display: contents;"></div>
+        </div>
+        
+        <div class="chart-container"
+             style="grid-row: 2; grid-column: 1 / span 2;">
+            <h2 class="chart-title">Quarterly Product Performance</h2>
+            <div id="a4108fa9-f77d-416d-a36f-0adc5f7029b1" data-root-id="p4651" style="display: contents;"></div>
+        </div>
+        
+        <div class="chart-container"
+             style="grid-row: 3; grid-column: 1 / span 1;">
+            <h2 class="chart-title">Market Share</h2>
+            <div id="f0c35279-e3a5-4fcf-a148-14d006e33814" data-root-id="p4699" style="display: contents;"></div>
+        </div>
+        
+        <div class="chart-container"
+             style="grid-row: 3; grid-column: 2 / span 1;">
+            <h2 class="chart-title">Satisfaction Scores</h2>
+            <div id="e362fdd7-0b1d-47ee-be5a-62bf4f3c2984" data-root-id="p4747" style="display: contents;"></div>
+        </div>
+        
+        <div class="chart-container"
+             style="grid-row: 4; grid-column: 1 / span 2;">
+            <h2 class="chart-title">Full Year Trends</h2>
+            <div id="f77f7f50-1452-47ec-9a1b-3d9f8079bb19" data-root-id="p4795" style="display: contents;"></div>
+        </div>
+        
+    </div>
+        <script type="text/javascript">
+        (function() {
+  const fn = function() {
+    Bokeh.safely(function() {
+      (function(root) {
+        function embed_document(root) {
+        const docs_json = '{"c2a6b596-16eb-4241-897c-a3c9f781b01f":{"version":"3.6.3","title":"Bokeh Application","roots":[{"type":"object","name":"Figure","id":"p4602","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"FactorRange","id":"p4601","attributes":{"factors":[["Jan","Revenue"],["Jan","Expenses"],["Feb","Revenue"],["Feb","Expenses"],["Mar","Revenue"],["Mar","Expenses"],["Apr","Revenue"],["Apr","Expenses"],["May","Revenue"],["May","Expenses"],["Jun","Revenue"],["Jun","Expenses"],["Jul","Revenue"],["Jul","Expenses"],["Aug","Revenue"],["Aug","Expenses"],["Sep","Revenue"],["Sep","Expenses"],["Oct","Revenue"],["Oct","Expenses"],["Nov","Revenue"],["Nov","Expenses"],["Dec","Revenue"],["Dec","Expenses"]],"range_padding":0.1}},"y_range":{"type":"object","name":"DataRange1d","id":"p4604"},"x_scale":{"type":"object","name":"CategoricalScale","id":"p4612"},"y_scale":{"type":"object","name":"LinearScale","id":"p4613"},"title":{"type":"object","name":"Title","id":"p4605","attributes":{"text":"Monthly Revenue vs Expenses"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p4644","attributes":{"data_source":{"type":"object","name":"ColumnDataSource","id":"p4598","attributes":{"selected":{"type":"object","name":"Selection","id":"p4599","attributes":{"indices":[],"line_indices":[]}},"selection_policy":{"type":"object","name":"UnionRenderers","id":"p4600"},"data":{"type":"map","entries":[["x",[["Jan","Revenue"],["Jan","Expenses"],["Feb","Revenue"],["Feb","Expenses"],["Mar","Revenue"],["Mar","Expenses"],["Apr","Revenue"],["Apr","Expenses"],["May","Revenue"],["May","Expenses"],["Jun","Revenue"],["Jun","Expenses"],["Jul","Revenue"],["Jul","Expenses"],["Aug","Revenue"],["Aug","Expenses"],["Sep","Revenue"],["Sep","Expenses"],["Oct","Revenue"],["Oct","Expenses"],["Nov","Revenue"],["Nov","Expenses"],["Dec","Revenue"],["Dec","Expenses"]]],["counts",[120.5,95.0,135.2,102.5,148.7,110.3,162.3,118.7,175.0,125.2,190.8,132.8,205.1,140.1,198.4,136.5,210.7,145.2,225.3,152.7,240.6,160.3,280.9,175.5]]]}}},"view":{"type":"object","name":"CDSView","id":"p4645","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p4646"}}},"glyph":{"type":"object","name":"VBar","id":"p4641","attributes":{"x":{"type":"field","field":"x"},"width":{"type":"value","value":0.9},"top":{"type":"field","field":"counts"},"line_color":{"type":"value","value":"white"},"fill_color":{"type":"field","field":"x","transform":{"type":"object","name":"CategoricalColorMapper","id":"p4637","attributes":{"palette":["#4C72B0","#DD8452"],"factors":["Revenue","Expenses"],"start":1,"end":2}}}}},"nonselection_glyph":{"type":"object","name":"VBar","id":"p4642","attributes":{"x":{"type":"field","field":"x"},"width":{"type":"value","value":0.9},"top":{"type":"field","field":"counts"},"line_color":{"type":"value","value":"white"},"line_alpha":{"type":"value","value":0.1},"fill_color":{"type":"field","field":"x","transform":{"id":"p4637"}},"fill_alpha":{"type":"value","value":0.1},"hatch_alpha":{"type":"value","value":0.1}}},"muted_glyph":{"type":"object","name":"VBar","id":"p4643","attributes":{"x":{"type":"field","field":"x"},"width":{"type":"value","value":0.9},"top":{"type":"field","field":"counts"},"line_color":{"type":"value","value":"white"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"field","field":"x","transform":{"id":"p4637"}},"fill_alpha":{"type":"value","value":0.2},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p4611","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p4624"},{"type":"object","name":"WheelZoomTool","id":"p4625","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p4626","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p4627","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p4633","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p4632","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p4634"},{"type":"object","name":"SaveTool","id":"p4635"},{"type":"object","name":"HoverTool","id":"p4636","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"LinearAxis","id":"p4619","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p4620","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p4621"},"axis_label":"USD (k)","major_label_policy":{"type":"object","name":"AllLabels","id":"p4622"}}}],"below":[{"type":"object","name":"CategoricalAxis","id":"p4614","attributes":{"ticker":{"type":"object","name":"CategoricalTicker","id":"p4615"},"formatter":{"type":"object","name":"CategoricalTickFormatter","id":"p4616"},"major_label_orientation":1.0,"major_label_policy":{"type":"object","name":"AllLabels","id":"p4617"},"group_label_orientation":0.5}}],"center":[{"type":"object","name":"Grid","id":"p4618","attributes":{"axis":{"id":"p4614"},"grid_line_color":null}},{"type":"object","name":"Grid","id":"p4623","attributes":{"dimension":1,"axis":{"id":"p4619"}}}]}},{"type":"object","name":"Figure","id":"p4651","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"FactorRange","id":"p4650","attributes":{"factors":[["Q1","Alpha"],["Q1","Beta"],["Q1","Gamma"],["Q1","Delta"],["Q2","Alpha"],["Q2","Beta"],["Q2","Gamma"],["Q2","Delta"],["Q3","Alpha"],["Q3","Beta"],["Q3","Gamma"],["Q3","Delta"],["Q4","Alpha"],["Q4","Beta"],["Q4","Gamma"],["Q4","Delta"]],"range_padding":0.1}},"y_range":{"type":"object","name":"DataRange1d","id":"p4653"},"x_scale":{"type":"object","name":"CategoricalScale","id":"p4661"},"y_scale":{"type":"object","name":"LinearScale","id":"p4662"},"title":{"type":"object","name":"Title","id":"p4654","attributes":{"text":"Quarterly Product Performance"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p4693","attributes":{"data_source":{"type":"object","name":"ColumnDataSource","id":"p4647","attributes":{"selected":{"type":"object","name":"Selection","id":"p4648","attributes":{"indices":[],"line_indices":[]}},"selection_policy":{"type":"object","name":"UnionRenderers","id":"p4649"},"data":{"type":"map","entries":[["x",[["Q1","Alpha"],["Q1","Beta"],["Q1","Gamma"],["Q1","Delta"],["Q2","Alpha"],["Q2","Beta"],["Q2","Gamma"],["Q2","Delta"],["Q3","Alpha"],["Q3","Beta"],["Q3","Gamma"],["Q3","Delta"],["Q4","Alpha"],["Q4","Beta"],["Q4","Gamma"],["Q4","Delta"]]],["counts",[320.5,210.0,140.3,95.0,410.2,275.8,165.0,120.5,390.7,305.3,195.5,145.2,520.1,380.6,240.9,180.3]]]}}},"view":{"type":"object","name":"CDSView","id":"p4694","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p4695"}}},"glyph":{"type":"object","name":"VBar","id":"p4690","attributes":{"x":{"type":"field","field":"x"},"width":{"type":"value","value":0.9},"top":{"type":"field","field":"counts"},"line_color":{"type":"value","value":"white"},"fill_color":{"type":"field","field":"x","transform":{"type":"object","name":"CategoricalColorMapper","id":"p4686","attributes":{"palette":["#4C72B0","#DD8452","#55A868","#C44E52"],"factors":["Alpha","Beta","Gamma","Delta"],"start":1,"end":2}}}}},"nonselection_glyph":{"type":"object","name":"VBar","id":"p4691","attributes":{"x":{"type":"field","field":"x"},"width":{"type":"value","value":0.9},"top":{"type":"field","field":"counts"},"line_color":{"type":"value","value":"white"},"line_alpha":{"type":"value","value":0.1},"fill_color":{"type":"field","field":"x","transform":{"id":"p4686"}},"fill_alpha":{"type":"value","value":0.1},"hatch_alpha":{"type":"value","value":0.1}}},"muted_glyph":{"type":"object","name":"VBar","id":"p4692","attributes":{"x":{"type":"field","field":"x"},"width":{"type":"value","value":0.9},"top":{"type":"field","field":"counts"},"line_color":{"type":"value","value":"white"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"field","field":"x","transform":{"id":"p4686"}},"fill_alpha":{"type":"value","value":0.2},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p4660","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p4673"},{"type":"object","name":"WheelZoomTool","id":"p4674","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p4675","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p4676","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p4682","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p4681","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p4683"},{"type":"object","name":"SaveTool","id":"p4684"},{"type":"object","name":"HoverTool","id":"p4685","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"LinearAxis","id":"p4668","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p4669","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p4670"},"axis_label":"Revenue (k)","major_label_policy":{"type":"object","name":"AllLabels","id":"p4671"}}}],"below":[{"type":"object","name":"CategoricalAxis","id":"p4663","attributes":{"ticker":{"type":"object","name":"CategoricalTicker","id":"p4664"},"formatter":{"type":"object","name":"CategoricalTickFormatter","id":"p4665"},"major_label_orientation":1.0,"major_label_policy":{"type":"object","name":"AllLabels","id":"p4666"},"group_label_orientation":0.5}}],"center":[{"type":"object","name":"Grid","id":"p4667","attributes":{"axis":{"id":"p4663"},"grid_line_color":null}},{"type":"object","name":"Grid","id":"p4672","attributes":{"dimension":1,"axis":{"id":"p4668"}}}]}},{"type":"object","name":"Figure","id":"p4699","attributes":{"height":320,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"DataRange1d","id":"p4701"},"y_range":{"type":"object","name":"FactorRange","id":"p4709","attributes":{"factors":["Others","Competitor D","Competitor C","Competitor B","Competitor A","Our Company"]}},"x_scale":{"type":"object","name":"LinearScale","id":"p4710"},"y_scale":{"type":"object","name":"CategoricalScale","id":"p4711"},"title":{"type":"object","name":"Title","id":"p4702","attributes":{"text":"Market Share"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p4741","attributes":{"data_source":{"type":"object","name":"ColumnDataSource","id":"p4696","attributes":{"selected":{"type":"object","name":"Selection","id":"p4697","attributes":{"indices":[],"line_indices":[]}},"selection_policy":{"type":"object","name":"UnionRenderers","id":"p4698"},"data":{"type":"map","entries":[["categories",["Our Company","Competitor A","Competitor B","Competitor C","Competitor D","Others"]],["values",[28.5,22.0,18.3,12.7,8.5,10.0]]]}}},"view":{"type":"object","name":"CDSView","id":"p4742","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p4743"}}},"glyph":{"type":"object","name":"HBar","id":"p4738","attributes":{"y":{"type":"field","field":"categories"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"values"},"line_color":{"type":"value","value":"white"},"fill_color":{"type":"value","value":"#4C72B0"}}},"nonselection_glyph":{"type":"object","name":"HBar","id":"p4739","attributes":{"y":{"type":"field","field":"categories"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"values"},"line_color":{"type":"value","value":"white"},"line_alpha":{"type":"value","value":0.1},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.1},"hatch_alpha":{"type":"value","value":0.1}}},"muted_glyph":{"type":"object","name":"HBar","id":"p4740","attributes":{"y":{"type":"field","field":"categories"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"values"},"line_color":{"type":"value","value":"white"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p4708","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p4722"},{"type":"object","name":"WheelZoomTool","id":"p4723","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p4724","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p4725","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p4731","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p4730","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p4732"},{"type":"object","name":"SaveTool","id":"p4733"},{"type":"object","name":"HoverTool","id":"p4734","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"CategoricalAxis","id":"p4717","attributes":{"ticker":{"type":"object","name":"CategoricalTicker","id":"p4718"},"formatter":{"type":"object","name":"CategoricalTickFormatter","id":"p4719"},"major_label_policy":{"type":"object","name":"AllLabels","id":"p4720"}}}],"below":[{"type":"object","name":"LinearAxis","id":"p4712","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p4713","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p4714"},"axis_label":"%","major_label_policy":{"type":"object","name":"AllLabels","id":"p4715"}}}],"center":[{"type":"object","name":"Grid","id":"p4716","attributes":{"axis":{"id":"p4712"}}},{"type":"object","name":"Grid","id":"p4721","attributes":{"dimension":1,"axis":{"id":"p4717"},"grid_line_color":null}}]}},{"type":"object","name":"Figure","id":"p4747","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"DataRange1d","id":"p4749"},"y_range":{"type":"object","name":"FactorRange","id":"p4757","attributes":{"factors":["API Reliability","Mobile App","Onboarding","Documentation","Delivery Speed","Pricing","Customer Service","Product Quality"]}},"x_scale":{"type":"object","name":"LinearScale","id":"p4758"},"y_scale":{"type":"object","name":"CategoricalScale","id":"p4759"},"title":{"type":"object","name":"Title","id":"p4750","attributes":{"text":"Satisfaction Scores"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p4789","attributes":{"data_source":{"type":"object","name":"ColumnDataSource","id":"p4744","attributes":{"selected":{"type":"object","name":"Selection","id":"p4745","attributes":{"indices":[],"line_indices":[]}},"selection_policy":{"type":"object","name":"UnionRenderers","id":"p4746"},"data":{"type":"map","entries":[["categories",["Product Quality","Customer Service","Pricing","Delivery Speed","Documentation","Onboarding","Mobile App","API Reliability"]],["values",[4.5,4.2,3.8,4.0,3.5,3.9,4.3,4.6]]]}}},"view":{"type":"object","name":"CDSView","id":"p4790","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p4791"}}},"glyph":{"type":"object","name":"HBar","id":"p4786","attributes":{"y":{"type":"field","field":"categories"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"values"},"line_color":{"type":"value","value":"white"},"fill_color":{"type":"value","value":"#4C72B0"}}},"nonselection_glyph":{"type":"object","name":"HBar","id":"p4787","attributes":{"y":{"type":"field","field":"categories"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"values"},"line_color":{"type":"value","value":"white"},"line_alpha":{"type":"value","value":0.1},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.1},"hatch_alpha":{"type":"value","value":0.1}}},"muted_glyph":{"type":"object","name":"HBar","id":"p4788","attributes":{"y":{"type":"field","field":"categories"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"values"},"line_color":{"type":"value","value":"white"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p4756","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p4770"},{"type":"object","name":"WheelZoomTool","id":"p4771","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p4772","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p4773","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p4779","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p4778","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p4780"},{"type":"object","name":"SaveTool","id":"p4781"},{"type":"object","name":"HoverTool","id":"p4782","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"CategoricalAxis","id":"p4765","attributes":{"ticker":{"type":"object","name":"CategoricalTicker","id":"p4766"},"formatter":{"type":"object","name":"CategoricalTickFormatter","id":"p4767"},"major_label_policy":{"type":"object","name":"AllLabels","id":"p4768"}}}],"below":[{"type":"object","name":"LinearAxis","id":"p4760","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p4761","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p4762"},"axis_label":"Score","major_label_policy":{"type":"object","name":"AllLabels","id":"p4763"}}}],"center":[{"type":"object","name":"Grid","id":"p4764","attributes":{"axis":{"id":"p4760"}}},{"type":"object","name":"Grid","id":"p4769","attributes":{"dimension":1,"axis":{"id":"p4765"},"grid_line_color":null}}]}},{"type":"object","name":"Figure","id":"p4795","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"FactorRange","id":"p4805","attributes":{"factors":["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]}},"y_range":{"type":"object","name":"DataRange1d","id":"p4797"},"x_scale":{"type":"object","name":"CategoricalScale","id":"p4806"},"y_scale":{"type":"object","name":"LinearScale","id":"p4807"},"title":{"type":"object","name":"Title","id":"p4798","attributes":{"text":"Full Year Trends"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p4837","attributes":{"data_source":{"type":"object","name":"ColumnDataSource","id":"p4792","attributes":{"selected":{"type":"object","name":"Selection","id":"p4793","attributes":{"indices":[],"line_indices":[]}},"selection_policy":{"type":"object","name":"UnionRenderers","id":"p4794"},"data":{"type":"map","entries":[["month",["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]],["revenue",[120.5,135.2,148.7,162.3,175.0,190.8,205.1,198.4,210.7,225.3,240.6,280.9]],["expenses",[95.0,102.5,110.3,118.7,125.2,132.8,140.1,136.5,145.2,152.7,160.3,175.5]],["profit",[25.5,32.7,38.4,43.6,49.8,58.0,65.0,61.9,65.5,72.6,80.3,105.4]],["margin",[21.2,24.2,25.8,26.9,28.5,30.4,31.7,31.2,31.1,32.2,33.4,37.5]]]}}},"view":{"type":"object","name":"CDSView","id":"p4838","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p4839"}}},"glyph":{"type":"object","name":"Line","id":"p4834","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"revenue"},"line_color":"#4C72B0","line_width":2.5}},"nonselection_glyph":{"type":"object","name":"Line","id":"p4835","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"revenue"},"line_color":"#4C72B0","line_alpha":0.1,"line_width":2.5}},"muted_glyph":{"type":"object","name":"Line","id":"p4836","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"revenue"},"line_color":"#4C72B0","line_alpha":0.2,"line_width":2.5}}}},{"type":"object","name":"GlyphRenderer","id":"p4848","attributes":{"data_source":{"id":"p4792"},"view":{"type":"object","name":"CDSView","id":"p4849","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p4850"}}},"glyph":{"type":"object","name":"Scatter","id":"p4845","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"revenue"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"fill_color":{"type":"value","value":"#4C72B0"},"hatch_color":{"type":"value","value":"#4C72B0"}}},"nonselection_glyph":{"type":"object","name":"Scatter","id":"p4846","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"revenue"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.1},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.1},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.1}}},"muted_glyph":{"type":"object","name":"Scatter","id":"p4847","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"revenue"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.2}}}}},{"type":"object","name":"GlyphRenderer","id":"p4857","attributes":{"data_source":{"id":"p4792"},"view":{"type":"object","name":"CDSView","id":"p4858","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p4859"}}},"glyph":{"type":"object","name":"Line","id":"p4854","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"expenses"},"line_color":"#DD8452","line_width":2.5}},"nonselection_glyph":{"type":"object","name":"Line","id":"p4855","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"expenses"},"line_color":"#DD8452","line_alpha":0.1,"line_width":2.5}},"muted_glyph":{"type":"object","name":"Line","id":"p4856","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"expenses"},"line_color":"#DD8452","line_alpha":0.2,"line_width":2.5}}}},{"type":"object","name":"GlyphRenderer","id":"p4867","attributes":{"data_source":{"id":"p4792"},"view":{"type":"object","name":"CDSView","id":"p4868","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p4869"}}},"glyph":{"type":"object","name":"Scatter","id":"p4864","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"expenses"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#DD8452"},"fill_color":{"type":"value","value":"#DD8452"},"hatch_color":{"type":"value","value":"#DD8452"}}},"nonselection_glyph":{"type":"object","name":"Scatter","id":"p4865","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"expenses"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#DD8452"},"line_alpha":{"type":"value","value":0.1},"fill_color":{"type":"value","value":"#DD8452"},"fill_alpha":{"type":"value","value":0.1},"hatch_color":{"type":"value","value":"#DD8452"},"hatch_alpha":{"type":"value","value":0.1}}},"muted_glyph":{"type":"object","name":"Scatter","id":"p4866","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"expenses"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#DD8452"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#DD8452"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#DD8452"},"hatch_alpha":{"type":"value","value":0.2}}}}},{"type":"object","name":"GlyphRenderer","id":"p4876","attributes":{"data_source":{"id":"p4792"},"view":{"type":"object","name":"CDSView","id":"p4877","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p4878"}}},"glyph":{"type":"object","name":"Line","id":"p4873","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"profit"},"line_color":"#55A868","line_width":2.5}},"nonselection_glyph":{"type":"object","name":"Line","id":"p4874","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"profit"},"line_color":"#55A868","line_alpha":0.1,"line_width":2.5}},"muted_glyph":{"type":"object","name":"Line","id":"p4875","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"profit"},"line_color":"#55A868","line_alpha":0.2,"line_width":2.5}}}},{"type":"object","name":"GlyphRenderer","id":"p4886","attributes":{"data_source":{"id":"p4792"},"view":{"type":"object","name":"CDSView","id":"p4887","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p4888"}}},"glyph":{"type":"object","name":"Scatter","id":"p4883","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"profit"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#55A868"},"fill_color":{"type":"value","value":"#55A868"},"hatch_color":{"type":"value","value":"#55A868"}}},"nonselection_glyph":{"type":"object","name":"Scatter","id":"p4884","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"profit"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#55A868"},"line_alpha":{"type":"value","value":0.1},"fill_color":{"type":"value","value":"#55A868"},"fill_alpha":{"type":"value","value":0.1},"hatch_color":{"type":"value","value":"#55A868"},"hatch_alpha":{"type":"value","value":0.1}}},"muted_glyph":{"type":"object","name":"Scatter","id":"p4885","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"profit"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#55A868"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#55A868"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#55A868"},"hatch_alpha":{"type":"value","value":0.2}}}}},{"type":"object","name":"GlyphRenderer","id":"p4895","attributes":{"data_source":{"id":"p4792"},"view":{"type":"object","name":"CDSView","id":"p4896","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p4897"}}},"glyph":{"type":"object","name":"Line","id":"p4892","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"margin"},"line_color":"#C44E52","line_width":2.5}},"nonselection_glyph":{"type":"object","name":"Line","id":"p4893","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"margin"},"line_color":"#C44E52","line_alpha":0.1,"line_width":2.5}},"muted_glyph":{"type":"object","name":"Line","id":"p4894","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"margin"},"line_color":"#C44E52","line_alpha":0.2,"line_width":2.5}}}},{"type":"object","name":"GlyphRenderer","id":"p4905","attributes":{"data_source":{"id":"p4792"},"view":{"type":"object","name":"CDSView","id":"p4906","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p4907"}}},"glyph":{"type":"object","name":"Scatter","id":"p4902","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"margin"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#C44E52"},"fill_color":{"type":"value","value":"#C44E52"},"hatch_color":{"type":"value","value":"#C44E52"}}},"nonselection_glyph":{"type":"object","name":"Scatter","id":"p4903","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"margin"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#C44E52"},"line_alpha":{"type":"value","value":0.1},"fill_color":{"type":"value","value":"#C44E52"},"fill_alpha":{"type":"value","value":0.1},"hatch_color":{"type":"value","value":"#C44E52"},"hatch_alpha":{"type":"value","value":0.1}}},"muted_glyph":{"type":"object","name":"Scatter","id":"p4904","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"margin"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#C44E52"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#C44E52"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#C44E52"},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p4804","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p4818"},{"type":"object","name":"WheelZoomTool","id":"p4819","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p4820","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p4821","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p4827","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p4826","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p4828"},{"type":"object","name":"SaveTool","id":"p4829"},{"type":"object","name":"HoverTool","id":"p4830","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"LinearAxis","id":"p4813","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p4814","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p4815"},"axis_label":"Value","major_label_policy":{"type":"object","name":"AllLabels","id":"p4816"}}}],"below":[{"type":"object","name":"CategoricalAxis","id":"p4808","attributes":{"ticker":{"type":"object","name":"CategoricalTicker","id":"p4809"},"formatter":{"type":"object","name":"CategoricalTickFormatter","id":"p4810"},"major_label_policy":{"type":"object","name":"AllLabels","id":"p4811"}}}],"center":[{"type":"object","name":"Grid","id":"p4812","attributes":{"axis":{"id":"p4808"}}},{"type":"object","name":"Grid","id":"p4817","attributes":{"dimension":1,"axis":{"id":"p4813"}}},{"type":"object","name":"Legend","id":"p4840","attributes":{"location":"top_left","click_policy":"hide","items":[{"type":"object","name":"LegendItem","id":"p4841","attributes":{"label":{"type":"value","value":"revenue"},"renderers":[{"id":"p4837"},{"id":"p4848"}]}},{"type":"object","name":"LegendItem","id":"p4860","attributes":{"label":{"type":"value","value":"expenses"},"renderers":[{"id":"p4857"},{"id":"p4867"}]}},{"type":"object","name":"LegendItem","id":"p4879","attributes":{"label":{"type":"value","value":"profit"},"renderers":[{"id":"p4876"},{"id":"p4886"}]}},{"type":"object","name":"LegendItem","id":"p4898","attributes":{"label":{"type":"value","value":"margin"},"renderers":[{"id":"p4895"},{"id":"p4905"}]}}]}}]}}]}}';
+        const render_items = [{"docid":"c2a6b596-16eb-4241-897c-a3c9f781b01f","roots":{"p4602":"e5c3c8f2-b331-43c6-b988-be0e43a47399","p4651":"a4108fa9-f77d-416d-a36f-0adc5f7029b1","p4699":"f0c35279-e3a5-4fcf-a148-14d006e33814","p4747":"e362fdd7-0b1d-47ee-be5a-62bf4f3c2984","p4795":"f77f7f50-1452-47ec-9a1b-3d9f8079bb19"},"root_ids":["p4602","p4651","p4699","p4747","p4795"]}];
+        root.Bokeh.embed.embed_items(docs_json, render_items);
+        }
+        if (root.Bokeh !== undefined) {
+          embed_document(root);
+        } else {
+          let attempts = 0;
+          const timer = setInterval(function(root) {
+            if (root.Bokeh !== undefined) {
+              clearInterval(timer);
+              embed_document(root);
+            } else {
+              attempts++;
+              if (attempts > 100) {
+                clearInterval(timer);
+                console.log("Bokeh: ERROR: Unable to run BokehJS code because BokehJS library is missing");
+              }
+            }
+          }, 10, root)
+        }
+      })(window);
+    });
+  };
+  if (document.readyState != "loading") fn();
+  else document.addEventListener("DOMContentLoaded", fn);
+})();
+    </script>
+
+    <footer>Generated by RustToBokeh</footer>
+</body>
+</html>

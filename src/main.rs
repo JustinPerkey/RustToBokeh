@@ -102,6 +102,22 @@ struct ChartSpec {
     source_key: String,
     config: Vec<(String, String)>,
     grid: GridCell,
+    filtered: bool,
+}
+
+enum FilterConfig {
+    Range { min: f64, max: f64, step: f64 },
+    Select { options: Vec<&'static str> },
+    Group { options: Vec<&'static str> },
+    Threshold { value: f64, above: bool },
+    TopN { max_n: usize, descending: bool },
+}
+
+struct FilterSpec {
+    source_key: String,
+    column: String,
+    label: String,
+    config: FilterConfig,
 }
 
 struct Page {
@@ -110,6 +126,7 @@ struct Page {
     nav_label: String,
     grid_cols: usize,
     specs: Vec<ChartSpec>,
+    filters: Vec<FilterSpec>,
 }
 
 // ── Spec builder helpers (keep page definitions concise) ────────────────────
@@ -129,6 +146,7 @@ fn bar(
             ("y_label".into(), ylabel.into()),
         ],
         grid: GridCell { row, col, col_span: span },
+        filtered: false,
     }
 }
 
@@ -146,6 +164,7 @@ fn line(
             ("y_label".into(), ylabel.into()),
         ],
         grid: GridCell { row, col, col_span: span },
+        filtered: false,
     }
 }
 
@@ -163,6 +182,7 @@ fn hbar_spec(
             ("x_label".into(), xlabel.into()),
         ],
         grid: GridCell { row, col, col_span: span },
+        filtered: false,
     }
 }
 
@@ -181,7 +201,17 @@ fn scatter_spec(
             ("y_label".into(), ylabel.into()),
         ],
         grid: GridCell { row, col, col_span: span },
+        filtered: false,
     }
+}
+
+fn scatter_filtered(
+    title: &str, key: &str, x: &str, y: &str, xlabel: &str, ylabel: &str,
+    row: usize, col: usize, span: usize,
+) -> ChartSpec {
+    let mut spec = scatter_spec(title, key, x, y, xlabel, ylabel, row, col, span);
+    spec.filtered = true;
+    spec
 }
 
 // ── DataFrame builders ──────────────────────────────────────────────────────
@@ -309,7 +339,13 @@ fn build_scatter_performance() -> DataFrame {
                            38,8,20,26,7,32,11,23,14,34],
         "satisfaction" => [3.8,4.0,4.3,4.1,4.6,4.4,3.9,4.2,4.8,4.0,
                            4.3,4.5,3.7,4.3,4.7,4.1,4.4,3.8,4.5,4.2,
-                           4.7,3.9,4.3,4.5,3.8,4.6,4.0,4.4,4.1,4.6f64]
+                           4.7,3.9,4.3,4.5,3.8,4.6,4.0,4.4,4.1,4.6f64],
+        // Tier based on employee count: Small (<12), Medium (12-24), Large (>=25)
+        "tier"         => ["Small","Small","Medium","Small","Large","Medium",
+                           "Small","Medium","Large","Small","Medium","Large",
+                           "Small","Medium","Large","Medium","Medium","Small",
+                           "Large","Medium","Large","Small","Medium","Large",
+                           "Small","Large","Small","Medium","Medium","Large"]
     ].expect("scatter_performance")
 }
 
@@ -378,7 +414,7 @@ fn main() -> PyResult<()> {
     // ── Define all pages ────────────────────────────────────────────────────
 
     let pages: Vec<Page> = vec![
-        // 1. Executive Summary
+        // 1. Executive Summary — Range filter on revenue
         Page {
             slug: "executive-summary".into(), title: "Executive Summary".into(),
             nav_label: "Executive".into(), grid_cols: 2,
@@ -386,7 +422,14 @@ fn main() -> PyResult<()> {
                 line("Revenue & Profit Trends", "monthly_trends", "month", "revenue,profit", "USD (k)", 0, 0, 2),
                 hbar_spec("Market Position", "market_share", "company", "share", "Market Share %", 1, 0, 1),
                 bar("Quarterly Products", "quarterly_products", "quarter", "product", "value", "Revenue (k)", 1, 1, 1),
-                scatter_spec("Revenue vs Profit", "scatter_performance", "revenue", "profit", "Revenue (k)", "Profit (k)", 2, 0, 2),
+                scatter_filtered("Revenue vs Profit", "scatter_performance", "revenue", "profit", "Revenue (k)", "Profit (k)", 2, 0, 2),
+            ],
+            filters: vec![
+                FilterSpec {
+                    source_key: "scatter_performance".into(), column: "revenue".into(),
+                    label: "Revenue Range".into(),
+                    config: FilterConfig::Range { min: 40.0, max: 320.0, step: 10.0 },
+                },
             ],
         },
         // 2. Revenue Overview
@@ -399,6 +442,7 @@ fn main() -> PyResult<()> {
                 line("Profit Margin", "monthly_trends", "month", "margin", "%", 1, 1, 1),
                 bar("Regional Sales", "regional_sales", "region", "channel", "value", "USD (k)", 2, 0, 2),
             ],
+            filters: vec![],
         },
         // 3. Expense Analysis
         Page {
@@ -410,6 +454,7 @@ fn main() -> PyResult<()> {
                 line("Expense Trends", "monthly_trends", "month", "expenses", "USD (k)", 1, 0, 1),
                 line("Margin Trend", "monthly_trends", "month", "margin", "%", 1, 1, 1),
             ],
+            filters: vec![],
         },
         // 4. Quarterly Performance
         Page {
@@ -420,15 +465,28 @@ fn main() -> PyResult<()> {
                 line("Quarterly Revenue & Costs", "quarterly_trends", "quarter", "revenue,costs", "USD (k)", 1, 0, 1),
                 line("Quarterly Margin", "quarterly_trends", "quarter", "margin", "%", 1, 1, 1),
             ],
+            filters: vec![],
         },
-        // 5. Product Analysis
+        // 5. Product Analysis — GroupFilter (Select) by tier + Range on revenue
         Page {
             slug: "product-analysis".into(), title: "Product Analysis".into(),
             nav_label: "Products".into(), grid_cols: 2,
             specs: vec![
                 bar("Quarterly Product Revenue", "quarterly_products", "quarter", "product", "value", "Revenue (k)", 0, 0, 2),
-                scatter_spec("Revenue vs Profit by Team", "scatter_performance", "revenue", "profit", "Revenue (k)", "Profit (k)", 1, 0, 1),
-                scatter_spec("Revenue vs Satisfaction", "scatter_performance", "revenue", "satisfaction", "Revenue (k)", "Rating", 1, 1, 1),
+                scatter_filtered("Revenue vs Profit by Team", "scatter_performance", "revenue", "profit", "Revenue (k)", "Profit (k)", 1, 0, 1),
+                scatter_filtered("Revenue vs Satisfaction", "scatter_performance", "revenue", "satisfaction", "Revenue (k)", "Rating", 1, 1, 1),
+            ],
+            filters: vec![
+                FilterSpec {
+                    source_key: "scatter_performance".into(), column: "tier".into(),
+                    label: "Company Tier".into(),
+                    config: FilterConfig::Select { options: vec!["Small", "Medium", "Large"] },
+                },
+                FilterSpec {
+                    source_key: "scatter_performance".into(), column: "revenue".into(),
+                    label: "Revenue Range".into(),
+                    config: FilterConfig::Range { min: 40.0, max: 320.0, step: 10.0 },
+                },
             ],
         },
         // 6. Regional Breakdown
@@ -440,25 +498,40 @@ fn main() -> PyResult<()> {
                 hbar_spec("Market Share", "market_share", "company", "share", "%", 1, 0, 1),
                 scatter_spec("Employees vs Revenue", "scatter_performance", "employees", "revenue", "Team Size", "Revenue (k)", 1, 1, 1),
             ],
+            filters: vec![],
         },
-        // 7. Team Metrics
+        // 7. Team Metrics — BooleanFilter (Threshold) on satisfaction
         Page {
             slug: "team-metrics".into(), title: "Team & Workforce Metrics".into(),
             nav_label: "Team".into(), grid_cols: 2,
             specs: vec![
                 bar("Department Headcount by Year", "dept_headcount", "department", "year", "count", "Employees", 0, 0, 2),
-                scatter_spec("Employees vs Profit", "scatter_performance", "employees", "profit", "Team Size", "Profit (k)", 1, 0, 1),
-                scatter_spec("Employees vs Satisfaction", "scatter_performance", "employees", "satisfaction", "Team Size", "Rating", 1, 1, 1),
+                scatter_filtered("Employees vs Profit", "scatter_performance", "employees", "profit", "Team Size", "Profit (k)", 1, 0, 1),
+                scatter_filtered("Employees vs Satisfaction", "scatter_performance", "employees", "satisfaction", "Team Size", "Rating", 1, 1, 1),
+            ],
+            filters: vec![
+                FilterSpec {
+                    source_key: "scatter_performance".into(), column: "satisfaction".into(),
+                    label: "High Satisfaction Only (>4.2)".into(),
+                    config: FilterConfig::Threshold { value: 4.2, above: true },
+                },
             ],
         },
-        // 8. Customer Insights
+        // 8. Customer Insights — GroupFilter by tier (always one group selected)
         Page {
             slug: "customer-insights".into(), title: "Customer Insights".into(),
             nav_label: "Customers".into(), grid_cols: 2,
             specs: vec![
                 hbar_spec("Satisfaction Scores", "satisfaction", "category", "score", "Score (1-5)", 0, 0, 2),
-                scatter_spec("Revenue vs Customer Satisfaction", "scatter_performance", "revenue", "satisfaction", "Revenue (k)", "Rating", 1, 0, 1),
-                scatter_spec("Profit vs Satisfaction", "scatter_performance", "profit", "satisfaction", "Profit (k)", "Rating", 1, 1, 1),
+                scatter_filtered("Revenue vs Customer Satisfaction", "scatter_performance", "revenue", "satisfaction", "Revenue (k)", "Rating", 1, 0, 1),
+                scatter_filtered("Profit vs Satisfaction", "scatter_performance", "profit", "satisfaction", "Profit (k)", "Rating", 1, 1, 1),
+            ],
+            filters: vec![
+                FilterSpec {
+                    source_key: "scatter_performance".into(), column: "tier".into(),
+                    label: "Company Tier".into(),
+                    config: FilterConfig::Group { options: vec!["Small", "Medium", "Large"] },
+                },
             ],
         },
         // 9. Web Analytics
@@ -470,6 +543,7 @@ fn main() -> PyResult<()> {
                 line("Signups Over Time", "website_traffic", "month", "signups", "Signups", 1, 0, 1),
                 line("Conversions Over Time", "website_traffic", "month", "conversions", "Conversions", 1, 1, 1),
             ],
+            filters: vec![],
         },
         // 10. Market Position
         Page {
@@ -480,6 +554,7 @@ fn main() -> PyResult<()> {
                 hbar_spec("Project Completion", "project_status", "project", "completion", "% Complete", 0, 1, 1),
                 line("Revenue vs Costs (Quarterly)", "quarterly_trends", "quarter", "revenue,costs", "USD (k)", 1, 0, 2),
             ],
+            filters: vec![],
         },
         // 11. Budget Management
         Page {
@@ -490,15 +565,23 @@ fn main() -> PyResult<()> {
                 hbar_spec("Cost Categories", "cost_breakdown", "category", "amount", "USD (k)", 1, 0, 1),
                 line("Revenue Trend", "monthly_trends", "month", "revenue,expenses", "USD (k)", 1, 1, 1),
             ],
+            filters: vec![],
         },
-        // 12. Project Portfolio
+        // 12. Project Portfolio — IndexFilter (TopN) by revenue
         Page {
             slug: "project-portfolio".into(), title: "Project Portfolio".into(),
             nav_label: "Projects".into(), grid_cols: 2,
             specs: vec![
                 hbar_spec("Project Completion Status", "project_status", "project", "completion", "% Complete", 0, 0, 2),
-                scatter_spec("Revenue vs Employees", "scatter_performance", "revenue", "employees", "Revenue (k)", "Team Size", 1, 0, 1),
-                scatter_spec("Profit vs Employees", "scatter_performance", "profit", "employees", "Profit (k)", "Team Size", 1, 1, 1),
+                scatter_filtered("Revenue vs Employees", "scatter_performance", "revenue", "employees", "Revenue (k)", "Team Size", 1, 0, 1),
+                scatter_filtered("Profit vs Employees", "scatter_performance", "profit", "employees", "Profit (k)", "Team Size", 1, 1, 1),
+            ],
+            filters: vec![
+                FilterSpec {
+                    source_key: "scatter_performance".into(), column: "revenue".into(),
+                    label: "Top N by Revenue".into(),
+                    config: FilterConfig::TopN { max_n: 30, descending: true },
+                },
             ],
         },
         // 13. Growth Indicators
@@ -510,15 +593,23 @@ fn main() -> PyResult<()> {
                 line("Visitor Growth", "website_traffic", "month", "visitors,signups", "Count", 1, 0, 1),
                 bar("Quarterly Products", "quarterly_products", "quarter", "product", "value", "Revenue (k)", 1, 1, 1),
             ],
+            filters: vec![],
         },
-        // 14. Cost Optimization
+        // 14. Cost Optimization — Threshold on profit margin
         Page {
             slug: "cost-optimization".into(), title: "Cost Optimization".into(),
             nav_label: "Costs".into(), grid_cols: 2,
             specs: vec![
                 hbar_spec("Spending by Category", "cost_breakdown", "category", "amount", "USD (k)", 0, 0, 2),
                 line("Expense vs Margin Trend", "monthly_trends", "month", "expenses,margin", "Value", 1, 0, 1),
-                scatter_spec("Revenue vs Profit Efficiency", "scatter_performance", "revenue", "profit", "Revenue (k)", "Profit (k)", 1, 1, 1),
+                scatter_filtered("Revenue vs Profit Efficiency", "scatter_performance", "revenue", "profit", "Revenue (k)", "Profit (k)", 1, 1, 1),
+            ],
+            filters: vec![
+                FilterSpec {
+                    source_key: "scatter_performance".into(), column: "profit".into(),
+                    label: "Profitable Only (>30k)".into(),
+                    config: FilterConfig::Threshold { value: 30.0, above: true },
+                },
             ],
         },
         // 15. Marketing ROI
@@ -530,6 +621,7 @@ fn main() -> PyResult<()> {
                 line("Website Conversions", "website_traffic", "month", "signups,conversions", "Count", 1, 0, 1),
                 hbar_spec("Market Share", "market_share", "company", "share", "%", 1, 1, 1),
             ],
+            filters: vec![],
         },
         // 16. Operations Dashboard
         Page {
@@ -542,8 +634,9 @@ fn main() -> PyResult<()> {
                 line("Traffic & Signups", "website_traffic", "month", "visitors,signups", "Count", 1, 0, 2),
                 scatter_spec("Team Efficiency", "scatter_performance", "employees", "profit", "Team Size", "Profit (k)", 1, 2, 1),
             ],
+            filters: vec![],
         },
-        // 17. Financial Health
+        // 17. Financial Health — combined: GroupFilter + Range
         Page {
             slug: "financial-health".into(), title: "Financial Health".into(),
             nav_label: "Finance".into(), grid_cols: 2,
@@ -551,18 +644,42 @@ fn main() -> PyResult<()> {
                 line("Quarterly Revenue, Costs & Margin", "quarterly_trends", "quarter", "revenue,costs,margin", "Value", 0, 0, 2),
                 bar("Monthly Revenue vs Expenses", "monthly_revenue", "month", "category", "value", "USD (k)", 1, 0, 1),
                 hbar_spec("Cost Structure", "cost_breakdown", "category", "amount", "USD (k)", 1, 1, 1),
-                scatter_spec("Profitability Map", "scatter_performance", "revenue", "profit", "Revenue (k)", "Profit (k)", 2, 0, 2),
+                scatter_filtered("Profitability Map", "scatter_performance", "revenue", "profit", "Revenue (k)", "Profit (k)", 2, 0, 2),
+            ],
+            filters: vec![
+                FilterSpec {
+                    source_key: "scatter_performance".into(), column: "tier".into(),
+                    label: "Company Tier".into(),
+                    config: FilterConfig::Select { options: vec!["Small", "Medium", "Large"] },
+                },
+                FilterSpec {
+                    source_key: "scatter_performance".into(), column: "employees".into(),
+                    label: "Team Size Range".into(),
+                    config: FilterConfig::Range { min: 4.0, max: 40.0, step: 1.0 },
+                },
             ],
         },
-        // 18. Workforce Planning
+        // 18. Workforce Planning — TopN + Threshold combined
         Page {
             slug: "workforce-planning".into(), title: "Workforce Planning".into(),
             nav_label: "Workforce".into(), grid_cols: 2,
             specs: vec![
                 bar("Headcount Growth", "dept_headcount", "department", "year", "count", "Employees", 0, 0, 2),
-                scatter_spec("Team Size vs Revenue", "scatter_performance", "employees", "revenue", "Employees", "Revenue (k)", 1, 0, 1),
-                scatter_spec("Team Size vs Satisfaction", "scatter_performance", "employees", "satisfaction", "Employees", "Rating", 1, 1, 1),
+                scatter_filtered("Team Size vs Revenue", "scatter_performance", "employees", "revenue", "Employees", "Revenue (k)", 1, 0, 1),
+                scatter_filtered("Team Size vs Satisfaction", "scatter_performance", "employees", "satisfaction", "Employees", "Rating", 1, 1, 1),
                 hbar_spec("Budget by Department", "cost_breakdown", "category", "amount", "USD (k)", 2, 0, 2),
+            ],
+            filters: vec![
+                FilterSpec {
+                    source_key: "scatter_performance".into(), column: "revenue".into(),
+                    label: "Top N by Revenue".into(),
+                    config: FilterConfig::TopN { max_n: 30, descending: true },
+                },
+                FilterSpec {
+                    source_key: "scatter_performance".into(), column: "satisfaction".into(),
+                    label: "High Satisfaction Only (>4.0)".into(),
+                    config: FilterConfig::Threshold { value: 4.0, above: true },
+                },
             ],
         },
         // 19. Forecast & Targets
@@ -574,6 +691,7 @@ fn main() -> PyResult<()> {
                 line("Quarterly Outlook", "quarterly_trends", "quarter", "revenue,costs", "USD (k)", 1, 0, 1),
                 hbar_spec("Target Completion", "project_status", "project", "completion", "% Complete", 1, 1, 1),
             ],
+            filters: vec![],
         },
         // 20. Annual Review
         Page {
@@ -586,6 +704,7 @@ fn main() -> PyResult<()> {
                 hbar_spec("Satisfaction Scores", "satisfaction", "category", "score", "Score", 2, 1, 1),
                 line("Full Year Trends", "monthly_trends", "month", "revenue,expenses,profit,margin", "Value", 3, 0, 2),
             ],
+            filters: vec![],
         },
     ];
 
@@ -627,12 +746,51 @@ fn main() -> PyResult<()> {
                 s.set_item("grid_row", spec.grid.row)?;
                 s.set_item("grid_col", spec.grid.col)?;
                 s.set_item("grid_col_span", spec.grid.col_span)?;
+                s.set_item("filtered", spec.filtered)?;
                 for (k, v) in &spec.config {
                     s.set_item(k.as_str(), v.as_str())?;
                 }
                 py_specs.append(s)?;
             }
             p.set_item("specs", py_specs)?;
+
+            let py_filters = PyList::empty(py);
+            for filter in &page.filters {
+                let f = PyDict::new(py);
+                f.set_item("source_key", &filter.source_key)?;
+                f.set_item("column", &filter.column)?;
+                f.set_item("label", &filter.label)?;
+                match &filter.config {
+                    FilterConfig::Range { min, max, step } => {
+                        f.set_item("kind", "range")?;
+                        f.set_item("min", *min)?;
+                        f.set_item("max", *max)?;
+                        f.set_item("step", *step)?;
+                    }
+                    FilterConfig::Select { options } => {
+                        f.set_item("kind", "select")?;
+                        let py_opts = PyList::new(py, options)?;
+                        f.set_item("options", py_opts)?;
+                    }
+                    FilterConfig::Group { options } => {
+                        f.set_item("kind", "group")?;
+                        let py_opts = PyList::new(py, options)?;
+                        f.set_item("options", py_opts)?;
+                    }
+                    FilterConfig::Threshold { value, above } => {
+                        f.set_item("kind", "threshold")?;
+                        f.set_item("value", *value)?;
+                        f.set_item("above", *above)?;
+                    }
+                    FilterConfig::TopN { max_n, descending } => {
+                        f.set_item("kind", "top_n")?;
+                        f.set_item("max_n", *max_n)?;
+                        f.set_item("descending", *descending)?;
+                    }
+                }
+                py_filters.append(f)?;
+            }
+            p.set_item("filters", py_filters)?;
             py_pages.append(p)?;
         }
 
