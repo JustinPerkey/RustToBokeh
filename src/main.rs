@@ -106,6 +106,10 @@ struct ChartSpec {
     /// Layout hint for Jinja: charts wider than 700 span the full grid row.
     width: u32,
     height: u32,
+    /// Optional row indices into the shared CDS to display. When `Some`,
+    /// Python wraps the glyphs in a CDSView + IndexFilter so only the
+    /// specified rows are rendered while the full CDS remains shared.
+    indices: Option<Vec<usize>>,
 }
 
 /// Wide format: one row per month, one column per series.
@@ -154,11 +158,12 @@ fn main() -> PyResult<()> {
             y_label: "Amount (USD thousands)".to_string(),
             width: 900,
             height: 400,
+            indices: None,
         },
-        // Shares the same ColumnDataSource as the bar chart above —
-        // hover/selection in one panel is reflected in the other.
+        // Shares the same CDS as the bar chart; IndexFilter restricts this
+        // panel to H1 (Jan–Jun) while the linked source remains complete.
         ChartSpec {
-            title: "Monthly Trends".to_string(),
+            title: "H1 Monthly Trends (Jan–Jun)".to_string(),
             chart_type: ChartType::LineMulti,
             source_key: "monthly".to_string(),
             x_col: "month".to_string(),
@@ -166,6 +171,7 @@ fn main() -> PyResult<()> {
             y_label: "Amount (USD thousands)".to_string(),
             width: 500,
             height: 350,
+            indices: Some(vec![0, 1, 2, 3, 4, 5]),
         },
         ChartSpec {
             title: "Quarterly Product Revenue".to_string(),
@@ -180,6 +186,7 @@ fn main() -> PyResult<()> {
             y_label: "Revenue (USD thousands)".to_string(),
             width: 500,
             height: 400,
+            indices: None,
         },
     ];
 
@@ -209,6 +216,16 @@ fn main() -> PyResult<()> {
             d.set_item("y_label", &spec.y_label)?;
             d.set_item("width", spec.width)?;
             d.set_item("height", spec.height)?;
+            match &spec.indices {
+                Some(idx) => {
+                    let py_idx = PyList::empty(py);
+                    for &i in idx {
+                        py_idx.append(i)?;
+                    }
+                    d.set_item("indices", py_idx)?;
+                }
+                None => d.set_item("indices", py.None())?,
+            }
             chart_specs.append(d)?;
         }
 

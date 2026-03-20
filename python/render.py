@@ -4,7 +4,7 @@
 #   chart_specs: list[dict]   — each dict has keys:
 #       chart_type (str), title (str), source_key (str),
 #       x_col (str), value_cols (list[str]), y_label (str),
-#       width (int), height (int)
+#       width (int), height (int), indices (list[int] | None)
 #   html_template: str        — Jinja2 HTML template source
 #   output_path: str          — destination file path
 
@@ -12,7 +12,7 @@ import io
 
 import polars as pl
 from bokeh.embed import components
-from bokeh.models import ColumnDataSource, Legend, LegendItem
+from bokeh.models import CDSView, ColumnDataSource, IndexFilter, Legend, LegendItem
 from bokeh.plotting import figure
 from bokeh.resources import CDN
 from bokeh.transform import dodge
@@ -36,6 +36,13 @@ for _key, _raw in frames.items():
     sources[_key] = ColumnDataSource({col: _df[col].to_list() for col in _df.columns})
 
 
+def _make_view(indices):
+    """Return a CDSView with an IndexFilter when indices are specified, else None."""
+    if indices is None:
+        return None
+    return CDSView(filter=IndexFilter(indices=list(indices)))
+
+
 def build_grouped_bar(spec, source, df):
     """Dodge-based grouped bar chart from a wide-format DataFrame."""
     x_col = spec["x_col"]
@@ -45,6 +52,7 @@ def build_grouped_bar(spec, source, df):
     bar_width = 0.8 / n
     offsets = [(i - (n - 1) / 2) * bar_width for i in range(n)]
     palette = _DEFAULT_PALETTE[:n]
+    view = _make_view(spec["indices"])
 
     fig = figure(
         x_range=x_vals,
@@ -57,7 +65,7 @@ def build_grouped_bar(spec, source, df):
 
     legend_items = []
     for col, offset, color in zip(value_cols, offsets, palette):
-        r = fig.vbar(
+        kw = dict(
             x=dodge(x_col, offset, range=fig.x_range),
             top=col,
             width=bar_width * 0.9,
@@ -65,6 +73,9 @@ def build_grouped_bar(spec, source, df):
             fill_color=color,
             line_color="white",
         )
+        if view is not None:
+            kw["view"] = view
+        r = fig.vbar(**kw)
         legend_items.append(LegendItem(label=col, renderers=[r]))
 
     fig.add_layout(Legend(items=legend_items), "right")
@@ -80,6 +91,7 @@ def build_line_multi(spec, source, df):
     value_cols = spec["value_cols"]
     x_vals = df[x_col].to_list()
     palette = _DEFAULT_PALETTE[:len(value_cols)]
+    view = _make_view(spec["indices"])
 
     fig = figure(
         x_range=x_vals,
@@ -92,8 +104,11 @@ def build_line_multi(spec, source, df):
 
     legend_items = []
     for col, color in zip(value_cols, palette):
-        r = fig.line(x=x_col, y=col, source=source, line_color=color, line_width=2)
-        fig.scatter(x=x_col, y=col, source=source, fill_color=color, size=6, line_color="white")
+        kw = dict(x=x_col, y=col, source=source)
+        if view is not None:
+            kw["view"] = view
+        r = fig.line(**kw, line_color=color, line_width=2)
+        fig.scatter(**kw, fill_color=color, size=6, line_color="white")
         legend_items.append(LegendItem(label=col, renderers=[r]))
 
     fig.add_layout(Legend(items=legend_items), "right")
