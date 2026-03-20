@@ -23,6 +23,9 @@ target
 # Python virtual environment
 .venv/
 
+# Vendored standalone Python (downloaded by scripts/setup_vendor.sh)
+vendor/
+
 # Python bytecode caches
 __pycache__/
 *.pyc
