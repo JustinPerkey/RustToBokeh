@@ -2,6 +2,10 @@ use polars::prelude::*;
 use rust_to_bokeh::*;
 
 type C = ChartSpecBuilder;
+type Bar = GroupedBarConfig;
+type Line = LineConfig;
+type HB = HBarConfig;
+type Scat = ScatterConfig;
 
 // ── DataFrame builders ──────────────────────────────────────────────────────
 
@@ -202,10 +206,18 @@ fn main() -> pyo3::PyResult<()> {
     // 1. Executive Summary
     dash.add_page(
         PageBuilder::new("executive-summary", "Executive Summary", "Executive", 2)
-            .chart(C::line("Revenue & Profit Trends", "monthly_trends", "month", "revenue,profit", "USD (k)").at(0, 0, 2).build())
-            .chart(C::hbar("Market Position", "market_share", "company", "share", "Market Share %").at(1, 0, 1).build())
-            .chart(C::bar("Quarterly Products", "quarterly_products", "quarter", "product", "value", "Revenue (k)").at(1, 1, 1).build())
-            .chart(C::scatter("Revenue vs Profit", "scatter_performance", "revenue", "profit", "Revenue (k)", "Profit (k)").at(2, 0, 2).filtered().build())
+            .chart(C::line("Revenue & Profit Trends", "monthly_trends",
+                Line::builder().x("month").y_cols(&["revenue", "profit"]).y_label("USD (k)").build()
+            ).at(0, 0, 2).build())
+            .chart(C::hbar("Market Position", "market_share",
+                HB::builder().category("company").value("share").x_label("Market Share %").build()
+            ).at(1, 0, 1).build())
+            .chart(C::bar("Quarterly Products", "quarterly_products",
+                Bar::builder().x("quarter").group("product").value("value").y_label("Revenue (k)").build()
+            ).at(1, 1, 1).build())
+            .chart(C::scatter("Revenue vs Profit", "scatter_performance",
+                Scat::builder().x("revenue").y("profit").x_label("Revenue (k)").y_label("Profit (k)").build()
+            ).at(2, 0, 2).filtered().build())
             .filter(FilterSpec::range("scatter_performance", "revenue", "Revenue Range", 40.0, 320.0, 10.0))
             .build(),
     );
@@ -213,38 +225,66 @@ fn main() -> pyo3::PyResult<()> {
     // 2. Revenue Overview
     dash.add_page(
         PageBuilder::new("revenue-overview", "Revenue Overview", "Revenue", 2)
-            .chart(C::bar("Monthly Revenue vs Expenses", "monthly_revenue", "month", "category", "value", "USD (k)").at(0, 0, 2).build())
-            .chart(C::line("Revenue Trend", "monthly_trends", "month", "revenue,expenses", "USD (k)").at(1, 0, 1).build())
-            .chart(C::line("Profit Margin", "monthly_trends", "month", "margin", "%").at(1, 1, 1).build())
-            .chart(C::bar("Regional Sales", "regional_sales", "region", "channel", "value", "USD (k)").at(2, 0, 2).build())
+            .chart(C::bar("Monthly Revenue vs Expenses", "monthly_revenue",
+                Bar::builder().x("month").group("category").value("value").y_label("USD (k)").build()
+            ).at(0, 0, 2).build())
+            .chart(C::line("Revenue Trend", "monthly_trends",
+                Line::builder().x("month").y_cols(&["revenue", "expenses"]).y_label("USD (k)").build()
+            ).at(1, 0, 1).build())
+            .chart(C::line("Profit Margin", "monthly_trends",
+                Line::builder().x("month").y_cols(&["margin"]).y_label("%").build()
+            ).at(1, 1, 1).build())
+            .chart(C::bar("Regional Sales", "regional_sales",
+                Bar::builder().x("region").group("channel").value("value").y_label("USD (k)").build()
+            ).at(2, 0, 2).build())
             .build(),
     );
 
     // 3. Expense Analysis
     dash.add_page(
         PageBuilder::new("expense-analysis", "Expense Analysis", "Expenses", 2)
-            .chart(C::hbar("Cost Breakdown", "cost_breakdown", "category", "amount", "USD (k)").at(0, 0, 1).build())
-            .chart(C::bar("Budget vs Actual", "budget_vs_actual", "department", "type", "amount", "USD (k)").at(0, 1, 1).build())
-            .chart(C::line("Expense Trends", "monthly_trends", "month", "expenses", "USD (k)").at(1, 0, 1).build())
-            .chart(C::line("Margin Trend", "monthly_trends", "month", "margin", "%").at(1, 1, 1).build())
+            .chart(C::hbar("Cost Breakdown", "cost_breakdown",
+                HB::builder().category("category").value("amount").x_label("USD (k)").build()
+            ).at(0, 0, 1).build())
+            .chart(C::bar("Budget vs Actual", "budget_vs_actual",
+                Bar::builder().x("department").group("type").value("amount").y_label("USD (k)").build()
+            ).at(0, 1, 1).build())
+            .chart(C::line("Expense Trends", "monthly_trends",
+                Line::builder().x("month").y_cols(&["expenses"]).y_label("USD (k)").build()
+            ).at(1, 0, 1).build())
+            .chart(C::line("Margin Trend", "monthly_trends",
+                Line::builder().x("month").y_cols(&["margin"]).y_label("%").build()
+            ).at(1, 1, 1).build())
             .build(),
     );
 
     // 4. Quarterly Performance
     dash.add_page(
         PageBuilder::new("quarterly-performance", "Quarterly Performance", "Quarterly", 2)
-            .chart(C::bar("Product Revenue by Quarter", "quarterly_products", "quarter", "product", "value", "Revenue (k)").at(0, 0, 2).build())
-            .chart(C::line("Quarterly Revenue & Costs", "quarterly_trends", "quarter", "revenue,costs", "USD (k)").at(1, 0, 1).build())
-            .chart(C::line("Quarterly Margin", "quarterly_trends", "quarter", "margin", "%").at(1, 1, 1).build())
+            .chart(C::bar("Product Revenue by Quarter", "quarterly_products",
+                Bar::builder().x("quarter").group("product").value("value").y_label("Revenue (k)").build()
+            ).at(0, 0, 2).build())
+            .chart(C::line("Quarterly Revenue & Costs", "quarterly_trends",
+                Line::builder().x("quarter").y_cols(&["revenue", "costs"]).y_label("USD (k)").build()
+            ).at(1, 0, 1).build())
+            .chart(C::line("Quarterly Margin", "quarterly_trends",
+                Line::builder().x("quarter").y_cols(&["margin"]).y_label("%").build()
+            ).at(1, 1, 1).build())
             .build(),
     );
 
     // 5. Product Analysis
     dash.add_page(
         PageBuilder::new("product-analysis", "Product Analysis", "Products", 2)
-            .chart(C::bar("Quarterly Product Revenue", "quarterly_products", "quarter", "product", "value", "Revenue (k)").at(0, 0, 2).build())
-            .chart(C::scatter("Revenue vs Profit by Team", "scatter_performance", "revenue", "profit", "Revenue (k)", "Profit (k)").at(1, 0, 1).filtered().build())
-            .chart(C::scatter("Revenue vs Satisfaction", "scatter_performance", "revenue", "satisfaction", "Revenue (k)", "Rating").at(1, 1, 1).filtered().build())
+            .chart(C::bar("Quarterly Product Revenue", "quarterly_products",
+                Bar::builder().x("quarter").group("product").value("value").y_label("Revenue (k)").build()
+            ).at(0, 0, 2).build())
+            .chart(C::scatter("Revenue vs Profit by Team", "scatter_performance",
+                Scat::builder().x("revenue").y("profit").x_label("Revenue (k)").y_label("Profit (k)").build()
+            ).at(1, 0, 1).filtered().build())
+            .chart(C::scatter("Revenue vs Satisfaction", "scatter_performance",
+                Scat::builder().x("revenue").y("satisfaction").x_label("Revenue (k)").y_label("Rating").build()
+            ).at(1, 1, 1).filtered().build())
             .filter(FilterSpec::select("scatter_performance", "tier", "Company Tier", vec!["Small", "Medium", "Large"]))
             .filter(FilterSpec::range("scatter_performance", "revenue", "Revenue Range", 40.0, 320.0, 10.0))
             .build(),
@@ -253,18 +293,30 @@ fn main() -> pyo3::PyResult<()> {
     // 6. Regional Breakdown
     dash.add_page(
         PageBuilder::new("regional-breakdown", "Regional Sales Breakdown", "Regions", 2)
-            .chart(C::bar("Sales by Region & Channel", "regional_sales", "region", "channel", "value", "USD (k)").at(0, 0, 2).build())
-            .chart(C::hbar("Market Share", "market_share", "company", "share", "%").at(1, 0, 1).build())
-            .chart(C::scatter("Employees vs Revenue", "scatter_performance", "employees", "revenue", "Team Size", "Revenue (k)").at(1, 1, 1).build())
+            .chart(C::bar("Sales by Region & Channel", "regional_sales",
+                Bar::builder().x("region").group("channel").value("value").y_label("USD (k)").build()
+            ).at(0, 0, 2).build())
+            .chart(C::hbar("Market Share", "market_share",
+                HB::builder().category("company").value("share").x_label("%").build()
+            ).at(1, 0, 1).build())
+            .chart(C::scatter("Employees vs Revenue", "scatter_performance",
+                Scat::builder().x("employees").y("revenue").x_label("Team Size").y_label("Revenue (k)").build()
+            ).at(1, 1, 1).build())
             .build(),
     );
 
     // 7. Team Metrics
     dash.add_page(
         PageBuilder::new("team-metrics", "Team & Workforce Metrics", "Team", 2)
-            .chart(C::bar("Department Headcount by Year", "dept_headcount", "department", "year", "count", "Employees").at(0, 0, 2).build())
-            .chart(C::scatter("Employees vs Profit", "scatter_performance", "employees", "profit", "Team Size", "Profit (k)").at(1, 0, 1).filtered().build())
-            .chart(C::scatter("Employees vs Satisfaction", "scatter_performance", "employees", "satisfaction", "Team Size", "Rating").at(1, 1, 1).filtered().build())
+            .chart(C::bar("Department Headcount by Year", "dept_headcount",
+                Bar::builder().x("department").group("year").value("count").y_label("Employees").build()
+            ).at(0, 0, 2).build())
+            .chart(C::scatter("Employees vs Profit", "scatter_performance",
+                Scat::builder().x("employees").y("profit").x_label("Team Size").y_label("Profit (k)").build()
+            ).at(1, 0, 1).filtered().build())
+            .chart(C::scatter("Employees vs Satisfaction", "scatter_performance",
+                Scat::builder().x("employees").y("satisfaction").x_label("Team Size").y_label("Rating").build()
+            ).at(1, 1, 1).filtered().build())
             .filter(FilterSpec::threshold("scatter_performance", "satisfaction", "High Satisfaction Only (>4.2)", 4.2, true))
             .build(),
     );
@@ -272,9 +324,15 @@ fn main() -> pyo3::PyResult<()> {
     // 8. Customer Insights
     dash.add_page(
         PageBuilder::new("customer-insights", "Customer Insights", "Customers", 2)
-            .chart(C::hbar("Satisfaction Scores", "satisfaction", "category", "score", "Score (1-5)").at(0, 0, 2).build())
-            .chart(C::scatter("Revenue vs Customer Satisfaction", "scatter_performance", "revenue", "satisfaction", "Revenue (k)", "Rating").at(1, 0, 1).filtered().build())
-            .chart(C::scatter("Profit vs Satisfaction", "scatter_performance", "profit", "satisfaction", "Profit (k)", "Rating").at(1, 1, 1).filtered().build())
+            .chart(C::hbar("Satisfaction Scores", "satisfaction",
+                HB::builder().category("category").value("score").x_label("Score (1-5)").build()
+            ).at(0, 0, 2).build())
+            .chart(C::scatter("Revenue vs Customer Satisfaction", "scatter_performance",
+                Scat::builder().x("revenue").y("satisfaction").x_label("Revenue (k)").y_label("Rating").build()
+            ).at(1, 0, 1).filtered().build())
+            .chart(C::scatter("Profit vs Satisfaction", "scatter_performance",
+                Scat::builder().x("profit").y("satisfaction").x_label("Profit (k)").y_label("Rating").build()
+            ).at(1, 1, 1).filtered().build())
             .filter(FilterSpec::group("scatter_performance", "tier", "Company Tier", vec!["Small", "Medium", "Large"]))
             .build(),
     );
@@ -282,36 +340,60 @@ fn main() -> pyo3::PyResult<()> {
     // 9. Web Analytics
     dash.add_page(
         PageBuilder::new("web-analytics", "Website Analytics", "Web", 2)
-            .chart(C::line("Visitor Traffic", "website_traffic", "month", "visitors", "Visitors").at(0, 0, 2).build())
-            .chart(C::line("Signups Over Time", "website_traffic", "month", "signups", "Signups").at(1, 0, 1).build())
-            .chart(C::line("Conversions Over Time", "website_traffic", "month", "conversions", "Conversions").at(1, 1, 1).build())
+            .chart(C::line("Visitor Traffic", "website_traffic",
+                Line::builder().x("month").y_cols(&["visitors"]).y_label("Visitors").build()
+            ).at(0, 0, 2).build())
+            .chart(C::line("Signups Over Time", "website_traffic",
+                Line::builder().x("month").y_cols(&["signups"]).y_label("Signups").build()
+            ).at(1, 0, 1).build())
+            .chart(C::line("Conversions Over Time", "website_traffic",
+                Line::builder().x("month").y_cols(&["conversions"]).y_label("Conversions").build()
+            ).at(1, 1, 1).build())
             .build(),
     );
 
     // 10. Market Position
     dash.add_page(
         PageBuilder::new("market-position", "Market Position", "Market", 2)
-            .chart(C::hbar("Market Share", "market_share", "company", "share", "Share %").at(0, 0, 1).build())
-            .chart(C::hbar("Project Completion", "project_status", "project", "completion", "% Complete").at(0, 1, 1).build())
-            .chart(C::line("Revenue vs Costs (Quarterly)", "quarterly_trends", "quarter", "revenue,costs", "USD (k)").at(1, 0, 2).build())
+            .chart(C::hbar("Market Share", "market_share",
+                HB::builder().category("company").value("share").x_label("Share %").build()
+            ).at(0, 0, 1).build())
+            .chart(C::hbar("Project Completion", "project_status",
+                HB::builder().category("project").value("completion").x_label("% Complete").build()
+            ).at(0, 1, 1).build())
+            .chart(C::line("Revenue vs Costs (Quarterly)", "quarterly_trends",
+                Line::builder().x("quarter").y_cols(&["revenue", "costs"]).y_label("USD (k)").build()
+            ).at(1, 0, 2).build())
             .build(),
     );
 
     // 11. Budget Management
     dash.add_page(
         PageBuilder::new("budget-management", "Budget Management", "Budget", 2)
-            .chart(C::bar("Budget vs Actual Spending", "budget_vs_actual", "department", "type", "amount", "USD (k)").at(0, 0, 2).build())
-            .chart(C::hbar("Cost Categories", "cost_breakdown", "category", "amount", "USD (k)").at(1, 0, 1).build())
-            .chart(C::line("Revenue Trend", "monthly_trends", "month", "revenue,expenses", "USD (k)").at(1, 1, 1).build())
+            .chart(C::bar("Budget vs Actual Spending", "budget_vs_actual",
+                Bar::builder().x("department").group("type").value("amount").y_label("USD (k)").build()
+            ).at(0, 0, 2).build())
+            .chart(C::hbar("Cost Categories", "cost_breakdown",
+                HB::builder().category("category").value("amount").x_label("USD (k)").build()
+            ).at(1, 0, 1).build())
+            .chart(C::line("Revenue Trend", "monthly_trends",
+                Line::builder().x("month").y_cols(&["revenue", "expenses"]).y_label("USD (k)").build()
+            ).at(1, 1, 1).build())
             .build(),
     );
 
     // 12. Project Portfolio
     dash.add_page(
         PageBuilder::new("project-portfolio", "Project Portfolio", "Projects", 2)
-            .chart(C::hbar("Project Completion Status", "project_status", "project", "completion", "% Complete").at(0, 0, 2).build())
-            .chart(C::scatter("Revenue vs Employees", "scatter_performance", "revenue", "employees", "Revenue (k)", "Team Size").at(1, 0, 1).filtered().build())
-            .chart(C::scatter("Profit vs Employees", "scatter_performance", "profit", "employees", "Profit (k)", "Team Size").at(1, 1, 1).filtered().build())
+            .chart(C::hbar("Project Completion Status", "project_status",
+                HB::builder().category("project").value("completion").x_label("% Complete").build()
+            ).at(0, 0, 2).build())
+            .chart(C::scatter("Revenue vs Employees", "scatter_performance",
+                Scat::builder().x("revenue").y("employees").x_label("Revenue (k)").y_label("Team Size").build()
+            ).at(1, 0, 1).filtered().build())
+            .chart(C::scatter("Profit vs Employees", "scatter_performance",
+                Scat::builder().x("profit").y("employees").x_label("Profit (k)").y_label("Team Size").build()
+            ).at(1, 1, 1).filtered().build())
             .filter(FilterSpec::top_n("scatter_performance", "revenue", "Top N by Revenue", 30, true))
             .build(),
     );
@@ -319,18 +401,30 @@ fn main() -> pyo3::PyResult<()> {
     // 13. Growth Indicators
     dash.add_page(
         PageBuilder::new("growth-indicators", "Growth Indicators", "Growth", 2)
-            .chart(C::line("Revenue & Profit Growth", "monthly_trends", "month", "revenue,profit", "USD (k)").at(0, 0, 2).build())
-            .chart(C::line("Visitor Growth", "website_traffic", "month", "visitors,signups", "Count").at(1, 0, 1).build())
-            .chart(C::bar("Quarterly Products", "quarterly_products", "quarter", "product", "value", "Revenue (k)").at(1, 1, 1).build())
+            .chart(C::line("Revenue & Profit Growth", "monthly_trends",
+                Line::builder().x("month").y_cols(&["revenue", "profit"]).y_label("USD (k)").build()
+            ).at(0, 0, 2).build())
+            .chart(C::line("Visitor Growth", "website_traffic",
+                Line::builder().x("month").y_cols(&["visitors", "signups"]).y_label("Count").build()
+            ).at(1, 0, 1).build())
+            .chart(C::bar("Quarterly Products", "quarterly_products",
+                Bar::builder().x("quarter").group("product").value("value").y_label("Revenue (k)").build()
+            ).at(1, 1, 1).build())
             .build(),
     );
 
     // 14. Cost Optimization
     dash.add_page(
         PageBuilder::new("cost-optimization", "Cost Optimization", "Costs", 2)
-            .chart(C::hbar("Spending by Category", "cost_breakdown", "category", "amount", "USD (k)").at(0, 0, 2).build())
-            .chart(C::line("Expense vs Margin Trend", "monthly_trends", "month", "expenses,margin", "Value").at(1, 0, 1).build())
-            .chart(C::scatter("Revenue vs Profit Efficiency", "scatter_performance", "revenue", "profit", "Revenue (k)", "Profit (k)").at(1, 1, 1).filtered().build())
+            .chart(C::hbar("Spending by Category", "cost_breakdown",
+                HB::builder().category("category").value("amount").x_label("USD (k)").build()
+            ).at(0, 0, 2).build())
+            .chart(C::line("Expense vs Margin Trend", "monthly_trends",
+                Line::builder().x("month").y_cols(&["expenses", "margin"]).y_label("Value").build()
+            ).at(1, 0, 1).build())
+            .chart(C::scatter("Revenue vs Profit Efficiency", "scatter_performance",
+                Scat::builder().x("revenue").y("profit").x_label("Revenue (k)").y_label("Profit (k)").build()
+            ).at(1, 1, 1).filtered().build())
             .filter(FilterSpec::threshold("scatter_performance", "profit", "Profitable Only (>30k)", 30.0, true))
             .build(),
     );
@@ -338,30 +432,54 @@ fn main() -> pyo3::PyResult<()> {
     // 15. Marketing ROI
     dash.add_page(
         PageBuilder::new("marketing-roi", "Marketing ROI", "Marketing", 2)
-            .chart(C::bar("Channel Spend by Quarter", "marketing_channels", "quarter", "channel", "spend", "USD (k)").at(0, 0, 2).build())
-            .chart(C::line("Website Conversions", "website_traffic", "month", "signups,conversions", "Count").at(1, 0, 1).build())
-            .chart(C::hbar("Market Share", "market_share", "company", "share", "%").at(1, 1, 1).build())
+            .chart(C::bar("Channel Spend by Quarter", "marketing_channels",
+                Bar::builder().x("quarter").group("channel").value("spend").y_label("USD (k)").build()
+            ).at(0, 0, 2).build())
+            .chart(C::line("Website Conversions", "website_traffic",
+                Line::builder().x("month").y_cols(&["signups", "conversions"]).y_label("Count").build()
+            ).at(1, 0, 1).build())
+            .chart(C::hbar("Market Share", "market_share",
+                HB::builder().category("company").value("share").x_label("%").build()
+            ).at(1, 1, 1).build())
             .build(),
     );
 
     // 16. Operations Dashboard
     dash.add_page(
         PageBuilder::new("operations-dashboard", "Operations Dashboard", "Operations", 3)
-            .chart(C::hbar("Project Status", "project_status", "project", "completion", "% Complete").at(0, 0, 1).build())
-            .chart(C::hbar("Cost Breakdown", "cost_breakdown", "category", "amount", "USD (k)").at(0, 1, 1).build())
-            .chart(C::hbar("Satisfaction", "satisfaction", "category", "score", "Score").at(0, 2, 1).build())
-            .chart(C::line("Traffic & Signups", "website_traffic", "month", "visitors,signups", "Count").at(1, 0, 2).build())
-            .chart(C::scatter("Team Efficiency", "scatter_performance", "employees", "profit", "Team Size", "Profit (k)").at(1, 2, 1).build())
+            .chart(C::hbar("Project Status", "project_status",
+                HB::builder().category("project").value("completion").x_label("% Complete").build()
+            ).at(0, 0, 1).build())
+            .chart(C::hbar("Cost Breakdown", "cost_breakdown",
+                HB::builder().category("category").value("amount").x_label("USD (k)").build()
+            ).at(0, 1, 1).build())
+            .chart(C::hbar("Satisfaction", "satisfaction",
+                HB::builder().category("category").value("score").x_label("Score").build()
+            ).at(0, 2, 1).build())
+            .chart(C::line("Traffic & Signups", "website_traffic",
+                Line::builder().x("month").y_cols(&["visitors", "signups"]).y_label("Count").build()
+            ).at(1, 0, 2).build())
+            .chart(C::scatter("Team Efficiency", "scatter_performance",
+                Scat::builder().x("employees").y("profit").x_label("Team Size").y_label("Profit (k)").build()
+            ).at(1, 2, 1).build())
             .build(),
     );
 
     // 17. Financial Health
     dash.add_page(
         PageBuilder::new("financial-health", "Financial Health", "Finance", 2)
-            .chart(C::line("Quarterly Revenue, Costs & Margin", "quarterly_trends", "quarter", "revenue,costs,margin", "Value").at(0, 0, 2).build())
-            .chart(C::bar("Monthly Revenue vs Expenses", "monthly_revenue", "month", "category", "value", "USD (k)").at(1, 0, 1).build())
-            .chart(C::hbar("Cost Structure", "cost_breakdown", "category", "amount", "USD (k)").at(1, 1, 1).build())
-            .chart(C::scatter("Profitability Map", "scatter_performance", "revenue", "profit", "Revenue (k)", "Profit (k)").at(2, 0, 2).filtered().build())
+            .chart(C::line("Quarterly Revenue, Costs & Margin", "quarterly_trends",
+                Line::builder().x("quarter").y_cols(&["revenue", "costs", "margin"]).y_label("Value").build()
+            ).at(0, 0, 2).build())
+            .chart(C::bar("Monthly Revenue vs Expenses", "monthly_revenue",
+                Bar::builder().x("month").group("category").value("value").y_label("USD (k)").build()
+            ).at(1, 0, 1).build())
+            .chart(C::hbar("Cost Structure", "cost_breakdown",
+                HB::builder().category("category").value("amount").x_label("USD (k)").build()
+            ).at(1, 1, 1).build())
+            .chart(C::scatter("Profitability Map", "scatter_performance",
+                Scat::builder().x("revenue").y("profit").x_label("Revenue (k)").y_label("Profit (k)").build()
+            ).at(2, 0, 2).filtered().build())
             .filter(FilterSpec::select("scatter_performance", "tier", "Company Tier", vec!["Small", "Medium", "Large"]))
             .filter(FilterSpec::range("scatter_performance", "employees", "Team Size Range", 4.0, 40.0, 1.0))
             .build(),
@@ -370,10 +488,18 @@ fn main() -> pyo3::PyResult<()> {
     // 18. Workforce Planning
     dash.add_page(
         PageBuilder::new("workforce-planning", "Workforce Planning", "Workforce", 2)
-            .chart(C::bar("Headcount Growth", "dept_headcount", "department", "year", "count", "Employees").at(0, 0, 2).build())
-            .chart(C::scatter("Team Size vs Revenue", "scatter_performance", "employees", "revenue", "Employees", "Revenue (k)").at(1, 0, 1).filtered().build())
-            .chart(C::scatter("Team Size vs Satisfaction", "scatter_performance", "employees", "satisfaction", "Employees", "Rating").at(1, 1, 1).filtered().build())
-            .chart(C::hbar("Budget by Department", "cost_breakdown", "category", "amount", "USD (k)").at(2, 0, 2).build())
+            .chart(C::bar("Headcount Growth", "dept_headcount",
+                Bar::builder().x("department").group("year").value("count").y_label("Employees").build()
+            ).at(0, 0, 2).build())
+            .chart(C::scatter("Team Size vs Revenue", "scatter_performance",
+                Scat::builder().x("employees").y("revenue").x_label("Employees").y_label("Revenue (k)").build()
+            ).at(1, 0, 1).filtered().build())
+            .chart(C::scatter("Team Size vs Satisfaction", "scatter_performance",
+                Scat::builder().x("employees").y("satisfaction").x_label("Employees").y_label("Rating").build()
+            ).at(1, 1, 1).filtered().build())
+            .chart(C::hbar("Budget by Department", "cost_breakdown",
+                HB::builder().category("category").value("amount").x_label("USD (k)").build()
+            ).at(2, 0, 2).build())
             .filter(FilterSpec::top_n("scatter_performance", "revenue", "Top N by Revenue", 30, true))
             .filter(FilterSpec::threshold("scatter_performance", "satisfaction", "High Satisfaction Only (>4.0)", 4.0, true))
             .build(),
@@ -382,20 +508,36 @@ fn main() -> pyo3::PyResult<()> {
     // 19. Forecast & Targets
     dash.add_page(
         PageBuilder::new("forecast-targets", "Forecast & Targets", "Forecast", 2)
-            .chart(C::line("Monthly Forecast", "monthly_trends", "month", "revenue,expenses,profit", "USD (k)").at(0, 0, 2).build())
-            .chart(C::line("Quarterly Outlook", "quarterly_trends", "quarter", "revenue,costs", "USD (k)").at(1, 0, 1).build())
-            .chart(C::hbar("Target Completion", "project_status", "project", "completion", "% Complete").at(1, 1, 1).build())
+            .chart(C::line("Monthly Forecast", "monthly_trends",
+                Line::builder().x("month").y_cols(&["revenue", "expenses", "profit"]).y_label("USD (k)").build()
+            ).at(0, 0, 2).build())
+            .chart(C::line("Quarterly Outlook", "quarterly_trends",
+                Line::builder().x("quarter").y_cols(&["revenue", "costs"]).y_label("USD (k)").build()
+            ).at(1, 0, 1).build())
+            .chart(C::hbar("Target Completion", "project_status",
+                HB::builder().category("project").value("completion").x_label("% Complete").build()
+            ).at(1, 1, 1).build())
             .build(),
     );
 
     // 20. Annual Review
     dash.add_page(
         PageBuilder::new("annual-review", "Annual Review", "Annual", 2)
-            .chart(C::bar("Monthly Revenue vs Expenses", "monthly_revenue", "month", "category", "value", "USD (k)").at(0, 0, 2).build())
-            .chart(C::bar("Quarterly Product Performance", "quarterly_products", "quarter", "product", "value", "Revenue (k)").at(1, 0, 2).build())
-            .chart(C::hbar("Market Share", "market_share", "company", "share", "%").at(2, 0, 1).build())
-            .chart(C::hbar("Satisfaction Scores", "satisfaction", "category", "score", "Score").at(2, 1, 1).build())
-            .chart(C::line("Full Year Trends", "monthly_trends", "month", "revenue,expenses,profit,margin", "Value").at(3, 0, 2).build())
+            .chart(C::bar("Monthly Revenue vs Expenses", "monthly_revenue",
+                Bar::builder().x("month").group("category").value("value").y_label("USD (k)").build()
+            ).at(0, 0, 2).build())
+            .chart(C::bar("Quarterly Product Performance", "quarterly_products",
+                Bar::builder().x("quarter").group("product").value("value").y_label("Revenue (k)").build()
+            ).at(1, 0, 2).build())
+            .chart(C::hbar("Market Share", "market_share",
+                HB::builder().category("company").value("share").x_label("%").build()
+            ).at(2, 0, 1).build())
+            .chart(C::hbar("Satisfaction Scores", "satisfaction",
+                HB::builder().category("category").value("score").x_label("Score").build()
+            ).at(2, 1, 1).build())
+            .chart(C::line("Full Year Trends", "monthly_trends",
+                Line::builder().x("month").y_cols(&["revenue", "expenses", "profit", "margin"]).y_label("Value").build()
+            ).at(3, 0, 2).build())
             .build(),
     );
 

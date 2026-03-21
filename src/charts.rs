@@ -1,19 +1,184 @@
-// ── Chart types ─────────────────────────────────────────────────────────────
+// ── Chart configuration structs ──────────────────────────────────────────────
 
-pub enum ChartType {
-    GroupedBar,
-    LineMulti,
-    HBar,
-    ScatterPlot,
+pub struct GroupedBarConfig {
+    pub x_col: String,
+    pub group_col: String,
+    pub value_col: String,
+    pub y_label: String,
 }
 
-impl ChartType {
-    pub fn as_str(&self) -> &'static str {
+pub struct GroupedBarConfigBuilder {
+    x_col: Option<String>,
+    group_col: Option<String>,
+    value_col: Option<String>,
+    y_label: Option<String>,
+}
+
+impl GroupedBarConfig {
+    pub fn builder() -> GroupedBarConfigBuilder {
+        GroupedBarConfigBuilder {
+            x_col: None,
+            group_col: None,
+            value_col: None,
+            y_label: None,
+        }
+    }
+}
+
+impl GroupedBarConfigBuilder {
+    pub fn x(mut self, col: &str) -> Self { self.x_col = Some(col.into()); self }
+    pub fn group(mut self, col: &str) -> Self { self.group_col = Some(col.into()); self }
+    pub fn value(mut self, col: &str) -> Self { self.value_col = Some(col.into()); self }
+    pub fn y_label(mut self, label: &str) -> Self { self.y_label = Some(label.into()); self }
+
+    pub fn build(self) -> GroupedBarConfig {
+        GroupedBarConfig {
+            x_col: self.x_col.expect("x_col required"),
+            group_col: self.group_col.expect("group_col required"),
+            value_col: self.value_col.expect("value_col required"),
+            y_label: self.y_label.expect("y_label required"),
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+pub struct LineConfig {
+    pub x_col: String,
+    pub y_cols: Vec<String>,
+    pub y_label: String,
+}
+
+pub struct LineConfigBuilder {
+    x_col: Option<String>,
+    y_cols: Option<Vec<String>>,
+    y_label: Option<String>,
+}
+
+impl LineConfig {
+    pub fn builder() -> LineConfigBuilder {
+        LineConfigBuilder {
+            x_col: None,
+            y_cols: None,
+            y_label: None,
+        }
+    }
+}
+
+impl LineConfigBuilder {
+    pub fn x(mut self, col: &str) -> Self { self.x_col = Some(col.into()); self }
+    pub fn y_cols(mut self, cols: &[&str]) -> Self {
+        self.y_cols = Some(cols.iter().map(|&s| s.into()).collect());
+        self
+    }
+    pub fn y_label(mut self, label: &str) -> Self { self.y_label = Some(label.into()); self }
+
+    pub fn build(self) -> LineConfig {
+        LineConfig {
+            x_col: self.x_col.expect("x_col required"),
+            y_cols: self.y_cols.expect("y_cols required"),
+            y_label: self.y_label.expect("y_label required"),
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+pub struct HBarConfig {
+    pub category_col: String,
+    pub value_col: String,
+    pub x_label: String,
+}
+
+pub struct HBarConfigBuilder {
+    category_col: Option<String>,
+    value_col: Option<String>,
+    x_label: Option<String>,
+}
+
+impl HBarConfig {
+    pub fn builder() -> HBarConfigBuilder {
+        HBarConfigBuilder {
+            category_col: None,
+            value_col: None,
+            x_label: None,
+        }
+    }
+}
+
+impl HBarConfigBuilder {
+    pub fn category(mut self, col: &str) -> Self { self.category_col = Some(col.into()); self }
+    pub fn value(mut self, col: &str) -> Self { self.value_col = Some(col.into()); self }
+    pub fn x_label(mut self, label: &str) -> Self { self.x_label = Some(label.into()); self }
+
+    pub fn build(self) -> HBarConfig {
+        HBarConfig {
+            category_col: self.category_col.expect("category_col required"),
+            value_col: self.value_col.expect("value_col required"),
+            x_label: self.x_label.expect("x_label required"),
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+pub struct ScatterConfig {
+    pub x_col: String,
+    pub y_col: String,
+    pub x_label: String,
+    pub y_label: String,
+}
+
+pub struct ScatterConfigBuilder {
+    x_col: Option<String>,
+    y_col: Option<String>,
+    x_label: Option<String>,
+    y_label: Option<String>,
+}
+
+impl ScatterConfig {
+    pub fn builder() -> ScatterConfigBuilder {
+        ScatterConfigBuilder {
+            x_col: None,
+            y_col: None,
+            x_label: None,
+            y_label: None,
+        }
+    }
+}
+
+impl ScatterConfigBuilder {
+    pub fn x(mut self, col: &str) -> Self { self.x_col = Some(col.into()); self }
+    pub fn y(mut self, col: &str) -> Self { self.y_col = Some(col.into()); self }
+    pub fn x_label(mut self, label: &str) -> Self { self.x_label = Some(label.into()); self }
+    pub fn y_label(mut self, label: &str) -> Self { self.y_label = Some(label.into()); self }
+
+    pub fn build(self) -> ScatterConfig {
+        ScatterConfig {
+            x_col: self.x_col.expect("x_col required"),
+            y_col: self.y_col.expect("y_col required"),
+            x_label: self.x_label.expect("x_label required"),
+            y_label: self.y_label.expect("y_label required"),
+        }
+    }
+}
+
+// ── Chart config enum ────────────────────────────────────────────────────────
+
+pub enum ChartConfig {
+    GroupedBar(GroupedBarConfig),
+    Line(LineConfig),
+    HBar(HBarConfig),
+    Scatter(ScatterConfig),
+}
+
+impl ChartConfig {
+    pub fn chart_type_str(&self) -> &'static str {
         match self {
-            ChartType::GroupedBar => "grouped_bar",
-            ChartType::LineMulti => "line_multi",
-            ChartType::HBar => "hbar",
-            ChartType::ScatterPlot => "scatter",
+            ChartConfig::GroupedBar(_) => "grouped_bar",
+            ChartConfig::Line(_) => "line_multi",
+            ChartConfig::HBar(_) => "hbar",
+            ChartConfig::Scatter(_) => "scatter",
         }
     }
 }
@@ -28,12 +193,13 @@ pub struct GridCell {
 
 pub struct ChartSpec {
     pub title: String,
-    pub chart_type: ChartType,
     pub source_key: String,
-    pub config: Vec<(String, String)>,
+    pub config: ChartConfig,
     pub grid: GridCell,
     pub filtered: bool,
 }
+
+// ── Filter types ─────────────────────────────────────────────────────────────
 
 pub enum FilterConfig {
     Range { min: f64, max: f64, step: f64 },
@@ -54,74 +220,37 @@ pub struct FilterSpec {
 
 pub struct ChartSpecBuilder {
     title: String,
-    chart_type: ChartType,
     source_key: String,
-    config: Vec<(String, String)>,
+    config: ChartConfig,
     grid: GridCell,
     filtered: bool,
 }
 
 impl ChartSpecBuilder {
-    pub fn bar(title: &str, key: &str, x: &str, group: &str, val: &str, ylabel: &str) -> Self {
+    pub fn new(title: &str, source_key: &str, config: ChartConfig) -> Self {
         Self {
             title: title.into(),
-            chart_type: ChartType::GroupedBar,
-            source_key: key.into(),
-            config: vec![
-                ("x_col".into(), x.into()),
-                ("group_col".into(), group.into()),
-                ("value_col".into(), val.into()),
-                ("y_label".into(), ylabel.into()),
-            ],
+            source_key: source_key.into(),
+            config,
             grid: GridCell { row: 0, col: 0, col_span: 1 },
             filtered: false,
         }
     }
 
-    pub fn line(title: &str, key: &str, x: &str, ycols: &str, ylabel: &str) -> Self {
-        Self {
-            title: title.into(),
-            chart_type: ChartType::LineMulti,
-            source_key: key.into(),
-            config: vec![
-                ("x_col".into(), x.into()),
-                ("y_cols".into(), ycols.into()),
-                ("y_label".into(), ylabel.into()),
-            ],
-            grid: GridCell { row: 0, col: 0, col_span: 1 },
-            filtered: false,
-        }
+    pub fn bar(title: &str, key: &str, config: GroupedBarConfig) -> Self {
+        Self::new(title, key, ChartConfig::GroupedBar(config))
     }
 
-    pub fn hbar(title: &str, key: &str, cat: &str, val: &str, xlabel: &str) -> Self {
-        Self {
-            title: title.into(),
-            chart_type: ChartType::HBar,
-            source_key: key.into(),
-            config: vec![
-                ("category_col".into(), cat.into()),
-                ("value_col".into(), val.into()),
-                ("x_label".into(), xlabel.into()),
-            ],
-            grid: GridCell { row: 0, col: 0, col_span: 1 },
-            filtered: false,
-        }
+    pub fn line(title: &str, key: &str, config: LineConfig) -> Self {
+        Self::new(title, key, ChartConfig::Line(config))
     }
 
-    pub fn scatter(title: &str, key: &str, x: &str, y: &str, xlabel: &str, ylabel: &str) -> Self {
-        Self {
-            title: title.into(),
-            chart_type: ChartType::ScatterPlot,
-            source_key: key.into(),
-            config: vec![
-                ("x_col".into(), x.into()),
-                ("y_col".into(), y.into()),
-                ("x_label".into(), xlabel.into()),
-                ("y_label".into(), ylabel.into()),
-            ],
-            grid: GridCell { row: 0, col: 0, col_span: 1 },
-            filtered: false,
-        }
+    pub fn hbar(title: &str, key: &str, config: HBarConfig) -> Self {
+        Self::new(title, key, ChartConfig::HBar(config))
+    }
+
+    pub fn scatter(title: &str, key: &str, config: ScatterConfig) -> Self {
+        Self::new(title, key, ChartConfig::Scatter(config))
     }
 
     /// Set the grid position and column span.
@@ -139,7 +268,6 @@ impl ChartSpecBuilder {
     pub fn build(self) -> ChartSpec {
         ChartSpec {
             title: self.title,
-            chart_type: self.chart_type,
             source_key: self.source_key,
             config: self.config,
             grid: self.grid,

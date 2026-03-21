@@ -2,7 +2,13 @@ pub mod charts;
 pub mod pages;
 mod render;
 
-pub use charts::{ChartSpecBuilder, ChartType, FilterConfig, FilterSpec, GridCell};
+pub use charts::{
+    ChartConfig, ChartSpecBuilder, FilterConfig, FilterSpec, GridCell,
+    GroupedBarConfig, GroupedBarConfigBuilder,
+    HBarConfig, HBarConfigBuilder,
+    LineConfig, LineConfigBuilder,
+    ScatterConfig, ScatterConfigBuilder,
+};
 pub use pages::{Page, PageBuilder};
 pub use render::render_dashboard;
 
@@ -35,9 +41,11 @@ pub fn serialize_df(df: &mut DataFrame) -> Vec<u8> {
 ///     .add_df("my_data", &mut df)
 ///     .add_page(
 ///         PageBuilder::new("overview", "Overview", "Overview", 2)
-///             .chart(ChartSpecBuilder::scatter("X vs Y", "my_data", "x", "y", "X", "Y")
-///                 .at(0, 0, 2)
-///                 .build())
+///             .chart(ChartSpecBuilder::scatter("X vs Y", "my_data",
+///                 ScatterConfig::builder()
+///                     .x("x").y("y").x_label("X").y_label("Y")
+///                     .build()
+///             ).at(0, 0, 2).build())
 ///             .build(),
 ///     )
 ///     .render()

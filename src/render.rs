@@ -1,4 +1,4 @@
-use crate::charts::FilterConfig;
+use crate::charts::{ChartConfig, FilterConfig};
 use crate::pages::Page;
 
 use pyo3::prelude::*;
@@ -48,14 +48,35 @@ pub fn render_dashboard(
             for spec in &page.specs {
                 let s = PyDict::new(py);
                 s.set_item("title", &spec.title)?;
-                s.set_item("chart_type", spec.chart_type.as_str())?;
+                s.set_item("chart_type", spec.config.chart_type_str())?;
                 s.set_item("source_key", &spec.source_key)?;
                 s.set_item("grid_row", spec.grid.row)?;
                 s.set_item("grid_col", spec.grid.col)?;
                 s.set_item("grid_col_span", spec.grid.col_span)?;
                 s.set_item("filtered", spec.filtered)?;
-                for (k, v) in &spec.config {
-                    s.set_item(k.as_str(), v.as_str())?;
+                match &spec.config {
+                    ChartConfig::GroupedBar(c) => {
+                        s.set_item("x_col", &c.x_col)?;
+                        s.set_item("group_col", &c.group_col)?;
+                        s.set_item("value_col", &c.value_col)?;
+                        s.set_item("y_label", &c.y_label)?;
+                    }
+                    ChartConfig::Line(c) => {
+                        s.set_item("x_col", &c.x_col)?;
+                        s.set_item("y_cols", c.y_cols.join(","))?;
+                        s.set_item("y_label", &c.y_label)?;
+                    }
+                    ChartConfig::HBar(c) => {
+                        s.set_item("category_col", &c.category_col)?;
+                        s.set_item("value_col", &c.value_col)?;
+                        s.set_item("x_label", &c.x_label)?;
+                    }
+                    ChartConfig::Scatter(c) => {
+                        s.set_item("x_col", &c.x_col)?;
+                        s.set_item("y_col", &c.y_col)?;
+                        s.set_item("x_label", &c.x_label)?;
+                        s.set_item("y_label", &c.y_label)?;
+                    }
                 }
                 py_specs.append(s)?;
             }
