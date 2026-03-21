@@ -1,5 +1,5 @@
 use polars::prelude::*;
-use rust_to_bokeh::*;
+use rust_to_bokeh::prelude::*;
 
 type C = ChartSpecBuilder;
 type Bar = GroupedBarConfig;

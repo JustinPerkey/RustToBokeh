@@ -1,10 +1,73 @@
+//! # RustToBokeh
+//!
+//! A library for building interactive multi-page [Bokeh](https://bokeh.org/)
+//! dashboards from Rust, using [Polars](https://pola.rs/) DataFrames for data
+//! and [PyO3](https://pyo3.rs/) to bridge into Python for rendering.
+//!
+//! ## Quick start
+//!
+//! ```ignore
+//! use rust_to_bokeh::prelude::*;
+//! use polars::prelude::*;
+//!
+//! fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     let mut df = df![
+//!         "month"    => ["Jan", "Feb", "Mar"],
+//!         "revenue"  => [100.0, 150.0, 200.0f64],
+//!         "expenses" => [80.0, 90.0, 110.0f64],
+//!     ]?;
+//!
+//!     let mut dash = Dashboard::new();
+//!     dash.add_df("trends", &mut df)?;
+//!     dash.add_page(
+//!         PageBuilder::new("overview", "Overview", "Overview", 2)
+//!             .chart(ChartSpecBuilder::line("Revenue vs Expenses", "trends",
+//!                 LineConfig::builder()
+//!                     .x("month")
+//!                     .y_cols(&["revenue", "expenses"])
+//!                     .y_label("USD")
+//!                     .build()?
+//!             ).at(0, 0, 2).build())
+//!             .build(),
+//!     );
+//!     dash.render()?;
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ## Architecture
+//!
+//! The rendering pipeline works as follows:
+//!
+//! 1. **Build DataFrames** in Rust using Polars.
+//! 2. **Register data** with [`Dashboard::add_df`], which serializes each
+//!    DataFrame to Arrow IPC bytes.
+//! 3. **Define pages** with [`PageBuilder`], adding [`ChartSpec`](charts::ChartSpec)s
+//!    and optional [`FilterSpec`](charts::FilterSpec)s.
+//! 4. **Call [`Dashboard::render`]**, which acquires the Python GIL via PyO3,
+//!    passes all data and page definitions to `render.py`, and produces one
+//!    HTML file per page in the output directory.
+//!
+//! The Python script (`render.py`) and HTML template (`chart.html`) are
+//! embedded into the binary at compile time via `include_str!()`, so the
+//! final executable has no runtime file dependencies beyond a Python
+//! interpreter with the required packages installed.
+//!
+//! ## Modules
+//!
+//! - [`charts`] — Chart config types, builders, layout primitives, and filter definitions.
+//! - [`pages`] — Page layout types for multi-page dashboards.
+//! - [`error`] — The [`ChartError`] type used throughout the library.
+//! - [`prelude`] — Convenience re-exports for common usage.
+
 pub mod charts;
 pub mod error;
 pub mod pages;
+pub mod prelude;
 mod render;
 
 pub use charts::{
-    ChartConfig, ChartSpecBuilder, FilterConfig, FilterSpec, GridCell,
+    ChartConfig, ChartSpec, ChartSpecBuilder, FilterConfig, FilterSpec, GridCell,
     GroupedBarConfig, GroupedBarConfigBuilder,
     HBarConfig, HBarConfigBuilder,
     LineConfig, LineConfigBuilder,
@@ -19,7 +82,16 @@ use polars::io::SerWriter;
 use polars::prelude::DataFrame;
 use std::io::Cursor;
 
-/// Serialize a Polars DataFrame to Arrow IPC bytes for passing to the renderer.
+/// Serialize a Polars DataFrame to Arrow IPC bytes.
+///
+/// This is the format used to pass data across the Rust-Python boundary.
+/// You typically don't need to call this directly — [`Dashboard::add_df`]
+/// handles serialization automatically.
+///
+/// # Errors
+///
+/// Returns [`ChartError::Serialization`] if the IPC writer fails (e.g. due
+/// to an unsupported column type).
 pub fn serialize_df(df: &mut DataFrame) -> Result<Vec<u8>, ChartError> {
     let mut buf = Cursor::new(Vec::new());
     IpcWriter::new(&mut buf).finish(df)?;
@@ -29,10 +101,21 @@ pub fn serialize_df(df: &mut DataFrame) -> Result<Vec<u8>, ChartError> {
 /// High-level dashboard builder that collects DataFrames and pages, then
 /// renders everything in one call.
 ///
+/// # Workflow
+///
+/// 1. Create a dashboard with [`Dashboard::new`].
+/// 2. Optionally set the output directory with [`output_dir`](Dashboard::output_dir)
+///    (defaults to `"output"`).
+/// 3. Register DataFrames with [`add_df`](Dashboard::add_df). Each DataFrame
+///    is serialized immediately and stored under the given key.
+/// 4. Add pages with [`add_page`](Dashboard::add_page). Charts on each page
+///    reference DataFrames by their registered key.
+/// 5. Call [`render`](Dashboard::render) to produce the HTML files.
+///
 /// # Example
 ///
 /// ```ignore
-/// use rust_to_bokeh::*;
+/// use rust_to_bokeh::prelude::*;
 /// use polars::prelude::*;
 ///
 /// let mut df = df!["x" => [1, 2, 3], "y" => [4, 5, 6]].unwrap();
@@ -57,6 +140,7 @@ pub struct Dashboard {
 }
 
 impl Dashboard {
+    /// Create an empty dashboard with the default output directory (`"output"`).
     pub fn new() -> Self {
         Self {
             frames: Vec::new(),
@@ -65,25 +149,49 @@ impl Dashboard {
         }
     }
 
-    /// Set the output directory (default: `"output"`).
+    /// Set the output directory for generated HTML files.
+    ///
+    /// Defaults to `"output"`. The directory is created automatically by the
+    /// Python renderer if it does not exist.
     pub fn output_dir(mut self, dir: &str) -> Self {
         self.output_dir = dir.into();
         self
     }
 
-    /// Add a DataFrame, serializing it to Arrow IPC bytes under the given key.
+    /// Register a DataFrame under the given key.
+    ///
+    /// The DataFrame is serialized to Arrow IPC bytes immediately. Charts
+    /// reference this data by using the same `key` as their `source_key`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ChartError::Serialization`] if the DataFrame cannot be
+    /// serialized (e.g. unsupported column types).
     pub fn add_df(&mut self, key: &str, df: &mut DataFrame) -> Result<&mut Self, ChartError> {
         self.frames.push((key.into(), serialize_df(df)?));
         Ok(self)
     }
 
-    /// Add a pre-built Page to the dashboard.
+    /// Add a pre-built [`Page`] to the dashboard.
+    ///
+    /// Pages are rendered in the order they are added. The navigation bar
+    /// reflects this ordering.
     pub fn add_page(&mut self, page: Page) -> &mut Self {
         self.pages.push(page);
         self
     }
 
     /// Render all pages to HTML files in the output directory.
+    ///
+    /// This acquires the Python GIL, passes all serialized DataFrames and
+    /// page definitions to the embedded `render.py` script, and writes one
+    /// HTML file per page.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ChartError::Python`] if the Python script raises an
+    /// exception, or [`ChartError::InvalidScript`] if the embedded script
+    /// is malformed.
     pub fn render(&self) -> Result<(), ChartError> {
         let refs: Vec<(&str, Vec<u8>)> = self
             .frames
@@ -101,8 +209,12 @@ impl Default for Dashboard {
 }
 
 /// Configure the vendored Python so PyO3 can find the interpreter, standard
-/// library, and installed packages. Called automatically by [`render_dashboard`]
-/// and [`Dashboard::render`].
+/// library, and installed packages.
+///
+/// This is called automatically by [`render_dashboard`] and
+/// [`Dashboard::render`]. It searches for a vendored Python installation in
+/// several candidate directories relative to the current executable, and if
+/// found, sets `PYTHONHOME`, `PYTHONPATH`, and `PATH` accordingly.
 pub fn configure_vendored_python() {
     let exe_dir = std::env::current_exe()
         .ok()

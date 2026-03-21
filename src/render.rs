@@ -1,3 +1,8 @@
+//! Low-level rendering bridge between Rust and Python.
+//!
+//! This module is intentionally private — use [`Dashboard::render`](crate::Dashboard::render)
+//! for the high-level API or [`render_dashboard`] for direct control.
+
 use crate::charts::{ChartConfig, FilterConfig};
 use crate::error::ChartError;
 use crate::pages::Page;
@@ -8,9 +13,28 @@ use std::ffi::CString;
 
 /// Render a multi-page Bokeh dashboard to HTML files.
 ///
-/// Takes serialized DataFrames (Arrow IPC bytes keyed by name), page
-/// definitions, and an output directory.  Each page produces one HTML file
-/// with inter-page navigation.
+/// This is the lower-level rendering function. It takes pre-serialized
+/// DataFrames (Arrow IPC bytes keyed by name), page definitions, and an
+/// output directory. Each page produces one HTML file with inter-page
+/// navigation.
+///
+/// For most use cases, prefer [`Dashboard::render`](crate::Dashboard::render)
+/// which handles serialization automatically.
+///
+/// # Arguments
+///
+/// * `frame_data` — Slice of `(key, bytes)` pairs where each `bytes` is a
+///   Polars DataFrame serialized to Arrow IPC format via [`serialize_df`](crate::serialize_df).
+/// * `pages` — Slice of [`Page`] definitions describing the charts and
+///   filters for each output HTML file.
+/// * `output_dir` — Directory path where HTML files will be written. Created
+///   automatically if it does not exist.
+///
+/// # Errors
+///
+/// Returns [`ChartError::InvalidScript`] if the embedded Python script
+/// contains a null byte, or [`ChartError::Python`] if the Python script
+/// raises an exception during execution.
 pub fn render_dashboard(
     frame_data: &[(&str, Vec<u8>)],
     pages: &[Page],
