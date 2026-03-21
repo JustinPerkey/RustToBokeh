@@ -1,78 +1,7 @@
-mod charts;
-mod pages;
-
-use charts::{ChartSpecBuilder, FilterConfig, FilterSpec};
-use pages::{Page, PageBuilder};
-
-use polars::io::ipc::IpcWriter;
-use polars::io::SerWriter;
 use polars::prelude::*;
-use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict, PyList};
-use std::ffi::CString;
-use std::io::Cursor;
+use rust_to_bokeh::*;
 
-/// Configure the vendored Python so PyO3 can find the interpreter, standard
-/// library, and installed packages. Must run before any PyO3 call.
-fn configure_vendored_python() {
-    let exe_dir = std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|d| d.to_path_buf()));
-
-    let candidates = [
-        exe_dir
-            .as_ref()
-            .map(|d| d.join("../../vendor/python")),
-        exe_dir.as_ref().map(|d| d.join("vendor/python")),
-        Some(std::path::PathBuf::from("vendor/python")),
-    ];
-
-    for candidate in candidates.iter().flatten() {
-        if let Ok(mut canon) = candidate.canonicalize() {
-            if cfg!(windows) {
-                let s = canon.to_string_lossy().to_string();
-                if let Some(stripped) = s.strip_prefix(r"\\?\") {
-                    canon = std::path::PathBuf::from(stripped);
-                }
-            }
-            if canon.join("python.exe").exists() || canon.join("bin/python3").exists() {
-                std::env::set_var("PYTHONHOME", &canon);
-
-                let site_packages = if cfg!(windows) {
-                    canon.join("Lib").join("site-packages")
-                } else {
-                    let lib = canon.join("lib");
-                    std::fs::read_dir(&lib)
-                        .ok()
-                        .and_then(|mut entries| {
-                            entries.find_map(|e| {
-                                let name = e.ok()?.file_name().to_string_lossy().to_string();
-                                name.starts_with("python3").then(|| lib.join(name).join("site-packages"))
-                            })
-                        })
-                        .unwrap_or_else(|| lib.join("python3").join("site-packages"))
-                };
-                std::env::set_var("PYTHONPATH", &site_packages);
-
-                let path_var = std::env::var_os("PATH").unwrap_or_default();
-                let mut paths = std::env::split_paths(&path_var).collect::<Vec<_>>();
-                paths.insert(0, canon);
-                if let Ok(new_path) = std::env::join_paths(&paths) {
-                    std::env::set_var("PATH", &new_path);
-                }
-                return;
-            }
-        }
-    }
-}
-
-fn serialize_df(df: &mut DataFrame) -> Vec<u8> {
-    let mut buf = Cursor::new(Vec::new());
-    IpcWriter::new(&mut buf)
-        .finish(df)
-        .expect("Failed to serialize DataFrame");
-    buf.into_inner()
-}
+type C = ChartSpecBuilder;
 
 // ── DataFrame builders ──────────────────────────────────────────────────────
 
@@ -200,7 +129,6 @@ fn build_scatter_performance() -> DataFrame {
         "satisfaction" => [3.8,4.0,4.3,4.1,4.6,4.4,3.9,4.2,4.8,4.0,
                            4.3,4.5,3.7,4.3,4.7,4.1,4.4,3.8,4.5,4.2,
                            4.7,3.9,4.3,4.5,3.8,4.6,4.0,4.4,4.1,4.6f64],
-        // Tier based on employee count: Small (<12), Medium (12-24), Large (>=25)
         "tier"         => ["Small","Small","Medium","Small","Large","Medium",
                            "Small","Medium","Large","Small","Medium","Large",
                            "Small","Medium","Large","Medium","Medium","Small",
@@ -250,33 +178,29 @@ fn build_marketing_channels() -> DataFrame {
 
 // ── Main ────────────────────────────────────────────────────────────────────
 
-fn main() -> PyResult<()> {
-    configure_vendored_python();
+fn main() -> pyo3::PyResult<()> {
+    let mut dash = Dashboard::new();
 
-    // Build and serialize all DataFrames
-    let frame_data: Vec<(&str, Vec<u8>)> = vec![
-        ("monthly_revenue",      serialize_df(&mut build_monthly_revenue())),
-        ("quarterly_products",   serialize_df(&mut build_quarterly_products())),
-        ("monthly_trends",       serialize_df(&mut build_monthly_trends())),
-        ("regional_sales",       serialize_df(&mut build_regional_sales())),
-        ("dept_headcount",       serialize_df(&mut build_dept_headcount())),
-        ("satisfaction",         serialize_df(&mut build_satisfaction())),
-        ("website_traffic",      serialize_df(&mut build_website_traffic())),
-        ("market_share",         serialize_df(&mut build_market_share())),
-        ("budget_vs_actual",     serialize_df(&mut build_budget_vs_actual())),
-        ("scatter_performance",  serialize_df(&mut build_scatter_performance())),
-        ("project_status",       serialize_df(&mut build_project_status())),
-        ("cost_breakdown",       serialize_df(&mut build_cost_breakdown())),
-        ("quarterly_trends",     serialize_df(&mut build_quarterly_trends())),
-        ("marketing_channels",   serialize_df(&mut build_marketing_channels())),
-    ];
+    // Register all DataFrames
+    dash.add_df("monthly_revenue", &mut build_monthly_revenue());
+    dash.add_df("quarterly_products", &mut build_quarterly_products());
+    dash.add_df("monthly_trends", &mut build_monthly_trends());
+    dash.add_df("regional_sales", &mut build_regional_sales());
+    dash.add_df("dept_headcount", &mut build_dept_headcount());
+    dash.add_df("satisfaction", &mut build_satisfaction());
+    dash.add_df("website_traffic", &mut build_website_traffic());
+    dash.add_df("market_share", &mut build_market_share());
+    dash.add_df("budget_vs_actual", &mut build_budget_vs_actual());
+    dash.add_df("scatter_performance", &mut build_scatter_performance());
+    dash.add_df("project_status", &mut build_project_status());
+    dash.add_df("cost_breakdown", &mut build_cost_breakdown());
+    dash.add_df("quarterly_trends", &mut build_quarterly_trends());
+    dash.add_df("marketing_channels", &mut build_marketing_channels());
 
     // ── Define all pages ────────────────────────────────────────────────────
 
-    type C = ChartSpecBuilder;
-
-    let pages: Vec<Page> = vec![
-        // 1. Executive Summary — Range filter on revenue
+    // 1. Executive Summary
+    dash.add_page(
         PageBuilder::new("executive-summary", "Executive Summary", "Executive", 2)
             .chart(C::line("Revenue & Profit Trends", "monthly_trends", "month", "revenue,profit", "USD (k)").at(0, 0, 2).build())
             .chart(C::hbar("Market Position", "market_share", "company", "share", "Market Share %").at(1, 0, 1).build())
@@ -284,27 +208,39 @@ fn main() -> PyResult<()> {
             .chart(C::scatter("Revenue vs Profit", "scatter_performance", "revenue", "profit", "Revenue (k)", "Profit (k)").at(2, 0, 2).filtered().build())
             .filter(FilterSpec::range("scatter_performance", "revenue", "Revenue Range", 40.0, 320.0, 10.0))
             .build(),
-        // 2. Revenue Overview
+    );
+
+    // 2. Revenue Overview
+    dash.add_page(
         PageBuilder::new("revenue-overview", "Revenue Overview", "Revenue", 2)
             .chart(C::bar("Monthly Revenue vs Expenses", "monthly_revenue", "month", "category", "value", "USD (k)").at(0, 0, 2).build())
             .chart(C::line("Revenue Trend", "monthly_trends", "month", "revenue,expenses", "USD (k)").at(1, 0, 1).build())
             .chart(C::line("Profit Margin", "monthly_trends", "month", "margin", "%").at(1, 1, 1).build())
             .chart(C::bar("Regional Sales", "regional_sales", "region", "channel", "value", "USD (k)").at(2, 0, 2).build())
             .build(),
-        // 3. Expense Analysis
+    );
+
+    // 3. Expense Analysis
+    dash.add_page(
         PageBuilder::new("expense-analysis", "Expense Analysis", "Expenses", 2)
             .chart(C::hbar("Cost Breakdown", "cost_breakdown", "category", "amount", "USD (k)").at(0, 0, 1).build())
             .chart(C::bar("Budget vs Actual", "budget_vs_actual", "department", "type", "amount", "USD (k)").at(0, 1, 1).build())
             .chart(C::line("Expense Trends", "monthly_trends", "month", "expenses", "USD (k)").at(1, 0, 1).build())
             .chart(C::line("Margin Trend", "monthly_trends", "month", "margin", "%").at(1, 1, 1).build())
             .build(),
-        // 4. Quarterly Performance
+    );
+
+    // 4. Quarterly Performance
+    dash.add_page(
         PageBuilder::new("quarterly-performance", "Quarterly Performance", "Quarterly", 2)
             .chart(C::bar("Product Revenue by Quarter", "quarterly_products", "quarter", "product", "value", "Revenue (k)").at(0, 0, 2).build())
             .chart(C::line("Quarterly Revenue & Costs", "quarterly_trends", "quarter", "revenue,costs", "USD (k)").at(1, 0, 1).build())
             .chart(C::line("Quarterly Margin", "quarterly_trends", "quarter", "margin", "%").at(1, 1, 1).build())
             .build(),
-        // 5. Product Analysis — GroupFilter (Select) by tier + Range on revenue
+    );
+
+    // 5. Product Analysis
+    dash.add_page(
         PageBuilder::new("product-analysis", "Product Analysis", "Products", 2)
             .chart(C::bar("Quarterly Product Revenue", "quarterly_products", "quarter", "product", "value", "Revenue (k)").at(0, 0, 2).build())
             .chart(C::scatter("Revenue vs Profit by Team", "scatter_performance", "revenue", "profit", "Revenue (k)", "Profit (k)").at(1, 0, 1).filtered().build())
@@ -312,71 +248,104 @@ fn main() -> PyResult<()> {
             .filter(FilterSpec::select("scatter_performance", "tier", "Company Tier", vec!["Small", "Medium", "Large"]))
             .filter(FilterSpec::range("scatter_performance", "revenue", "Revenue Range", 40.0, 320.0, 10.0))
             .build(),
-        // 6. Regional Breakdown
+    );
+
+    // 6. Regional Breakdown
+    dash.add_page(
         PageBuilder::new("regional-breakdown", "Regional Sales Breakdown", "Regions", 2)
             .chart(C::bar("Sales by Region & Channel", "regional_sales", "region", "channel", "value", "USD (k)").at(0, 0, 2).build())
             .chart(C::hbar("Market Share", "market_share", "company", "share", "%").at(1, 0, 1).build())
             .chart(C::scatter("Employees vs Revenue", "scatter_performance", "employees", "revenue", "Team Size", "Revenue (k)").at(1, 1, 1).build())
             .build(),
-        // 7. Team Metrics — BooleanFilter (Threshold) on satisfaction
+    );
+
+    // 7. Team Metrics
+    dash.add_page(
         PageBuilder::new("team-metrics", "Team & Workforce Metrics", "Team", 2)
             .chart(C::bar("Department Headcount by Year", "dept_headcount", "department", "year", "count", "Employees").at(0, 0, 2).build())
             .chart(C::scatter("Employees vs Profit", "scatter_performance", "employees", "profit", "Team Size", "Profit (k)").at(1, 0, 1).filtered().build())
             .chart(C::scatter("Employees vs Satisfaction", "scatter_performance", "employees", "satisfaction", "Team Size", "Rating").at(1, 1, 1).filtered().build())
             .filter(FilterSpec::threshold("scatter_performance", "satisfaction", "High Satisfaction Only (>4.2)", 4.2, true))
             .build(),
-        // 8. Customer Insights — GroupFilter by tier (always one group selected)
+    );
+
+    // 8. Customer Insights
+    dash.add_page(
         PageBuilder::new("customer-insights", "Customer Insights", "Customers", 2)
             .chart(C::hbar("Satisfaction Scores", "satisfaction", "category", "score", "Score (1-5)").at(0, 0, 2).build())
             .chart(C::scatter("Revenue vs Customer Satisfaction", "scatter_performance", "revenue", "satisfaction", "Revenue (k)", "Rating").at(1, 0, 1).filtered().build())
             .chart(C::scatter("Profit vs Satisfaction", "scatter_performance", "profit", "satisfaction", "Profit (k)", "Rating").at(1, 1, 1).filtered().build())
             .filter(FilterSpec::group("scatter_performance", "tier", "Company Tier", vec!["Small", "Medium", "Large"]))
             .build(),
-        // 9. Web Analytics
+    );
+
+    // 9. Web Analytics
+    dash.add_page(
         PageBuilder::new("web-analytics", "Website Analytics", "Web", 2)
             .chart(C::line("Visitor Traffic", "website_traffic", "month", "visitors", "Visitors").at(0, 0, 2).build())
             .chart(C::line("Signups Over Time", "website_traffic", "month", "signups", "Signups").at(1, 0, 1).build())
             .chart(C::line("Conversions Over Time", "website_traffic", "month", "conversions", "Conversions").at(1, 1, 1).build())
             .build(),
-        // 10. Market Position
+    );
+
+    // 10. Market Position
+    dash.add_page(
         PageBuilder::new("market-position", "Market Position", "Market", 2)
             .chart(C::hbar("Market Share", "market_share", "company", "share", "Share %").at(0, 0, 1).build())
             .chart(C::hbar("Project Completion", "project_status", "project", "completion", "% Complete").at(0, 1, 1).build())
             .chart(C::line("Revenue vs Costs (Quarterly)", "quarterly_trends", "quarter", "revenue,costs", "USD (k)").at(1, 0, 2).build())
             .build(),
-        // 11. Budget Management
+    );
+
+    // 11. Budget Management
+    dash.add_page(
         PageBuilder::new("budget-management", "Budget Management", "Budget", 2)
             .chart(C::bar("Budget vs Actual Spending", "budget_vs_actual", "department", "type", "amount", "USD (k)").at(0, 0, 2).build())
             .chart(C::hbar("Cost Categories", "cost_breakdown", "category", "amount", "USD (k)").at(1, 0, 1).build())
             .chart(C::line("Revenue Trend", "monthly_trends", "month", "revenue,expenses", "USD (k)").at(1, 1, 1).build())
             .build(),
-        // 12. Project Portfolio — IndexFilter (TopN) by revenue
+    );
+
+    // 12. Project Portfolio
+    dash.add_page(
         PageBuilder::new("project-portfolio", "Project Portfolio", "Projects", 2)
             .chart(C::hbar("Project Completion Status", "project_status", "project", "completion", "% Complete").at(0, 0, 2).build())
             .chart(C::scatter("Revenue vs Employees", "scatter_performance", "revenue", "employees", "Revenue (k)", "Team Size").at(1, 0, 1).filtered().build())
             .chart(C::scatter("Profit vs Employees", "scatter_performance", "profit", "employees", "Profit (k)", "Team Size").at(1, 1, 1).filtered().build())
             .filter(FilterSpec::top_n("scatter_performance", "revenue", "Top N by Revenue", 30, true))
             .build(),
-        // 13. Growth Indicators
+    );
+
+    // 13. Growth Indicators
+    dash.add_page(
         PageBuilder::new("growth-indicators", "Growth Indicators", "Growth", 2)
             .chart(C::line("Revenue & Profit Growth", "monthly_trends", "month", "revenue,profit", "USD (k)").at(0, 0, 2).build())
             .chart(C::line("Visitor Growth", "website_traffic", "month", "visitors,signups", "Count").at(1, 0, 1).build())
             .chart(C::bar("Quarterly Products", "quarterly_products", "quarter", "product", "value", "Revenue (k)").at(1, 1, 1).build())
             .build(),
-        // 14. Cost Optimization — Threshold on profit margin
+    );
+
+    // 14. Cost Optimization
+    dash.add_page(
         PageBuilder::new("cost-optimization", "Cost Optimization", "Costs", 2)
             .chart(C::hbar("Spending by Category", "cost_breakdown", "category", "amount", "USD (k)").at(0, 0, 2).build())
             .chart(C::line("Expense vs Margin Trend", "monthly_trends", "month", "expenses,margin", "Value").at(1, 0, 1).build())
             .chart(C::scatter("Revenue vs Profit Efficiency", "scatter_performance", "revenue", "profit", "Revenue (k)", "Profit (k)").at(1, 1, 1).filtered().build())
             .filter(FilterSpec::threshold("scatter_performance", "profit", "Profitable Only (>30k)", 30.0, true))
             .build(),
-        // 15. Marketing ROI
+    );
+
+    // 15. Marketing ROI
+    dash.add_page(
         PageBuilder::new("marketing-roi", "Marketing ROI", "Marketing", 2)
             .chart(C::bar("Channel Spend by Quarter", "marketing_channels", "quarter", "channel", "spend", "USD (k)").at(0, 0, 2).build())
             .chart(C::line("Website Conversions", "website_traffic", "month", "signups,conversions", "Count").at(1, 0, 1).build())
             .chart(C::hbar("Market Share", "market_share", "company", "share", "%").at(1, 1, 1).build())
             .build(),
-        // 16. Operations Dashboard
+    );
+
+    // 16. Operations Dashboard
+    dash.add_page(
         PageBuilder::new("operations-dashboard", "Operations Dashboard", "Operations", 3)
             .chart(C::hbar("Project Status", "project_status", "project", "completion", "% Complete").at(0, 0, 1).build())
             .chart(C::hbar("Cost Breakdown", "cost_breakdown", "category", "amount", "USD (k)").at(0, 1, 1).build())
@@ -384,7 +353,10 @@ fn main() -> PyResult<()> {
             .chart(C::line("Traffic & Signups", "website_traffic", "month", "visitors,signups", "Count").at(1, 0, 2).build())
             .chart(C::scatter("Team Efficiency", "scatter_performance", "employees", "profit", "Team Size", "Profit (k)").at(1, 2, 1).build())
             .build(),
-        // 17. Financial Health — combined: GroupFilter + Range
+    );
+
+    // 17. Financial Health
+    dash.add_page(
         PageBuilder::new("financial-health", "Financial Health", "Finance", 2)
             .chart(C::line("Quarterly Revenue, Costs & Margin", "quarterly_trends", "quarter", "revenue,costs,margin", "Value").at(0, 0, 2).build())
             .chart(C::bar("Monthly Revenue vs Expenses", "monthly_revenue", "month", "category", "value", "USD (k)").at(1, 0, 1).build())
@@ -393,7 +365,10 @@ fn main() -> PyResult<()> {
             .filter(FilterSpec::select("scatter_performance", "tier", "Company Tier", vec!["Small", "Medium", "Large"]))
             .filter(FilterSpec::range("scatter_performance", "employees", "Team Size Range", 4.0, 40.0, 1.0))
             .build(),
-        // 18. Workforce Planning — TopN + Threshold combined
+    );
+
+    // 18. Workforce Planning
+    dash.add_page(
         PageBuilder::new("workforce-planning", "Workforce Planning", "Workforce", 2)
             .chart(C::bar("Headcount Growth", "dept_headcount", "department", "year", "count", "Employees").at(0, 0, 2).build())
             .chart(C::scatter("Team Size vs Revenue", "scatter_performance", "employees", "revenue", "Employees", "Revenue (k)").at(1, 0, 1).filtered().build())
@@ -402,13 +377,19 @@ fn main() -> PyResult<()> {
             .filter(FilterSpec::top_n("scatter_performance", "revenue", "Top N by Revenue", 30, true))
             .filter(FilterSpec::threshold("scatter_performance", "satisfaction", "High Satisfaction Only (>4.0)", 4.0, true))
             .build(),
-        // 19. Forecast & Targets
+    );
+
+    // 19. Forecast & Targets
+    dash.add_page(
         PageBuilder::new("forecast-targets", "Forecast & Targets", "Forecast", 2)
             .chart(C::line("Monthly Forecast", "monthly_trends", "month", "revenue,expenses,profit", "USD (k)").at(0, 0, 2).build())
             .chart(C::line("Quarterly Outlook", "quarterly_trends", "quarter", "revenue,costs", "USD (k)").at(1, 0, 1).build())
             .chart(C::hbar("Target Completion", "project_status", "project", "completion", "% Complete").at(1, 1, 1).build())
             .build(),
-        // 20. Annual Review
+    );
+
+    // 20. Annual Review
+    dash.add_page(
         PageBuilder::new("annual-review", "Annual Review", "Annual", 2)
             .chart(C::bar("Monthly Revenue vs Expenses", "monthly_revenue", "month", "category", "value", "USD (k)").at(0, 0, 2).build())
             .chart(C::bar("Quarterly Product Performance", "quarterly_products", "quarter", "product", "value", "Revenue (k)").at(1, 0, 2).build())
@@ -416,105 +397,7 @@ fn main() -> PyResult<()> {
             .chart(C::hbar("Satisfaction Scores", "satisfaction", "category", "score", "Score").at(2, 1, 1).build())
             .chart(C::line("Full Year Trends", "monthly_trends", "month", "revenue,expenses,profit,margin", "Value").at(3, 0, 2).build())
             .build(),
-    ];
+    );
 
-    // ── PyO3 bridge ─────────────────────────────────────────────────────────
-
-    let python_script = include_str!("../python/render.py");
-    let html_template = include_str!("../templates/chart.html");
-
-    Python::with_gil(|py| {
-        // Frames dict: source_key -> Arrow IPC bytes
-        let py_frames = PyDict::new(py);
-        for (key, bytes) in &frame_data {
-            py_frames.set_item(*key, PyBytes::new(py, bytes))?;
-        }
-
-        // Nav links for all pages
-        let py_nav = PyList::empty(py);
-        for page in &pages {
-            let d = PyDict::new(py);
-            d.set_item("slug", &page.slug)?;
-            d.set_item("label", &page.nav_label)?;
-            py_nav.append(d)?;
-        }
-
-        // Pages with nested specs
-        let py_pages = PyList::empty(py);
-        for page in &pages {
-            let p = PyDict::new(py);
-            p.set_item("slug", &page.slug)?;
-            p.set_item("title", &page.title)?;
-            p.set_item("grid_cols", page.grid_cols)?;
-
-            let py_specs = PyList::empty(py);
-            for spec in &page.specs {
-                let s = PyDict::new(py);
-                s.set_item("title", &spec.title)?;
-                s.set_item("chart_type", spec.chart_type.as_str())?;
-                s.set_item("source_key", &spec.source_key)?;
-                s.set_item("grid_row", spec.grid.row)?;
-                s.set_item("grid_col", spec.grid.col)?;
-                s.set_item("grid_col_span", spec.grid.col_span)?;
-                s.set_item("filtered", spec.filtered)?;
-                for (k, v) in &spec.config {
-                    s.set_item(k.as_str(), v.as_str())?;
-                }
-                py_specs.append(s)?;
-            }
-            p.set_item("specs", py_specs)?;
-
-            let py_filters = PyList::empty(py);
-            for filter in &page.filters {
-                let f = PyDict::new(py);
-                f.set_item("source_key", &filter.source_key)?;
-                f.set_item("column", &filter.column)?;
-                f.set_item("label", &filter.label)?;
-                match &filter.config {
-                    FilterConfig::Range { min, max, step } => {
-                        f.set_item("kind", "range")?;
-                        f.set_item("min", *min)?;
-                        f.set_item("max", *max)?;
-                        f.set_item("step", *step)?;
-                    }
-                    FilterConfig::Select { options } => {
-                        f.set_item("kind", "select")?;
-                        let py_opts = PyList::new(py, options)?;
-                        f.set_item("options", py_opts)?;
-                    }
-                    FilterConfig::Group { options } => {
-                        f.set_item("kind", "group")?;
-                        let py_opts = PyList::new(py, options)?;
-                        f.set_item("options", py_opts)?;
-                    }
-                    FilterConfig::Threshold { value, above } => {
-                        f.set_item("kind", "threshold")?;
-                        f.set_item("value", *value)?;
-                        f.set_item("above", *above)?;
-                    }
-                    FilterConfig::TopN { max_n, descending } => {
-                        f.set_item("kind", "top_n")?;
-                        f.set_item("max_n", *max_n)?;
-                        f.set_item("descending", *descending)?;
-                    }
-                }
-                py_filters.append(f)?;
-            }
-            p.set_item("filters", py_filters)?;
-            py_pages.append(p)?;
-        }
-
-        let locals = PyDict::new(py);
-        locals.set_item("frames", py_frames)?;
-        locals.set_item("pages", py_pages)?;
-        locals.set_item("nav_links", py_nav)?;
-        locals.set_item("html_template", html_template)?;
-        locals.set_item("output_dir", "output")?;
-
-        let code = CString::new(python_script).expect("Python script contains null byte");
-        py.run(code.as_c_str(), Some(&locals), Some(&locals))?;
-
-        println!("Dashboard generated: {} pages in output/", pages.len());
-        Ok(())
-    })
+    dash.render()
 }

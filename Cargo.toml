@@ -3,6 +3,14 @@ name = "rust-to-bokeh"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "rust_to_bokeh"
+path = "src/lib.rs"
+
+[[bin]]
+name = "example-dashboard"
+path = "src/bin/example_dashboard.rs"
+
 [dependencies]
 pyo3 = { version = "0.23", features = ["auto-initialize"] }
 polars = { version = "0.53", features = ["lazy", "ipc", "parquet"] }

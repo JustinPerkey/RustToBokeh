@@ -37,8 +37,8 @@ pub struct ChartSpec {
 
 pub enum FilterConfig {
     Range { min: f64, max: f64, step: f64 },
-    Select { options: Vec<&'static str> },
-    Group { options: Vec<&'static str> },
+    Select { options: Vec<String> },
+    Group { options: Vec<String> },
     Threshold { value: f64, above: bool },
     TopN { max_n: usize, descending: bool },
 }
@@ -156,14 +156,14 @@ impl FilterSpec {
                config: FilterConfig::Range { min, max, step } }
     }
 
-    pub fn select(source_key: &str, column: &str, label: &str, options: Vec<&'static str>) -> Self {
+    pub fn select(source_key: &str, column: &str, label: &str, options: Vec<&str>) -> Self {
         Self { source_key: source_key.into(), column: column.into(), label: label.into(),
-               config: FilterConfig::Select { options } }
+               config: FilterConfig::Select { options: options.into_iter().map(Into::into).collect() } }
     }
 
-    pub fn group(source_key: &str, column: &str, label: &str, options: Vec<&'static str>) -> Self {
+    pub fn group(source_key: &str, column: &str, label: &str, options: Vec<&str>) -> Self {
         Self { source_key: source_key.into(), column: column.into(), label: label.into(),
-               config: FilterConfig::Group { options } }
+               config: FilterConfig::Group { options: options.into_iter().map(Into::into).collect() } }
     }
 
     pub fn threshold(source_key: &str, column: &str, label: &str, value: f64, above: bool) -> Self {

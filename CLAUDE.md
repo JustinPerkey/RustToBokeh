@@ -13,7 +13,12 @@ RustToBokeh is a demonstration of seamless Rust ↔ Python interoperability for 
 ```
 RustToBokeh/
 ├── src/
-│   └── main.rs              # Rust entry point; builds DataFrames, defines Pages/ChartSpecs, calls Python via PyO3
+│   ├── lib.rs               # Library root: re-exports, Dashboard builder, serialize_df()
+│   ├── charts.rs            # ChartType, ChartSpec, ChartSpecBuilder, FilterConfig, FilterSpec
+│   ├── pages.rs             # Page, PageBuilder
+│   ├── render.rs            # PyO3 bridge: render_dashboard() function
+│   └── bin/
+│       └── example_dashboard.rs  # Example binary with 20-page demo dashboard
 ├── python/
 │   └── render.py            # Python script; deserializes data, renders multi-page Bokeh dashboards
 ├── templates/
@@ -27,10 +32,6 @@ RustToBokeh/
 ├── Cargo.lock               # Pinned dependency versions (do not edit manually)
 ├── requirements.txt         # Pinned Python dependencies (bokeh, jinja2, polars)
 ├── output/                  # Generated multi-page HTML output (committed for preview)
-│   ├── monthly.html
-│   ├── quarterly.html
-│   └── correlation.html
-├── output.html              # Legacy single-page output (kept for backwards compatibility)
 ├── vendor/                  # Vendored standalone Python (gitignored, created by setup_vendor.sh)
 ├── README.md                # User-facing setup and usage documentation
 └── LICENSE                  # MIT License
@@ -41,13 +42,17 @@ RustToBokeh/
 ## Architecture and Data Flow
 
 ```
-[Rust - src/main.rs]
+[Rust Library - src/lib.rs + src/render.rs]
+  │  Provides Dashboard builder, serialize_df(), render_dashboard()
+  │  Embeds python/render.py and templates/chart.html at compile time via include_str!()
+  │
+[User Binary - e.g. src/bin/example_dashboard.rs]
   │  Build Polars DataFrames (wide format: one row per category, one column per series)
-  │  Serialize to Arrow IPC binary (Vec<u8>)
-  │  Define Pages and ChartSpecs (chart type, source key, columns, layout)
-  │  Embed python/render.py and templates/chart.html at compile time via include_str!()
+  │  Define Pages and ChartSpecs using builder API
+  │  Call Dashboard::render() or render_dashboard()
   ↓
-[PyO3 Bridge]
+[PyO3 Bridge - src/render.rs]
+  │  Serialize DataFrames to Arrow IPC binary (Vec<u8>)
   │  Acquire Python GIL (Python::with_gil)
   │  Inject: { frames, pages, html_template, output_dir }
   │  Execute render.py in that context
@@ -69,7 +74,7 @@ Key architectural concepts:
 - **FilterSpec**: declarative filter definition (source_key, column, label, `FilterConfig` variant). Defined in Rust per-page, consumed by Python to build Bokeh filter objects and widgets.
 - **FilterConfig** enum: `Range` (RangeSlider → BooleanFilter), `Select` (dropdown with "All" → BooleanFilter), `Group` (dropdown → GroupFilter), `Threshold` (Switch toggle → BooleanFilter), `TopN` (Slider → IndexFilter).
 - **Page**: groups ChartSpecs + FilterSpecs into a single HTML file. Each page embeds only the data it needs.
-- **Shared ColumnDataSource**: line/scatter charts on the same page that reference the same `source_key` share one flat CDS, enabling linked hover/selection. Grouped bar and hbar use chart-type-specific CDS shapes.
+- **Shared ColumnDataSource**: all charts on the same page that reference the same `source_key` share one flat CDS, enabling linked hover/selection across all chart types.
 - **CDSView filtering**: filtered charts receive a `CDSView` with combined Bokeh filter objects (via `IntersectionFilter` when multiple filters target the same source). Widgets update filter properties via `CustomJS` callbacks.
 
 ---
@@ -102,10 +107,12 @@ pip install -r requirements.txt
 
 ```bash
 cargo build --release
-cargo run --release
+cargo run --bin example-dashboard --release
 ```
 
 This produces HTML files in the `output/` directory (one per page).
+
+To use as a library in your own binary, add `rust-to-bokeh` as a dependency and use the `Dashboard` builder API (see `src/bin/example_dashboard.rs` for a full example).
 
 ---
 
@@ -127,28 +134,26 @@ Python versions are pinned in `requirements.txt`.
 
 ## Code Conventions
 
-### Rust (`src/main.rs`)
+### Rust Library (`src/lib.rs`, `src/charts.rs`, `src/pages.rs`, `src/render.rs`)
 
-- Use Polars `df!` macro for DataFrame construction in **wide format** (one row per category, one column per series).
-- Serialize DataFrames with `IpcWriter` writing into a `std::io::Cursor`.
-- Define charts declaratively using `ChartSpec` and group them into `Page` structs.
-- Line/scatter charts sharing a `source_key` within a page share a single flat `ColumnDataSource` in the browser.
-- Define filters declaratively using `FilterSpec` with a `FilterConfig` enum variant (`Range`, `Select`, `Group`, `Threshold`, `TopN`).
-- Mark charts as `filtered: true` to opt them into CDSView-based filtering.
-- Pass data to Python as PyO3 dicts/lists (not `HashMap`).
+- **`Dashboard`** builder: high-level API that collects DataFrames via `add_df()` and pages via `add_page()`, then calls `render()`.
+- **`serialize_df()`**: standalone function to serialize a Polars DataFrame to Arrow IPC bytes.
+- **`render_dashboard()`**: lower-level function taking pre-serialized frame data and page definitions.
+- **`ChartSpecBuilder`**: fluent builder with `bar()`, `line()`, `hbar()`, `scatter()` constructors, chained with `.at(row, col, span)` and `.filtered()`.
+- **`PageBuilder`**: fluent builder with `.chart()` and `.filter()` methods.
+- **`FilterSpec`** factory methods: `range()`, `select()`, `group()`, `threshold()`, `top_n()`.
 - Use `.expect()` for error handling (acceptable for this demo; update to `?` propagation if error handling is needed in production extensions).
-- Imports grouped by crate: `polars`, then `pyo3`, then `std`.
 
 **Supported chart types** (`ChartType` enum): `GroupedBar`, `LineMulti`, `HBar`, `ScatterPlot`.
 
 **Pattern for adding a new chart to an existing page:**
-1. If needed, add a `build_*_dataframe()` function and serialize it into the `frame_data` vec.
-2. Add a `ChartSpec` to the relevant `Page`'s `specs` vec, referencing the correct `source_key`.
+1. If needed, build a DataFrame and register it with `dash.add_df("key", &mut df)`.
+2. Add a `ChartSpec` via the builder to the relevant page.
 3. Python's `render.py` handles the rest generically — no Python changes needed unless adding a new chart type.
 
 **Pattern for adding a new page:**
-1. Add a `Page` struct to the `pages` vec with a unique `slug`, `nav_label`, and its `ChartSpec`s.
-2. Ensure referenced `source_key`s exist in `frame_data`.
+1. Use `PageBuilder::new(...)` with desired `ChartSpec`s and call `dash.add_page(...)`.
+2. Ensure referenced `source_key`s have been registered with `add_df()`.
 3. Navigation is generated automatically by the template.
 
 ### Python (`python/render.py`)
@@ -174,27 +179,28 @@ Python versions are pinned in `requirements.txt`.
 
 ### Add a New Chart Type
 
-1. **In `src/main.rs`**: Add a variant to the `ChartType` enum and its `as_str()` mapping.
+1. **In `src/charts.rs`**: Add a variant to the `ChartType` enum and its `as_str()` mapping. Add a builder method to `ChartSpecBuilder`.
 2. **In `python/render.py`**: Add a rendering branch for the new chart type string in the chart-building loop.
-3. Use the new type in a `ChartSpec`.
+3. Use the new type in a `ChartSpec` via the builder.
 
 ### Add a New Page
 
-1. **In `src/main.rs`**: Add a `Page` to the `pages` vec with desired `ChartSpec`s and `filters: vec![]`. Add any new DataFrames to `frame_data`.
-2. Navigation updates automatically — no template changes needed.
+1. Use `PageBuilder::new(...)` with desired `ChartSpec`s and call `dash.add_page(...)`.
+2. Ensure referenced `source_key`s have been registered with `dash.add_df()`.
+3. Navigation updates automatically — no template changes needed.
 
 ### Add a Filter to a Page
 
-1. **In `src/main.rs`**: Add a `FilterSpec` to the page's `filters` vec with the desired `FilterConfig` variant.
-2. Set `filtered: true` on any `ChartSpec`s that should respond to the filter (must share the same `source_key`).
+1. Add a `FilterSpec` via its factory method (e.g. `FilterSpec::range(...)`) to the `PageBuilder` chain.
+2. Mark charts with `.filtered()` to opt them into CDSView-based filtering (must share the same `source_key`).
 3. Available filter types: `Range` (RangeSlider), `Select` (dropdown with "All"), `Group` (dropdown, single group — uses `GroupFilter`), `Threshold` (toggle switch), `TopN` (slider for top N rows — uses `IndexFilter`).
 4. Multiple filters on the same `source_key` combine via `IntersectionFilter` automatically.
 5. Python handles widget creation and `CustomJS` callbacks generically — no Python changes needed for existing filter types.
 
 ### Add a New Filter Type
 
-1. **In `src/main.rs`**: Add a variant to `FilterConfig` with its parameters.
-2. **In `src/main.rs`**: Add serialization for the new variant in the PyO3 bridge `match` block.
+1. **In `src/charts.rs`**: Add a variant to `FilterConfig` with its parameters. Add a factory method to `FilterSpec`.
+2. **In `src/render.rs`**: Add serialization for the new variant in the PyO3 bridge `match` block.
 3. **In `python/render.py`**: Add a handler in `build_filter_objects()` that creates the Bokeh filter model, widget, and `CustomJS` callback.
 
 ---
