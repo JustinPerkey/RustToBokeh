@@ -586,8 +586,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .table(
                 Tbl::new("Project Status", "project_status")
                     .column(TC::text("project", "Project"))
-                    .column(TC::percent("completion", "Completion", 0))
-                    .column(TC::number("budget", "Budget (k)", 0))
+                    .column(TC::percent("completion", "Completion %", 0))
                     .at(2, 0, 1)
                     .build(),
             )
