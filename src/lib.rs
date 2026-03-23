@@ -262,6 +262,198 @@ impl Default for Dashboard {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use polars::prelude::*;
+
+    // ── NavStyle ──────────────────────────────────────────────────────────────
+
+    #[test]
+    fn nav_style_horizontal_str() {
+        assert_eq!(NavStyle::Horizontal.as_str(), "horizontal");
+    }
+
+    #[test]
+    fn nav_style_vertical_str() {
+        assert_eq!(NavStyle::Vertical.as_str(), "vertical");
+    }
+
+    #[test]
+    fn nav_style_default_is_horizontal() {
+        assert_eq!(NavStyle::default(), NavStyle::Horizontal);
+    }
+
+    // ── serialize_df ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn serialize_df_produces_nonempty_bytes() {
+        let mut df = df![
+            "x" => [1i64, 2, 3],
+            "y" => [4.0f64, 5.0, 6.0],
+        ]
+        .unwrap();
+        let bytes = serialize_df(&mut df).unwrap();
+        assert!(!bytes.is_empty());
+    }
+
+    #[test]
+    fn serialize_df_bytes_are_valid_ipc() {
+        use polars::io::ipc::IpcReader;
+        use polars::io::SerReader;
+        use std::io::Cursor;
+
+        let mut df = df![
+            "name" => ["Alice", "Bob"],
+            "score" => [95.0f64, 87.5],
+        ]
+        .unwrap();
+        let bytes = serialize_df(&mut df).unwrap();
+
+        // Re-read the bytes and verify the data round-trips correctly.
+        let restored = IpcReader::new(Cursor::new(bytes)).finish().unwrap();
+        assert_eq!(restored.height(), 2);
+        assert_eq!(restored.width(), 2);
+        let names: Vec<&str> = restored.get_column_names().iter().map(|s| s.as_str()).collect();
+        assert!(names.contains(&"name"));
+        assert!(names.contains(&"score"));
+    }
+
+    #[test]
+    fn serialize_df_empty_dataframe() {
+        let mut df = df![
+            "a" => Vec::<i64>::new(),
+        ]
+        .unwrap();
+        let bytes = serialize_df(&mut df).unwrap();
+        assert!(!bytes.is_empty());
+    }
+
+    // ── Dashboard builder ─────────────────────────────────────────────────────
+
+    #[test]
+    fn dashboard_new_defaults() {
+        let dash = Dashboard::new();
+        assert_eq!(dash.output_dir, "output");
+        assert_eq!(dash.title, "");
+        assert_eq!(dash.nav_style, NavStyle::Horizontal);
+        assert!(dash.frames.is_empty());
+        assert!(dash.pages.is_empty());
+    }
+
+    #[test]
+    fn dashboard_default_matches_new() {
+        let a = Dashboard::new();
+        let b = Dashboard::default();
+        assert_eq!(a.output_dir, b.output_dir);
+        assert_eq!(a.title, b.title);
+    }
+
+    #[test]
+    fn dashboard_title_sets_title() {
+        let dash = Dashboard::new().title("My Report");
+        assert_eq!(dash.title, "My Report");
+    }
+
+    #[test]
+    fn dashboard_output_dir_sets_dir() {
+        let dash = Dashboard::new().output_dir("/tmp/test-output");
+        assert_eq!(dash.output_dir, "/tmp/test-output");
+    }
+
+    #[test]
+    fn dashboard_nav_style_sets_style() {
+        let dash = Dashboard::new().nav_style(NavStyle::Vertical);
+        assert_eq!(dash.nav_style, NavStyle::Vertical);
+    }
+
+    #[test]
+    fn dashboard_add_df_stores_frame() {
+        let mut df = df![
+            "a" => [1i64, 2],
+        ]
+        .unwrap();
+        let mut dash = Dashboard::new();
+        dash.add_df("my_data", &mut df).unwrap();
+        assert_eq!(dash.frames.len(), 1);
+        assert_eq!(dash.frames[0].0, "my_data");
+        assert!(!dash.frames[0].1.is_empty());
+    }
+
+    #[test]
+    fn dashboard_add_df_multiple_keys() {
+        let mut df1 = df!["a" => [1i64]].unwrap();
+        let mut df2 = df!["b" => [2i64]].unwrap();
+        let mut dash = Dashboard::new();
+        dash.add_df("first", &mut df1).unwrap();
+        dash.add_df("second", &mut df2).unwrap();
+        assert_eq!(dash.frames.len(), 2);
+        assert_eq!(dash.frames[0].0, "first");
+        assert_eq!(dash.frames[1].0, "second");
+    }
+
+    #[test]
+    fn dashboard_add_df_returns_self_for_chaining() {
+        let mut df = df!["a" => [1i64]].unwrap();
+        let mut dash = Dashboard::new();
+        // add_df returns &mut Self, so multiple calls can be chained
+        dash.add_df("k1", &mut df).unwrap()
+            .add_df("k2", &mut df).unwrap();
+        assert_eq!(dash.frames.len(), 2);
+    }
+
+    #[test]
+    fn dashboard_add_page_stores_page() {
+        use crate::pages::PageBuilder;
+        use crate::charts::{ChartSpecBuilder, HBarConfig};
+
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X").build().unwrap();
+        let page = PageBuilder::new("overview", "Overview", "Ov", 1)
+            .chart(ChartSpecBuilder::hbar("Chart", "data", cfg).at(0, 0, 1).build())
+            .build()
+            .unwrap();
+
+        let mut dash = Dashboard::new();
+        dash.add_page(page);
+        assert_eq!(dash.pages.len(), 1);
+        assert_eq!(dash.pages[0].slug, "overview");
+    }
+
+    #[test]
+    fn dashboard_add_page_multiple() {
+        use crate::pages::PageBuilder;
+        use crate::charts::{ChartSpecBuilder, HBarConfig};
+
+        let make_page = |slug: &str| {
+            let cfg = HBarConfig::builder()
+                .category("c").value("v").x_label("X").build().unwrap();
+            PageBuilder::new(slug, "Title", "Label", 1)
+                .chart(ChartSpecBuilder::hbar("C", "d", cfg).at(0, 0, 1).build())
+                .build()
+                .unwrap()
+        };
+
+        let mut dash = Dashboard::new();
+        dash.add_page(make_page("page-one"));
+        dash.add_page(make_page("page-two"));
+        assert_eq!(dash.pages.len(), 2);
+    }
+
+    #[test]
+    fn dashboard_output_dir_used_in_render_config() {
+        // Verifies the builder chain correctly stores a custom output dir.
+        // Full rendering requires Python; this just checks the configuration.
+        let dash = Dashboard::new()
+            .output_dir("/custom/path")
+            .title("Test")
+            .nav_style(NavStyle::Vertical);
+        assert_eq!(dash.output_dir, "/custom/path");
+        assert_eq!(dash.title, "Test");
+        assert_eq!(dash.nav_style, NavStyle::Vertical);
+    }
+}
+
 /// Configure the vendored Python so PyO3 can find the interpreter, standard
 /// library, and installed packages.
 ///

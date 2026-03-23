@@ -279,3 +279,141 @@ impl TableSpecBuilder {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── ParagraphSpec builder ─────────────────────────────────────────────────
+
+    #[test]
+    fn paragraph_default_grid() {
+        let spec = ParagraphSpec::new("Hello").build();
+        assert_eq!(spec.text, "Hello");
+        assert!(spec.title.is_none());
+        assert_eq!(spec.grid.row, 0);
+        assert_eq!(spec.grid.col, 0);
+        assert_eq!(spec.grid.col_span, 1);
+    }
+
+    #[test]
+    fn paragraph_with_title() {
+        let spec = ParagraphSpec::new("Body text").title("My Title").build();
+        assert_eq!(spec.title, Some("My Title".to_string()));
+        assert_eq!(spec.text, "Body text");
+    }
+
+    #[test]
+    fn paragraph_at_sets_grid() {
+        let spec = ParagraphSpec::new("Text").at(3, 1, 2).build();
+        assert_eq!(spec.grid.row, 3);
+        assert_eq!(spec.grid.col, 1);
+        assert_eq!(spec.grid.col_span, 2);
+    }
+
+    #[test]
+    fn paragraph_multi_paragraph_text() {
+        let text = "First para.\n\nSecond para.";
+        let spec = ParagraphSpec::new(text).build();
+        assert_eq!(spec.text, text);
+    }
+
+    // ── TableColumn factories ─────────────────────────────────────────────────
+
+    #[test]
+    fn table_column_text() {
+        let col = TableColumn::text("name", "Name");
+        assert_eq!(col.key, "name");
+        assert_eq!(col.label, "Name");
+        assert!(matches!(col.format, ColumnFormat::Text));
+    }
+
+    #[test]
+    fn table_column_number() {
+        let col = TableColumn::number("score", "Score", 2);
+        assert_eq!(col.key, "score");
+        match col.format {
+            ColumnFormat::Number { decimals } => assert_eq!(decimals, 2),
+            _ => panic!("expected Number format"),
+        }
+    }
+
+    #[test]
+    fn table_column_currency() {
+        let col = TableColumn::currency("revenue", "Revenue", "$", 0);
+        match col.format {
+            ColumnFormat::Currency { symbol, decimals } => {
+                assert_eq!(symbol, "$");
+                assert_eq!(decimals, 0);
+            }
+            _ => panic!("expected Currency format"),
+        }
+    }
+
+    #[test]
+    fn table_column_percent() {
+        let col = TableColumn::percent("margin", "Margin", 1);
+        match col.format {
+            ColumnFormat::Percent { decimals } => assert_eq!(decimals, 1),
+            _ => panic!("expected Percent format"),
+        }
+    }
+
+    // ── TableSpec builder ─────────────────────────────────────────────────────
+
+    #[test]
+    fn table_spec_default_grid() {
+        let spec = TableSpec::new("My Table", "data_key").build();
+        assert_eq!(spec.title, "My Table");
+        assert_eq!(spec.source_key, "data_key");
+        assert!(spec.columns.is_empty());
+        assert_eq!(spec.grid.row, 0);
+        assert_eq!(spec.grid.col, 0);
+        assert_eq!(spec.grid.col_span, 1);
+    }
+
+    #[test]
+    fn table_spec_with_columns() {
+        let spec = TableSpec::new("T", "src")
+            .column(TableColumn::text("a", "A"))
+            .column(TableColumn::number("b", "B", 2))
+            .build();
+        assert_eq!(spec.columns.len(), 2);
+        assert_eq!(spec.columns[0].key, "a");
+        assert_eq!(spec.columns[1].key, "b");
+    }
+
+    #[test]
+    fn table_spec_at_sets_grid() {
+        let spec = TableSpec::new("T", "src").at(1, 0, 3).build();
+        assert_eq!(spec.grid.row, 1);
+        assert_eq!(spec.grid.col, 0);
+        assert_eq!(spec.grid.col_span, 3);
+    }
+
+    // ── PageModule variants ───────────────────────────────────────────────────
+
+    #[test]
+    fn page_module_chart_wraps_spec() {
+        use crate::charts::{ChartSpecBuilder, HBarConfig};
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X").build().unwrap();
+        let spec = ChartSpecBuilder::hbar("Chart", "data", cfg).build();
+        let module = PageModule::Chart(spec);
+        assert!(matches!(module, PageModule::Chart(_)));
+    }
+
+    #[test]
+    fn page_module_paragraph_wraps_spec() {
+        let spec = ParagraphSpec::new("Hello").build();
+        let module = PageModule::Paragraph(spec);
+        assert!(matches!(module, PageModule::Paragraph(_)));
+    }
+
+    #[test]
+    fn page_module_table_wraps_spec() {
+        let spec = TableSpec::new("T", "src").build();
+        let module = PageModule::Table(spec);
+        assert!(matches!(module, PageModule::Table(_)));
+    }
+}

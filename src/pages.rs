@@ -230,3 +230,187 @@ impl PageBuilder {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::charts::{ChartSpecBuilder, HBarConfig, FilterSpec};
+    use crate::modules::{ParagraphSpec, TableSpec, TableColumn};
+
+    fn hbar_spec(row: usize, col: usize, span: usize) -> ChartSpec {
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X").build().unwrap();
+        ChartSpecBuilder::hbar("Chart", "data", cfg).at(row, col, span).build()
+    }
+
+    // ── Successful builds ─────────────────────────────────────────────────────
+
+    #[test]
+    fn build_single_chart_page() {
+        let page = PageBuilder::new("overview", "Overview", "Ov", 2)
+            .chart(hbar_spec(0, 0, 2))
+            .build()
+            .unwrap();
+        assert_eq!(page.slug, "overview");
+        assert_eq!(page.title, "Overview");
+        assert_eq!(page.nav_label, "Ov");
+        assert_eq!(page.grid_cols, 2);
+        assert_eq!(page.modules.len(), 1);
+        assert!(page.filters.is_empty());
+        assert!(page.category.is_none());
+    }
+
+    #[test]
+    fn build_page_with_category() {
+        let page = PageBuilder::new("p", "P", "P", 1)
+            .category("Finance")
+            .chart(hbar_spec(0, 0, 1))
+            .build()
+            .unwrap();
+        assert_eq!(page.category, Some("Finance".to_string()));
+    }
+
+    #[test]
+    fn build_page_with_filter() {
+        let page = PageBuilder::new("p", "P", "P", 1)
+            .chart(hbar_spec(0, 0, 1))
+            .filter(FilterSpec::range("data", "v", "Val", 0.0, 100.0, 1.0))
+            .build()
+            .unwrap();
+        assert_eq!(page.filters.len(), 1);
+    }
+
+    #[test]
+    fn build_page_two_charts_non_overlapping() {
+        let page = PageBuilder::new("p", "P", "P", 2)
+            .chart(hbar_spec(0, 0, 1))
+            .chart(hbar_spec(0, 1, 1))
+            .build()
+            .unwrap();
+        assert_eq!(page.modules.len(), 2);
+    }
+
+    #[test]
+    fn build_page_charts_in_different_rows() {
+        let page = PageBuilder::new("p", "P", "P", 1)
+            .chart(hbar_spec(0, 0, 1))
+            .chart(hbar_spec(1, 0, 1))
+            .build()
+            .unwrap();
+        assert_eq!(page.modules.len(), 2);
+    }
+
+    #[test]
+    fn build_page_with_paragraph() {
+        let para = ParagraphSpec::new("Hello world").at(0, 0, 1).build();
+        let page = PageBuilder::new("p", "P", "P", 1)
+            .paragraph(para)
+            .build()
+            .unwrap();
+        assert_eq!(page.modules.len(), 1);
+    }
+
+    #[test]
+    fn build_page_with_table() {
+        let tbl = TableSpec::new("My Table", "data")
+            .column(TableColumn::text("name", "Name"))
+            .at(0, 0, 1)
+            .build();
+        let page = PageBuilder::new("p", "P", "P", 1)
+            .table(tbl)
+            .build()
+            .unwrap();
+        assert_eq!(page.modules.len(), 1);
+    }
+
+    // ── Grid validation errors ────────────────────────────────────────────────
+
+    #[test]
+    fn grid_cols_zero_fails() {
+        assert!(matches!(
+            PageBuilder::new("p", "P", "P", 0).build(),
+            Err(ChartError::GridValidation(_))
+        ));
+    }
+
+    #[test]
+    fn grid_cols_exceeds_max_fails() {
+        assert!(matches!(
+            PageBuilder::new("p", "P", "P", MAX_GRID_COLS + 1).build(),
+            Err(ChartError::GridValidation(_))
+        ));
+    }
+
+    #[test]
+    fn grid_cols_at_max_succeeds() {
+        let page = PageBuilder::new("p", "P", "P", MAX_GRID_COLS)
+            .chart(hbar_spec(0, 0, MAX_GRID_COLS))
+            .build()
+            .unwrap();
+        assert_eq!(page.grid_cols, MAX_GRID_COLS);
+    }
+
+    #[test]
+    fn col_span_zero_fails() {
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X").build().unwrap();
+        let spec = ChartSpecBuilder::hbar("C", "d", cfg).at(0, 0, 0).build();
+        assert!(matches!(
+            PageBuilder::new("p", "P", "P", 2).chart(spec).build(),
+            Err(ChartError::GridValidation(_))
+        ));
+    }
+
+    #[test]
+    fn col_index_out_of_bounds_fails() {
+        // col=2 is out of bounds for a 2-column grid (valid cols are 0, 1)
+        assert!(matches!(
+            PageBuilder::new("p", "P", "P", 2).chart(hbar_spec(0, 2, 1)).build(),
+            Err(ChartError::GridValidation(_))
+        ));
+    }
+
+    #[test]
+    fn col_plus_span_overflow_fails() {
+        // col=1, span=2 → col+span=3 overflows a 2-column grid
+        assert!(matches!(
+            PageBuilder::new("p", "P", "P", 2).chart(hbar_spec(0, 1, 2)).build(),
+            Err(ChartError::GridValidation(_))
+        ));
+    }
+
+    #[test]
+    fn overlapping_modules_same_row_fails() {
+        // Both at row 0, col 0, span 2 — they overlap
+        assert!(matches!(
+            PageBuilder::new("p", "P", "P", 2)
+                .chart(hbar_spec(0, 0, 2))
+                .chart(hbar_spec(0, 0, 1))
+                .build(),
+            Err(ChartError::GridValidation(_))
+        ));
+    }
+
+    #[test]
+    fn partial_overlap_same_row_fails() {
+        // col 0 span 2 occupies [0,2) and col 1 span 1 occupies [1,2) → overlap
+        assert!(matches!(
+            PageBuilder::new("p", "P", "P", 3)
+                .chart(hbar_spec(0, 0, 2))
+                .chart(hbar_spec(0, 1, 1))
+                .build(),
+            Err(ChartError::GridValidation(_))
+        ));
+    }
+
+    #[test]
+    fn adjacent_modules_same_row_succeeds() {
+        // col 0 span 1 and col 1 span 1 are adjacent, not overlapping
+        let page = PageBuilder::new("p", "P", "P", 2)
+            .chart(hbar_spec(0, 0, 1))
+            .chart(hbar_spec(0, 1, 1))
+            .build()
+            .unwrap();
+        assert_eq!(page.modules.len(), 2);
+    }
+}

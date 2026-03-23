@@ -625,3 +625,321 @@ impl FilterSpec {
                config: FilterConfig::TopN { max_n, descending } }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── GroupedBarConfig builder ──────────────────────────────────────────────
+
+    #[test]
+    fn grouped_bar_missing_x_col() {
+        assert!(matches!(
+            GroupedBarConfig::builder().group("g").value("v").y_label("Y").build(),
+            Err(ChartError::MissingField("x_col"))
+        ));
+    }
+
+    #[test]
+    fn grouped_bar_missing_group_col() {
+        assert!(matches!(
+            GroupedBarConfig::builder().x("x").value("v").y_label("Y").build(),
+            Err(ChartError::MissingField("group_col"))
+        ));
+    }
+
+    #[test]
+    fn grouped_bar_missing_value_col() {
+        assert!(matches!(
+            GroupedBarConfig::builder().x("x").group("g").y_label("Y").build(),
+            Err(ChartError::MissingField("value_col"))
+        ));
+    }
+
+    #[test]
+    fn grouped_bar_missing_y_label() {
+        assert!(matches!(
+            GroupedBarConfig::builder().x("x").group("g").value("v").build(),
+            Err(ChartError::MissingField("y_label"))
+        ));
+    }
+
+    #[test]
+    fn grouped_bar_build_success() {
+        let cfg = GroupedBarConfig::builder()
+            .x("month").group("category").value("revenue").y_label("USD")
+            .build().unwrap();
+        assert_eq!(cfg.x_col, "month");
+        assert_eq!(cfg.group_col, "category");
+        assert_eq!(cfg.value_col, "revenue");
+        assert_eq!(cfg.y_label, "USD");
+    }
+
+    // ── LineConfig builder ────────────────────────────────────────────────────
+
+    #[test]
+    fn line_missing_x_col() {
+        assert!(matches!(
+            LineConfig::builder().y_cols(&["a"]).y_label("Y").build(),
+            Err(ChartError::MissingField("x_col"))
+        ));
+    }
+
+    #[test]
+    fn line_missing_y_cols() {
+        assert!(matches!(
+            LineConfig::builder().x("x").y_label("Y").build(),
+            Err(ChartError::MissingField("y_cols"))
+        ));
+    }
+
+    #[test]
+    fn line_missing_y_label() {
+        assert!(matches!(
+            LineConfig::builder().x("x").y_cols(&["a"]).build(),
+            Err(ChartError::MissingField("y_label"))
+        ));
+    }
+
+    #[test]
+    fn line_build_success() {
+        let cfg = LineConfig::builder()
+            .x("month").y_cols(&["rev", "exp"]).y_label("USD")
+            .build().unwrap();
+        assert_eq!(cfg.x_col, "month");
+        assert_eq!(cfg.y_cols, vec!["rev".to_string(), "exp".to_string()]);
+        assert_eq!(cfg.y_label, "USD");
+    }
+
+    // ── HBarConfig builder ────────────────────────────────────────────────────
+
+    #[test]
+    fn hbar_missing_category_col() {
+        assert!(matches!(
+            HBarConfig::builder().value("v").x_label("X").build(),
+            Err(ChartError::MissingField("category_col"))
+        ));
+    }
+
+    #[test]
+    fn hbar_missing_value_col() {
+        assert!(matches!(
+            HBarConfig::builder().category("c").x_label("X").build(),
+            Err(ChartError::MissingField("value_col"))
+        ));
+    }
+
+    #[test]
+    fn hbar_missing_x_label() {
+        assert!(matches!(
+            HBarConfig::builder().category("c").value("v").build(),
+            Err(ChartError::MissingField("x_label"))
+        ));
+    }
+
+    #[test]
+    fn hbar_build_success() {
+        let cfg = HBarConfig::builder()
+            .category("dept").value("headcount").x_label("Employees")
+            .build().unwrap();
+        assert_eq!(cfg.category_col, "dept");
+        assert_eq!(cfg.value_col, "headcount");
+        assert_eq!(cfg.x_label, "Employees");
+    }
+
+    // ── ScatterConfig builder ─────────────────────────────────────────────────
+
+    #[test]
+    fn scatter_missing_x_col() {
+        assert!(matches!(
+            ScatterConfig::builder().y("y").x_label("X").y_label("Y").build(),
+            Err(ChartError::MissingField("x_col"))
+        ));
+    }
+
+    #[test]
+    fn scatter_missing_y_col() {
+        assert!(matches!(
+            ScatterConfig::builder().x("x").x_label("X").y_label("Y").build(),
+            Err(ChartError::MissingField("y_col"))
+        ));
+    }
+
+    #[test]
+    fn scatter_missing_x_label() {
+        assert!(matches!(
+            ScatterConfig::builder().x("x").y("y").y_label("Y").build(),
+            Err(ChartError::MissingField("x_label"))
+        ));
+    }
+
+    #[test]
+    fn scatter_missing_y_label() {
+        assert!(matches!(
+            ScatterConfig::builder().x("x").y("y").x_label("X").build(),
+            Err(ChartError::MissingField("y_label"))
+        ));
+    }
+
+    #[test]
+    fn scatter_build_success() {
+        let cfg = ScatterConfig::builder()
+            .x("revenue").y("profit").x_label("Revenue").y_label("Profit")
+            .build().unwrap();
+        assert_eq!(cfg.x_col, "revenue");
+        assert_eq!(cfg.y_col, "profit");
+        assert_eq!(cfg.x_label, "Revenue");
+        assert_eq!(cfg.y_label, "Profit");
+    }
+
+    // ── ChartConfig::chart_type_str ───────────────────────────────────────────
+
+    #[test]
+    fn chart_type_str_grouped_bar() {
+        let cfg = ChartConfig::GroupedBar(GroupedBarConfig::builder()
+            .x("x").group("g").value("v").y_label("Y").build().unwrap());
+        assert_eq!(cfg.chart_type_str(), "grouped_bar");
+    }
+
+    #[test]
+    fn chart_type_str_line() {
+        let cfg = ChartConfig::Line(LineConfig::builder()
+            .x("x").y_cols(&["a"]).y_label("Y").build().unwrap());
+        assert_eq!(cfg.chart_type_str(), "line_multi");
+    }
+
+    #[test]
+    fn chart_type_str_hbar() {
+        let cfg = ChartConfig::HBar(HBarConfig::builder()
+            .category("c").value("v").x_label("X").build().unwrap());
+        assert_eq!(cfg.chart_type_str(), "hbar");
+    }
+
+    #[test]
+    fn chart_type_str_scatter() {
+        let cfg = ChartConfig::Scatter(ScatterConfig::builder()
+            .x("x").y("y").x_label("X").y_label("Y").build().unwrap());
+        assert_eq!(cfg.chart_type_str(), "scatter");
+    }
+
+    // ── ChartSpecBuilder ──────────────────────────────────────────────────────
+
+    #[test]
+    fn chart_spec_builder_defaults() {
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X").build().unwrap();
+        let spec = ChartSpecBuilder::hbar("My Chart", "my_data", cfg).build();
+        assert_eq!(spec.title, "My Chart");
+        assert_eq!(spec.source_key, "my_data");
+        assert_eq!(spec.grid.row, 0);
+        assert_eq!(spec.grid.col, 0);
+        assert_eq!(spec.grid.col_span, 1);
+        assert!(!spec.filtered);
+    }
+
+    #[test]
+    fn chart_spec_builder_at_sets_grid() {
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X").build().unwrap();
+        let spec = ChartSpecBuilder::hbar("Chart", "data", cfg).at(2, 1, 3).build();
+        assert_eq!(spec.grid.row, 2);
+        assert_eq!(spec.grid.col, 1);
+        assert_eq!(spec.grid.col_span, 3);
+    }
+
+    #[test]
+    fn chart_spec_builder_filtered_flag() {
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X").build().unwrap();
+        let spec = ChartSpecBuilder::hbar("Chart", "data", cfg).filtered().build();
+        assert!(spec.filtered);
+    }
+
+    #[test]
+    fn chart_spec_builder_bar_constructor() {
+        let cfg = GroupedBarConfig::builder()
+            .x("x").group("g").value("v").y_label("Y").build().unwrap();
+        let spec = ChartSpecBuilder::bar("Bar Chart", "src", cfg).build();
+        assert_eq!(spec.config.chart_type_str(), "grouped_bar");
+    }
+
+    #[test]
+    fn chart_spec_builder_line_constructor() {
+        let cfg = LineConfig::builder()
+            .x("x").y_cols(&["a"]).y_label("Y").build().unwrap();
+        let spec = ChartSpecBuilder::line("Line Chart", "src", cfg).build();
+        assert_eq!(spec.config.chart_type_str(), "line_multi");
+    }
+
+    #[test]
+    fn chart_spec_builder_scatter_constructor() {
+        let cfg = ScatterConfig::builder()
+            .x("x").y("y").x_label("X").y_label("Y").build().unwrap();
+        let spec = ChartSpecBuilder::scatter("Scatter", "src", cfg).build();
+        assert_eq!(spec.config.chart_type_str(), "scatter");
+    }
+
+    // ── FilterSpec factory methods ────────────────────────────────────────────
+
+    #[test]
+    fn filter_spec_range_stores_config() {
+        let f = FilterSpec::range("src", "col", "Label", 10.0, 100.0, 5.0);
+        assert_eq!(f.source_key, "src");
+        assert_eq!(f.column, "col");
+        assert_eq!(f.label, "Label");
+        match f.config {
+            FilterConfig::Range { min, max, step } => {
+                assert_eq!(min, 10.0);
+                assert_eq!(max, 100.0);
+                assert_eq!(step, 5.0);
+            }
+            _ => panic!("expected Range config"),
+        }
+    }
+
+    #[test]
+    fn filter_spec_select_stores_config() {
+        let f = FilterSpec::select("src", "col", "Label", vec!["A", "B", "C"]);
+        match f.config {
+            FilterConfig::Select { options } => {
+                assert_eq!(options, vec!["A", "B", "C"]);
+            }
+            _ => panic!("expected Select config"),
+        }
+    }
+
+    #[test]
+    fn filter_spec_group_stores_config() {
+        let f = FilterSpec::group("src", "col", "Label", vec!["X", "Y"]);
+        match f.config {
+            FilterConfig::Group { options } => {
+                assert_eq!(options, vec!["X", "Y"]);
+            }
+            _ => panic!("expected Group config"),
+        }
+    }
+
+    #[test]
+    fn filter_spec_threshold_stores_config() {
+        let f = FilterSpec::threshold("src", "col", "Label", 50.0, true);
+        match f.config {
+            FilterConfig::Threshold { value, above } => {
+                assert_eq!(value, 50.0);
+                assert!(above);
+            }
+            _ => panic!("expected Threshold config"),
+        }
+    }
+
+    #[test]
+    fn filter_spec_top_n_stores_config() {
+        let f = FilterSpec::top_n("src", "col", "Label", 10, false);
+        match f.config {
+            FilterConfig::TopN { max_n, descending } => {
+                assert_eq!(max_n, 10);
+                assert!(!descending);
+            }
+            _ => panic!("expected TopN config"),
+        }
+    }
+}
