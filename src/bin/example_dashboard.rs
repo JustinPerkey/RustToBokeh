@@ -186,7 +186,9 @@ fn build_marketing_channels() -> DataFrame {
 // ── Main ────────────────────────────────────────────────────────────────────
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut dash = Dashboard::new();
+    let mut dash = Dashboard::new()
+        .title("Annual Business Dashboard")
+        .nav_style(NavStyle::Vertical);
 
     // Register all DataFrames
     dash.add_df("monthly_revenue", &mut build_monthly_revenue())?;
@@ -228,6 +230,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 2. Revenue Overview
     dash.add_page(
         PageBuilder::new("revenue-overview", "Revenue Overview", "Revenue", 2)
+            .category("Financial")
             .chart(C::bar("Monthly Revenue vs Expenses", "monthly_revenue",
                 Bar::builder().x("month").group("category").value("value").y_label("USD (k)").build()?
             ).at(0, 0, 2).build())
@@ -246,6 +249,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 3. Expense Analysis
     dash.add_page(
         PageBuilder::new("expense-analysis", "Expense Analysis", "Expenses", 2)
+            .category("Financial")
             .chart(C::hbar("Cost Breakdown", "cost_breakdown",
                 HB::builder().category("category").value("amount").x_label("USD (k)").build()?
             ).at(0, 0, 1).build())
@@ -264,6 +268,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 4. Quarterly Performance
     dash.add_page(
         PageBuilder::new("quarterly-performance", "Quarterly Performance", "Quarterly", 2)
+            .category("Financial")
             .chart(C::bar("Product Revenue by Quarter", "quarterly_products",
                 Bar::builder().x("quarter").group("product").value("value").y_label("Revenue (k)").build()?
             ).at(0, 0, 2).build())
@@ -279,6 +284,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 5. Product Analysis
     dash.add_page(
         PageBuilder::new("product-analysis", "Product Analysis", "Products", 2)
+            .category("Commercial")
             .chart(C::bar("Quarterly Product Revenue", "quarterly_products",
                 Bar::builder().x("quarter").group("product").value("value").y_label("Revenue (k)").build()?
             ).at(0, 0, 2).build())
@@ -296,6 +302,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 6. Regional Breakdown
     dash.add_page(
         PageBuilder::new("regional-breakdown", "Regional Sales Breakdown", "Regions", 2)
+            .category("Commercial")
             .chart(C::bar("Sales by Region & Channel", "regional_sales",
                 Bar::builder().x("region").group("channel").value("value").y_label("USD (k)").build()?
             ).at(0, 0, 2).build())
@@ -311,6 +318,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 7. Team Metrics
     dash.add_page(
         PageBuilder::new("team-metrics", "Team & Workforce Metrics", "Team", 2)
+            .category("People")
             .chart(C::bar("Department Headcount by Year", "dept_headcount",
                 Bar::builder().x("department").group("year").value("count").y_label("Employees").build()?
             ).at(0, 0, 2).build())
@@ -327,6 +335,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 8. Customer Insights
     dash.add_page(
         PageBuilder::new("customer-insights", "Customer Insights", "Customers", 2)
+            .category("People")
             .chart(C::hbar("Satisfaction Scores", "satisfaction",
                 HB::builder().category("category").value("score").x_label("Score (1-5)").build()?
             ).at(0, 0, 2).build())
@@ -343,6 +352,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 9. Web Analytics
     dash.add_page(
         PageBuilder::new("web-analytics", "Website Analytics", "Web", 2)
+            .category("Digital")
             .chart(C::line("Visitor Traffic", "website_traffic",
                 Line::builder().x("month").y_cols(&["visitors"]).y_label("Visitors").build()?
             ).at(0, 0, 2).build())
@@ -358,6 +368,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 10. Market Position
     dash.add_page(
         PageBuilder::new("market-position", "Market Position", "Market", 2)
+            .category("Commercial")
             .chart(C::hbar("Market Share", "market_share",
                 HB::builder().category("company").value("share").x_label("Share %").build()?
             ).at(0, 0, 1).build())
@@ -373,6 +384,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 11. Budget Management
     dash.add_page(
         PageBuilder::new("budget-management", "Budget Management", "Budget", 2)
+            .category("Financial")
             .chart(C::bar("Budget vs Actual Spending", "budget_vs_actual",
                 Bar::builder().x("department").group("type").value("amount").y_label("USD (k)").build()?
             ).at(0, 0, 2).build())
@@ -388,6 +400,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 12. Project Portfolio
     dash.add_page(
         PageBuilder::new("project-portfolio", "Project Portfolio", "Projects", 2)
+            .category("Operations")
             .chart(C::hbar("Project Completion Status", "project_status",
                 HB::builder().category("project").value("completion").x_label("% Complete").build()?
             ).at(0, 0, 2).build())
@@ -404,6 +417,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 13. Growth Indicators
     dash.add_page(
         PageBuilder::new("growth-indicators", "Growth Indicators", "Growth", 2)
+            .category("Digital")
             .chart(C::line("Revenue & Profit Growth", "monthly_trends",
                 Line::builder().x("month").y_cols(&["revenue", "profit"]).y_label("USD (k)").build()?
             ).at(0, 0, 2).build())
@@ -419,6 +433,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 14. Cost Optimization
     dash.add_page(
         PageBuilder::new("cost-optimization", "Cost Optimization", "Costs", 2)
+            .category("Operations")
             .chart(C::hbar("Spending by Category", "cost_breakdown",
                 HB::builder().category("category").value("amount").x_label("USD (k)").build()?
             ).at(0, 0, 2).build())
@@ -435,6 +450,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 15. Marketing ROI
     dash.add_page(
         PageBuilder::new("marketing-roi", "Marketing ROI", "Marketing", 2)
+            .category("Digital")
             .chart(C::bar("Channel Spend by Quarter", "marketing_channels",
                 Bar::builder().x("quarter").group("channel").value("spend").y_label("USD (k)").build()?
             ).at(0, 0, 2).build())
@@ -450,6 +466,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 16. Operations Dashboard
     dash.add_page(
         PageBuilder::new("operations-dashboard", "Operations Dashboard", "Operations", 3)
+            .category("Operations")
             .chart(C::hbar("Project Status", "project_status",
                 HB::builder().category("project").value("completion").x_label("% Complete").build()?
             ).at(0, 0, 1).build())
@@ -471,6 +488,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 17. Financial Health
     dash.add_page(
         PageBuilder::new("financial-health", "Financial Health", "Finance", 2)
+            .category("Financial")
             .chart(C::line("Quarterly Revenue, Costs & Margin", "quarterly_trends",
                 Line::builder().x("quarter").y_cols(&["revenue", "costs", "margin"]).y_label("Value").build()?
             ).at(0, 0, 2).build())
@@ -491,6 +509,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 18. Workforce Planning
     dash.add_page(
         PageBuilder::new("workforce-planning", "Workforce Planning", "Workforce", 2)
+            .category("People")
             .chart(C::bar("Headcount Growth", "dept_headcount",
                 Bar::builder().x("department").group("year").value("count").y_label("Employees").build()?
             ).at(0, 0, 2).build())
@@ -511,6 +530,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 19. Forecast & Targets
     dash.add_page(
         PageBuilder::new("forecast-targets", "Forecast & Targets", "Forecast", 2)
+            .category("Operations")
             .chart(C::line("Monthly Forecast", "monthly_trends",
                 Line::builder().x("month").y_cols(&["revenue", "expenses", "profit"]).y_label("USD (k)").build()?
             ).at(0, 0, 2).build())
@@ -526,6 +546,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 20. Annual Review
     dash.add_page(
         PageBuilder::new("annual-review", "Annual Review", "Annual", 2)
+            .category("Financial")
             .chart(C::bar("Monthly Revenue vs Expenses", "monthly_revenue",
                 Bar::builder().x("month").group("category").value("value").y_label("USD (k)").build()?
             ).at(0, 0, 2).build())
@@ -547,6 +568,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 21. Module Showcase — demonstrates paragraph, table, and chart modules
     dash.add_page(
         PageBuilder::new("module-showcase", "Module Showcase", "Showcase", 2)
+            .category("Reference")
             // Paragraph module spanning the full width
             .paragraph(
                 Para::new(

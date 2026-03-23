@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }} — RustToBokeh</title>
+    <title>{% if report_title %}{{ report_title }} — {% endif %}{{ title }} — RustToBokeh</title>
     {% if bokeh_css_url %}
     <link rel="stylesheet" href="{{ bokeh_css_url }}">
     {% endif %}
@@ -14,47 +14,142 @@
         * { box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            max-width: 1600px;
-            margin: 0 auto;
-            padding: 0 20px 40px;
             background: #f8f9fa;
             color: #333;
+            margin: 0;
+            padding: 0;
         }
-        nav {
+
+        /* ── Horizontal nav ────────────────────────────────────────────────── */
+        .nav-horizontal {
             display: flex;
             flex-wrap: wrap;
-            gap: 6px;
-            padding: 14px 0;
-            margin-bottom: 8px;
+            align-items: center;
+            gap: 4px 8px;
+            padding: 10px 20px;
+            background: #f8f9fa;
             border-bottom: 2px solid #e0e0e0;
             position: sticky;
             top: 0;
-            background: #f8f9fa;
             z-index: 100;
         }
-        nav a {
+        .nav-horizontal .nav-report-title {
+            font-size: 1.0em;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-right: 12px;
+            padding-right: 14px;
+            border-right: 2px solid #d0d0d0;
+            white-space: nowrap;
+            line-height: 1.2;
+        }
+        .nav-horizontal .nav-group {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .nav-horizontal .nav-group + .nav-group {
+            border-left: 1px solid #d8d8d8;
+            padding-left: 10px;
+            margin-left: 4px;
+        }
+        .nav-horizontal .nav-category-label {
+            font-size: 0.7em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #999;
+            margin-right: 4px;
+            white-space: nowrap;
+        }
+        .nav-horizontal a {
             text-decoration: none;
-            padding: 6px 14px;
+            padding: 5px 12px;
             border-radius: 6px;
-            font-size: 0.85em;
+            font-size: 0.83em;
             font-weight: 500;
             color: #4C72B0;
             background: #e8eef7;
             transition: background 0.15s, color 0.15s;
+            white-space: nowrap;
         }
-        nav a:hover { background: #4C72B0; color: white; }
-        nav a.active { background: #4C72B0; color: white; font-weight: 700; }
+        .nav-horizontal a:hover { background: #4C72B0; color: white; }
+        .nav-horizontal a.active { background: #4C72B0; color: white; font-weight: 700; }
+
+        /* ── Vertical nav ──────────────────────────────────────────────────── */
+        .nav-vertical {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 220px;
+            height: 100vh;
+            overflow-y: auto;
+            background: #2c3e50;
+            z-index: 100;
+            padding-bottom: 24px;
+        }
+        .nav-vertical .nav-report-title {
+            color: white;
+            font-size: 0.95em;
+            font-weight: 700;
+            padding: 18px 16px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.12);
+            line-height: 1.3;
+        }
+        .nav-vertical .nav-group {
+            margin-top: 6px;
+        }
+        .nav-vertical .nav-category-label {
+            display: block;
+            color: rgba(255,255,255,0.4);
+            font-size: 0.67em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.09em;
+            padding: 10px 16px 3px;
+        }
+        .nav-vertical a {
+            display: block;
+            text-decoration: none;
+            padding: 7px 16px 7px 22px;
+            font-size: 0.85em;
+            font-weight: 500;
+            color: rgba(255,255,255,0.72);
+            transition: background 0.12s, color 0.12s;
+        }
+        .nav-vertical a:hover { background: rgba(255,255,255,0.08); color: white; }
+        .nav-vertical a.active {
+            background: #4C72B0;
+            color: white;
+            font-weight: 700;
+        }
+
+        /* ── Page layout ───────────────────────────────────────────────────── */
+        .layout-horizontal .page-content {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 0 20px 40px;
+        }
+        .layout-vertical .page-content {
+            margin-left: 220px;
+            padding: 0 24px 40px;
+        }
+
+        /* ── Page header ───────────────────────────────────────────────────── */
         h1 {
             color: #2c3e50;
             border-bottom: 3px solid #4C72B0;
             padding-bottom: 12px;
-            margin: 16px 0 8px;
+            margin: 20px 0 8px;
         }
         .subtitle {
             color: #666;
             margin-bottom: 20px;
             font-size: 0.9em;
         }
+
+        /* ── Grid layout ───────────────────────────────────────────────────── */
         .grid-layout {
             display: grid;
             grid-template-columns: repeat({{ grid_cols }}, 1fr);
@@ -75,12 +170,16 @@
             padding-bottom: 8px;
             border-bottom: 1px solid #e8eef7;
         }
+
+        /* ── Footer ────────────────────────────────────────────────────────── */
         footer {
             margin-top: 20px;
             color: #999;
             font-size: 0.8em;
             text-align: center;
         }
+
+        /* ── Tech badges ───────────────────────────────────────────────────── */
         .tech-badge {
             display: inline-block;
             background: #e8eef7;
@@ -91,6 +190,8 @@
             font-weight: 600;
             font-size: 0.85em;
         }
+
+        /* ── Filter bar ────────────────────────────────────────────────────── */
         .filter-bar {
             display: flex;
             flex-wrap: wrap;
@@ -120,7 +221,8 @@
             color: #2c3e50;
             cursor: pointer;
         }
-        /* ── Paragraph module ── */
+
+        /* ── Paragraph module ──────────────────────────────────────────────── */
         .paragraph-module {
             height: 100%;
             box-sizing: border-box;
@@ -132,7 +234,8 @@
             font-size: 0.95em;
         }
         .paragraph-module p:last-child { margin-bottom: 0; }
-        /* ── Table module ── */
+
+        /* ── Table module ──────────────────────────────────────────────────── */
         .table-module { overflow: hidden; }
         .table-wrapper {
             overflow-x: auto;
@@ -161,7 +264,8 @@
             border-bottom: 1px solid #e9ecef;
             color: #2c3e50;
         }
-        /* ── Shared module heading (paragraph + table) ── */
+
+        /* ── Shared module heading (paragraph + table) ─────────────────────── */
         .module-title {
             color: #2c3e50;
             font-size: 1.0em;
@@ -172,52 +276,90 @@
         }
     </style>
 </head>
-<body>
-    <nav>
-        {% for link in nav_links %}
-        <a href="{{ link.slug }}.html"
-           {% if link.slug == current_slug %}class="active"{% endif %}>
-            {{ link.label }}
-        </a>
+<body class="{% if nav_style == 'vertical' %}layout-vertical{% else %}layout-horizontal{% endif %}">
+
+    {% if nav_style == "vertical" %}
+    <!-- ── Vertical sidebar nav ──────────────────────────────────────────── -->
+    <nav class="nav-vertical">
+        {% if report_title %}
+        <div class="nav-report-title">{{ report_title }}</div>
+        {% endif %}
+        {% for group_name, group_links in nav_links | groupby("category") %}
+        <div class="nav-group">
+            {% if group_name %}
+            <span class="nav-category-label">{{ group_name }}</span>
+            {% endif %}
+            {% for link in group_links %}
+            <a href="{{ link.slug }}.html"
+               {% if link.slug == current_slug %}class="active"{% endif %}>
+                {{ link.label }}
+            </a>
+            {% endfor %}
+        </div>
         {% endfor %}
     </nav>
-    <h1>{{ title }}</h1>
-    <p class="subtitle">
-        <span class="tech-badge">Polars</span>
-        <span class="tech-badge">Arrow IPC</span>
-        <span class="tech-badge">Bokeh</span>
-        <span class="tech-badge">PyO3</span>
-        <span class="tech-badge">Jinja2</span>
-    </p>
-    {% if filter_items %}
-    <div class="filter-bar">
-        <span class="filter-bar-label">Filters</span>
-        {% for item in filter_items %}
-        <div class="filter-widget">
-            {% if item.label %}
-            <label class="switch-label">
-                {{ item.div }}
-                <span>{{ item.label }}</span>
-            </label>
-            {% else %}
-            {{ item.div }}
+
+    {% else %}
+    <!-- ── Horizontal top nav ────────────────────────────────────────────── -->
+    <nav class="nav-horizontal">
+        {% if report_title %}
+        <div class="nav-report-title">{{ report_title }}</div>
+        {% endif %}
+        {% for group_name, group_links in nav_links | groupby("category") %}
+        <div class="nav-group">
+            {% if group_name %}
+            <span class="nav-category-label">{{ group_name }}</span>
             {% endif %}
+            {% for link in group_links %}
+            <a href="{{ link.slug }}.html"
+               {% if link.slug == current_slug %}class="active"{% endif %}>
+                {{ link.label }}
+            </a>
+            {% endfor %}
         </div>
         {% endfor %}
-    </div>
+    </nav>
     {% endif %}
-    <div class="grid-layout">
-        {% for plot in plots %}
-        <div class="chart-container"
-             style="grid-row: {{ plot.grid_row }}; grid-column: {{ plot.grid_col }} / span {{ plot.grid_col_span }};">
-            {% if plot.module_type == "chart" %}
-            <h2 class="chart-title">{{ plot.title }}</h2>
-            {% endif %}
-            {{ plot.div }}
+
+    <div class="page-content">
+        <h1>{{ title }}</h1>
+        <p class="subtitle">
+            <span class="tech-badge">Polars</span>
+            <span class="tech-badge">Arrow IPC</span>
+            <span class="tech-badge">Bokeh</span>
+            <span class="tech-badge">PyO3</span>
+            <span class="tech-badge">Jinja2</span>
+        </p>
+        {% if filter_items %}
+        <div class="filter-bar">
+            <span class="filter-bar-label">Filters</span>
+            {% for item in filter_items %}
+            <div class="filter-widget">
+                {% if item.label %}
+                <label class="switch-label">
+                    {{ item.div }}
+                    <span>{{ item.label }}</span>
+                </label>
+                {% else %}
+                {{ item.div }}
+                {% endif %}
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
+        {% endif %}
+        <div class="grid-layout">
+            {% for plot in plots %}
+            <div class="chart-container"
+                 style="grid-row: {{ plot.grid_row }}; grid-column: {{ plot.grid_col }} / span {{ plot.grid_col_span }};">
+                {% if plot.module_type == "chart" %}
+                <h2 class="chart-title">{{ plot.title }}</h2>
+                {% endif %}
+                {{ plot.div }}
+            </div>
+            {% endfor %}
+        </div>
+        {{ plot_script }}
+        <footer>Generated by RustToBokeh</footer>
     </div>
-    {{ plot_script }}
-    <footer>Generated by RustToBokeh</footer>
 </body>
 </html>

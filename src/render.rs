@@ -40,6 +40,8 @@ pub fn render_dashboard(
     frame_data: &[(&str, Vec<u8>)],
     pages: &[Page],
     output_dir: &str,
+    report_title: &str,
+    nav_style: &str,
 ) -> Result<(), ChartError> {
     crate::configure_vendored_python();
 
@@ -53,12 +55,13 @@ pub fn render_dashboard(
             py_frames.set_item(*key, PyBytes::new(py, bytes))?;
         }
 
-        // Nav links for all pages
+        // Nav links for all pages (include category for grouped navigation)
         let py_nav = PyList::empty(py);
         for page in pages {
             let d = PyDict::new(py);
             d.set_item("slug", &page.slug)?;
             d.set_item("label", &page.nav_label)?;
+            d.set_item("category", page.category.as_deref().unwrap_or(""))?;
             py_nav.append(d)?;
         }
 
@@ -203,6 +206,8 @@ pub fn render_dashboard(
         locals.set_item("nav_links", py_nav)?;
         locals.set_item("html_template", html_template)?;
         locals.set_item("output_dir", output_dir)?;
+        locals.set_item("report_title", report_title)?;
+        locals.set_item("nav_style", nav_style)?;
 
         let code = CString::new(python_script).map_err(|_| ChartError::InvalidScript)?;
         py.run(code.as_c_str(), Some(&locals), Some(&locals))?;

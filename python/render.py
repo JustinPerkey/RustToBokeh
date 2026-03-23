@@ -548,6 +548,8 @@ for page in pages:
 
     html = template.render(
         title=page["title"],
+        report_title=report_title,
+        nav_style=nav_style,
         bokeh_js_urls=bokeh_js_urls,
         bokeh_css_url=bokeh_css_url,
         plot_script=script,

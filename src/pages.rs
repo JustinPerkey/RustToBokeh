@@ -34,6 +34,12 @@ pub struct Page {
     /// that share their `source_key` and have been marked as
     /// [`filtered`](crate::charts::ChartSpecBuilder::filtered).
     pub filters: Vec<FilterSpec>,
+    /// Optional category label used to group this page in the navigation menu.
+    ///
+    /// Pages with the same `category` string are grouped together under that
+    /// heading in the navigation bar (horizontal) or sidebar (vertical).
+    /// Pages with `None` are shown ungrouped.
+    pub category: Option<String>,
 }
 
 // ── Page builder ─────────────────────────────────────────────────────────────
@@ -67,6 +73,7 @@ pub struct PageBuilder {
     grid_cols: usize,
     modules: Vec<PageModule>,
     filters: Vec<FilterSpec>,
+    category: Option<String>,
 }
 
 impl PageBuilder {
@@ -89,7 +96,18 @@ impl PageBuilder {
             grid_cols,
             modules: Vec::new(),
             filters: Vec::new(),
+            category: None,
         }
+    }
+
+    /// Assign this page to a navigation category group.
+    ///
+    /// Pages sharing the same category string are grouped together under that
+    /// heading in the navigation bar. This is optional — pages without a
+    /// category are shown at the top of the navigation ungrouped.
+    pub fn category(mut self, cat: &str) -> Self {
+        self.category = Some(cat.into());
+        self
     }
 
     /// Add a chart to this page.
@@ -139,6 +157,7 @@ impl PageBuilder {
             grid_cols: self.grid_cols,
             modules: self.modules,
             filters: self.filters,
+            category: self.category,
         }
     }
 }
