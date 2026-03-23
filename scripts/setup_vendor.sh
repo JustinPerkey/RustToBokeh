@@ -117,10 +117,48 @@ echo "Installed packages:"
 # ── Write .cargo/config.toml ────────────────────────────────────────────────
 
 mkdir -p "$PROJECT_DIR/.cargo"
-cat > "$PROJECT_DIR/.cargo/config.toml" <<EOF
+
+case "$PLATFORM" in
+    *linux*)
+        # On Linux we need three things beyond PYO3_PYTHON:
+        #   PYTHONHOME    — tells the embedded interpreter where its stdlib lives
+        #   LIBRARY_PATH  — biases the *linker* to pick up the vendored libpython
+        #                   before any system libpython of the same version
+        #   rustflags     — bakes an $ORIGIN-relative rpath into the binary so
+        #                   the dynamic linker loads the vendored libpython at
+        #                   runtime (takes precedence over /lib/…)
+        cat > "$PROJECT_DIR/.cargo/config.toml" <<EOF
+[env]
+PYO3_PYTHON  = { value = "${PYTHON_EXE}",       relative = true }
+PYTHONHOME   = { value = "vendor/python",        relative = true }
+LIBRARY_PATH = { value = "vendor/python/lib",    relative = true }
+
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "link-arg=-Wl,-rpath,\$ORIGIN/../../vendor/python/lib"]
+
+[target.aarch64-unknown-linux-gnu]
+rustflags = ["-C", "link-arg=-Wl,-rpath,\$ORIGIN/../../vendor/python/lib"]
+EOF
+        ;;
+    *darwin*)
+        # macOS: PYTHONHOME is sufficient; the dynamic linker respects @rpath
+        # set by the vendored Python's own install_name, so no extra flags needed.
+        cat > "$PROJECT_DIR/.cargo/config.toml" <<EOF
 [env]
 PYO3_PYTHON = { value = "${PYTHON_EXE}", relative = true }
+PYTHONHOME  = { value = "vendor/python", relative = true }
 EOF
+        ;;
+    *windows*)
+        # Windows: PYTHONHOME ensures the embedded interpreter finds its stdlib.
+        # build.rs copies the required DLLs to the target directory automatically.
+        cat > "$PROJECT_DIR/.cargo/config.toml" <<EOF
+[env]
+PYO3_PYTHON = { value = "${PYTHON_EXE}", relative = true }
+PYTHONHOME  = { value = "vendor/python", relative = true }
+EOF
+        ;;
+esac
 
 echo ""
 echo "Wrote .cargo/config.toml with PYO3_PYTHON = ${PYTHON_EXE}"

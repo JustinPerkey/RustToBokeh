@@ -21,5 +21,10 @@ pub use crate::charts::{
     ScatterConfig, ScatterConfigBuilder,
 };
 pub use crate::error::ChartError;
+pub use crate::modules::{
+    ColumnFormat, PageModule,
+    ParagraphSpec, ParagraphSpecBuilder,
+    TableColumn, TableSpec, TableSpecBuilder,
+};
 pub use crate::pages::{Page, PageBuilder};
 pub use crate::{Dashboard, render_dashboard, serialize_df};

@@ -62,6 +62,7 @@
 
 pub mod charts;
 pub mod error;
+pub mod modules;
 pub mod pages;
 pub mod prelude;
 mod render;
@@ -74,6 +75,11 @@ pub use charts::{
     ScatterConfig, ScatterConfigBuilder,
 };
 pub use error::ChartError;
+pub use modules::{
+    ColumnFormat, PageModule,
+    ParagraphSpec, ParagraphSpecBuilder,
+    TableColumn, TableSpec, TableSpecBuilder,
+};
 pub use pages::{Page, PageBuilder};
 pub use render::render_dashboard;
 

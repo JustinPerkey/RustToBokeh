@@ -1,17 +1,19 @@
 //! Page layout types for multi-page dashboards.
 //!
-//! A [`Page`] groups one or more [`ChartSpec`](crate::charts::ChartSpec)s and
-//! optional [`FilterSpec`](crate::charts::FilterSpec)s into a single HTML
-//! file. The dashboard renderer produces one HTML file per page and
-//! automatically generates a navigation bar linking all pages together.
+//! A [`Page`] groups one or more [`PageModule`](crate::modules::PageModule)s
+//! and optional [`FilterSpec`](crate::charts::FilterSpec)s into a single HTML
+//! file. Modules may be charts, paragraphs, or data tables — all positioned
+//! in a shared CSS grid. The dashboard renderer produces one HTML file per
+//! page and automatically generates a navigation bar linking all pages together.
 
 use crate::charts::{ChartSpec, FilterSpec};
+use crate::modules::{PageModule, ParagraphSpec, TableSpec};
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 /// A single page in a multi-page dashboard.
 ///
-/// Each page is rendered as a self-contained HTML file containing its charts
+/// Each page is rendered as a self-contained HTML file containing its modules
 /// arranged in a CSS grid layout, optional filter widgets, and a navigation
 /// bar linking to all other pages in the dashboard.
 ///
@@ -26,10 +28,10 @@ pub struct Page {
     pub nav_label: String,
     /// Number of columns in the CSS grid layout.
     pub grid_cols: usize,
-    /// Charts to render on this page.
-    pub specs: Vec<ChartSpec>,
-    /// Interactive filters attached to this page. Filters affect charts that
-    /// share their `source_key` and have been marked as
+    /// Content modules (charts, paragraphs, tables) to render on this page.
+    pub modules: Vec<PageModule>,
+    /// Interactive filters attached to this page. Filters affect chart modules
+    /// that share their `source_key` and have been marked as
     /// [`filtered`](crate::charts::ChartSpecBuilder::filtered).
     pub filters: Vec<FilterSpec>,
 }
@@ -44,11 +46,17 @@ pub struct Page {
 /// use rust_to_bokeh::prelude::*;
 ///
 /// let page = PageBuilder::new("overview", "Dashboard Overview", "Overview", 2)
+///     .paragraph(
+///         ParagraphSpec::new("Monthly performance summary for Q4.")
+///             .title("About This Page")
+///             .at(0, 0, 2)
+///             .build()
+///     )
 ///     .chart(ChartSpecBuilder::bar("Monthly Revenue", "revenue_data",
 ///         GroupedBarConfig::builder()
 ///             .x("month").group("category").value("amount").y_label("USD")
 ///             .build()?
-///     ).at(0, 0, 2).build())
+///     ).at(1, 0, 2).build())
 ///     .filter(FilterSpec::range("revenue_data", "amount", "Amount", 0.0, 1000.0, 10.0))
 ///     .build();
 /// ```
@@ -57,7 +65,7 @@ pub struct PageBuilder {
     title: String,
     nav_label: String,
     grid_cols: usize,
-    specs: Vec<ChartSpec>,
+    modules: Vec<PageModule>,
     filters: Vec<FilterSpec>,
 }
 
@@ -72,29 +80,48 @@ impl PageBuilder {
     /// * `title` — Full title displayed at the top of the page.
     /// * `nav_label` — Short label for the navigation bar.
     /// * `grid_cols` — Number of columns in the page's CSS grid layout.
-    ///   Charts are positioned within this grid via
-    ///   [`ChartSpecBuilder::at`](crate::charts::ChartSpecBuilder::at).
+    ///   Modules are positioned within this grid via their `.at()` method.
     pub fn new(slug: &str, title: &str, nav_label: &str, grid_cols: usize) -> Self {
         Self {
             slug: slug.into(),
             title: title.into(),
             nav_label: nav_label.into(),
             grid_cols,
-            specs: Vec::new(),
+            modules: Vec::new(),
             filters: Vec::new(),
         }
     }
 
     /// Add a chart to this page.
+    ///
+    /// The spec is wrapped in [`PageModule::Chart`](crate::modules::PageModule::Chart).
     pub fn chart(mut self, spec: ChartSpec) -> Self {
-        self.specs.push(spec);
+        self.modules.push(PageModule::Chart(spec));
+        self
+    }
+
+    /// Add a paragraph text block to this page.
+    ///
+    /// The spec is wrapped in [`PageModule::Paragraph`](crate::modules::PageModule::Paragraph).
+    pub fn paragraph(mut self, spec: ParagraphSpec) -> Self {
+        self.modules.push(PageModule::Paragraph(spec));
+        self
+    }
+
+    /// Add a formatted data table to this page.
+    ///
+    /// The spec is wrapped in [`PageModule::Table`](crate::modules::PageModule::Table).
+    /// The table's `source_key` must reference a DataFrame registered with
+    /// [`Dashboard::add_df`](crate::Dashboard::add_df).
+    pub fn table(mut self, spec: TableSpec) -> Self {
+        self.modules.push(PageModule::Table(spec));
         self
     }
 
     /// Add an interactive filter widget to this page.
     ///
-    /// The filter applies to all charts on this page that share the filter's
-    /// `source_key` and have been marked as
+    /// The filter applies to all chart modules on this page that share the
+    /// filter's `source_key` and have been marked as
     /// [`filtered`](crate::charts::ChartSpecBuilder::filtered). Multiple
     /// filters on the same source are combined via Bokeh's
     /// `IntersectionFilter`.
@@ -110,7 +137,7 @@ impl PageBuilder {
             title: self.title,
             nav_label: self.nav_label,
             grid_cols: self.grid_cols,
-            specs: self.specs,
+            modules: self.modules,
             filters: self.filters,
         }
     }

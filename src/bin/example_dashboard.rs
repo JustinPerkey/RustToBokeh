@@ -6,6 +6,9 @@ type Bar = GroupedBarConfig;
 type Line = LineConfig;
 type HB = HBarConfig;
 type Scat = ScatterConfig;
+type Para = ParagraphSpec;
+type Tbl = TableSpec;
+type TC = TableColumn;
 
 // ── DataFrame builders ──────────────────────────────────────────────────────
 
@@ -538,6 +541,66 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .chart(C::line("Full Year Trends", "monthly_trends",
                 Line::builder().x("month").y_cols(&["revenue", "expenses", "profit", "margin"]).y_label("Value").build()?
             ).at(3, 0, 2).build())
+            .build(),
+    );
+
+    // 21. Module Showcase — demonstrates paragraph, table, and chart modules
+    dash.add_page(
+        PageBuilder::new("module-showcase", "Module Showcase", "Showcase", 2)
+            // Paragraph module spanning the full width
+            .paragraph(
+                Para::new(
+                    "This page demonstrates the three content module types available \
+                     in RustToBokeh: charts, paragraphs, and data tables.\n\n\
+                     Paragraph modules render styled text blocks and support multiple \
+                     paragraphs separated by blank lines. They are useful for adding \
+                     context, annotations, or commentary alongside data visualisations.\n\n\
+                     Table modules pull directly from any registered DataFrame and \
+                     support per-column formatting: plain text, fixed-point numbers, \
+                     currency with thousands separators, and percentage values."
+                )
+                .title("About This Page")
+                .at(0, 0, 2)
+                .build(),
+            )
+            // Table module — monthly revenue data with mixed column formats
+            .table(
+                Tbl::new("Monthly Revenue & Expenses", "monthly_revenue")
+                    .column(TC::text("month", "Month"))
+                    .column(TC::text("category", "Category"))
+                    .column(TC::currency("value", "Amount (k)", "$", 1))
+                    .at(1, 0, 1)
+                    .build(),
+            )
+            // Chart module alongside the table
+            .chart(
+                C::line("Revenue Trend", "monthly_trends",
+                    Line::builder()
+                        .x("month")
+                        .y_cols(&["revenue", "expenses", "profit"])
+                        .y_label("USD (k)")
+                        .build()?
+                ).at(1, 1, 1).build(),
+            )
+            // Table module — project status with percentage formatting
+            .table(
+                Tbl::new("Project Status", "project_status")
+                    .column(TC::text("project", "Project"))
+                    .column(TC::percent("completion", "Completion %", 0))
+                    .at(2, 0, 1)
+                    .build(),
+            )
+            // Table module — scatter performance data with number formatting
+            .table(
+                Tbl::new("Performance Snapshot", "scatter_performance")
+                    .column(TC::text("tier", "Tier"))
+                    .column(TC::currency("revenue", "Revenue (k)", "$", 0))
+                    .column(TC::number("profit", "Profit (k)", 1))
+                    .column(TC::number("employees", "Headcount", 0))
+                    .column(TC::number("satisfaction", "Satisfaction", 2))
+                    .at(2, 1, 1)
+                    .build(),
+            )
             .build(),
     );
 

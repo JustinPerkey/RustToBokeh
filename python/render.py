@@ -1,7 +1,7 @@
 # render.py — called from Rust via PyO3
 # Variables injected by Rust:
 #   frames: dict[str, bytes]   — Arrow IPC bytes keyed by source name
-#   pages: list[dict]          — each page has slug, title, grid_cols, specs, filters
+#   pages: list[dict]          — each page has slug, title, grid_cols, modules, filters
 #   nav_links: list[dict]      — slug + label for every page (navigation)
 #   html_template: str         — Jinja2 HTML template source
 #   output_dir: str            — output directory path
@@ -202,6 +202,65 @@ _BUILDERS = {
     "scatter": build_scatter,
 }
 
+# ── Non-chart module builders ────────────────────────────────────────────────
+
+
+def _build_paragraph_html(mod):
+    """Render a paragraph module as a styled HTML string."""
+    title_html = (
+        f'<h3 class="module-title">{mod["title"]}</h3>'
+        if mod.get("has_title") else ""
+    )
+    paras = "".join(
+        f"<p>{para.strip()}</p>"
+        for para in mod["text"].split("\n\n")
+        if para.strip()
+    )
+    return f'<div class="paragraph-module">{title_html}{paras}</div>'
+
+
+def _format_cell(val, col):
+    """Format a single cell value according to the column's format spec."""
+    fmt = col["format"]
+    if val is None:
+        return ""
+    if fmt == "text":
+        return str(val)
+    if fmt == "number":
+        return f"{float(val):.{col['decimals']}f}"
+    if fmt == "currency":
+        return f"{col['symbol']}{float(val):,.{col['decimals']}f}"
+    if fmt == "percent":
+        return f"{float(val):.{col['decimals']}f}%"
+    return str(val)
+
+
+def _build_table_html(mod, dfs):
+    """Render a table module as a styled HTML string."""
+    df = dfs[mod["source_key"]]
+    cols = mod["columns"]
+    headers = "".join(f"<th>{c['label']}</th>" for c in cols)
+    rows = []
+    for i in range(len(df)):
+        cells = "".join(
+            f"<td>{_format_cell(df[c['key']][i], c)}</td>"
+            for c in cols
+        )
+        rows.append(f"<tr>{cells}</tr>")
+    body = "".join(rows)
+    return (
+        f'<div class="table-module">'
+        f'<h3 class="module-title">{mod["title"]}</h3>'
+        f'<div class="table-wrapper">'
+        f"<table>"
+        f"<thead><tr>{headers}</tr></thead>"
+        f"<tbody>{body}</tbody>"
+        f"</table>"
+        f"</div>"
+        f"</div>"
+    )
+
+
 # ── Filter setup ─────────────────────────────────────────────────────────────
 # Creates Bokeh filter objects (GroupFilter, BooleanFilter, IndexFilter) and
 # CDSView instances.  Each filter kind maps to a specific Bokeh filter model:
@@ -395,8 +454,8 @@ bokeh_css_url = CDN.css_files[0] if CDN.css_files else ""
 
 for page in pages:
     source_cache = {}  # per-page CDS cache for linking
-    figs = []
-    grid_items = []
+    bokeh_figs = []    # Bokeh figure objects in encounter order
+    renderables = []   # unified list: {"type", "div"/"figure", "grid", "title", "module_type"}
 
     # Pre-populate flat sources for any source_key referenced by filtered specs,
     # so that build_filter_objects can find them in the cache.
@@ -408,19 +467,46 @@ for page in pages:
     # Build filter objects and CDSViews
     views, filter_widgets = build_filter_objects(page_filters, source_cache)
 
-    for spec in page["specs"]:
-        builder = _BUILDERS.get(spec["chart_type"])
-        if builder is None:
-            raise ValueError(f"Unknown chart_type: {spec['chart_type']!r}")
-        view = views.get(spec["source_key"]) if spec.get("filtered") else None
-        fig = builder(spec, source_cache, view=view)
-        figs.append(fig)
-        grid_items.append({
-            "title": spec["title"],
-            "grid_row": spec["grid_row"] + 1,
-            "grid_col": spec["grid_col"] + 1,
-            "grid_col_span": spec["grid_col_span"],
-        })
+    for mod in page["modules"]:
+        grid = {
+            "grid_row": mod["grid_row"] + 1,
+            "grid_col": mod["grid_col"] + 1,
+            "grid_col_span": mod["grid_col_span"],
+        }
+        mtype = mod["module_type"]
+
+        if mtype == "chart":
+            builder = _BUILDERS.get(mod["chart_type"])
+            if builder is None:
+                raise ValueError(f"Unknown chart_type: {mod['chart_type']!r}")
+            view = views.get(mod["source_key"]) if mod.get("filtered") else None
+            fig = builder(mod, source_cache, view=view)
+            bokeh_figs.append(fig)
+            renderables.append({
+                "type": "bokeh",
+                "figure": fig,
+                "grid": grid,
+                "title": mod["title"],
+                "module_type": "chart",
+            })
+        elif mtype == "paragraph":
+            renderables.append({
+                "type": "html",
+                "div": _build_paragraph_html(mod),
+                "grid": grid,
+                "title": "",
+                "module_type": "paragraph",
+            })
+        elif mtype == "table":
+            renderables.append({
+                "type": "html",
+                "div": _build_table_html(mod, dataframes),
+                "grid": grid,
+                "title": "",
+                "module_type": "table",
+            })
+        else:
+            raise ValueError(f"Unknown module_type: {mtype!r}")
 
     # Flatten filter widgets — Switch widgets are wrapped in a dict with label
     flat_widgets = []
@@ -430,13 +516,27 @@ for page in pages:
         else:
             flat_widgets.append(w)
 
-    # Combine widgets + figures for a single components() call
-    all_objects = flat_widgets + figs
-    script, divs = components(all_objects)
+    # Run components() only on Bokeh objects (widgets + chart figures)
+    all_bokeh = flat_widgets + bokeh_figs
+    if all_bokeh:
+        script, divs = components(all_bokeh)
+    else:
+        script, divs = "", []
 
     widget_divs = divs[: len(flat_widgets)]
-    chart_divs = divs[len(flat_widgets):]
-    plots = [{**item, "div": div} for item, div in zip(grid_items, chart_divs)]
+    bokeh_chart_divs = divs[len(flat_widgets):]
+
+    # Build unified plots list for the template
+    bokeh_iter = iter(bokeh_chart_divs)
+    plots = []
+    for r in renderables:
+        div = next(bokeh_iter) if r["type"] == "bokeh" else r["div"]
+        plots.append({
+            **r["grid"],
+            "div": div,
+            "title": r["title"],
+            "module_type": r["module_type"],
+        })
 
     # Pair widget divs with labels for Switch widgets (others use built-in titles)
     filter_items = []
@@ -459,5 +559,5 @@ for page in pages:
     )
 
     path = os.path.join(output_dir, f"{page['slug']}.html")
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(html)

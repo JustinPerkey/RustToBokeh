@@ -120,6 +120,56 @@
             color: #2c3e50;
             cursor: pointer;
         }
+        /* ── Paragraph module ── */
+        .paragraph-module {
+            height: 100%;
+            box-sizing: border-box;
+        }
+        .paragraph-module p {
+            color: #555;
+            line-height: 1.7;
+            margin: 0 0 12px;
+            font-size: 0.95em;
+        }
+        .paragraph-module p:last-child { margin-bottom: 0; }
+        /* ── Table module ── */
+        .table-module { overflow: hidden; }
+        .table-wrapper {
+            overflow-x: auto;
+            max-height: 420px;
+            overflow-y: auto;
+        }
+        .table-module table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        .table-module thead th {
+            background: #4C72B0;
+            color: white;
+            padding: 10px 14px;
+            text-align: left;
+            position: sticky;
+            top: 0;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+        .table-module tbody tr:nth-child(even) { background: #f8f9fa; }
+        .table-module tbody tr:hover { background: #e8eef7; }
+        .table-module tbody td {
+            padding: 8px 14px;
+            border-bottom: 1px solid #e9ecef;
+            color: #2c3e50;
+        }
+        /* ── Shared module heading (paragraph + table) ── */
+        .module-title {
+            color: #2c3e50;
+            font-size: 1.0em;
+            margin: 0 0 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e8eef7;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -160,7 +210,9 @@
         {% for plot in plots %}
         <div class="chart-container"
              style="grid-row: {{ plot.grid_row }}; grid-column: {{ plot.grid_col }} / span {{ plot.grid_col_span }};">
+            {% if plot.module_type == "chart" %}
             <h2 class="chart-title">{{ plot.title }}</h2>
+            {% endif %}
             {{ plot.div }}
         </div>
         {% endfor %}

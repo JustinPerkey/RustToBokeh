@@ -5,6 +5,7 @@
 
 use crate::charts::{ChartConfig, FilterConfig};
 use crate::error::ChartError;
+use crate::modules::{ColumnFormat, PageModule};
 use crate::pages::Page;
 
 use pyo3::prelude::*;
@@ -25,7 +26,7 @@ use std::ffi::CString;
 ///
 /// * `frame_data` — Slice of `(key, bytes)` pairs where each `bytes` is a
 ///   Polars DataFrame serialized to Arrow IPC format via [`serialize_df`](crate::serialize_df).
-/// * `pages` — Slice of [`Page`] definitions describing the charts and
+/// * `pages` — Slice of [`Page`] definitions describing the modules and
 ///   filters for each output HTML file.
 /// * `output_dir` — Directory path where HTML files will be written. Created
 ///   automatically if it does not exist.
@@ -61,7 +62,7 @@ pub fn render_dashboard(
             py_nav.append(d)?;
         }
 
-        // Pages with nested specs
+        // Pages with nested modules
         let py_pages = PyList::empty(py);
         for page in pages {
             let p = PyDict::new(py);
@@ -69,43 +70,92 @@ pub fn render_dashboard(
             p.set_item("title", &page.title)?;
             p.set_item("grid_cols", page.grid_cols)?;
 
-            let py_specs = PyList::empty(py);
-            for spec in &page.specs {
-                let s = PyDict::new(py);
-                s.set_item("title", &spec.title)?;
-                s.set_item("chart_type", spec.config.chart_type_str())?;
-                s.set_item("source_key", &spec.source_key)?;
-                s.set_item("grid_row", spec.grid.row)?;
-                s.set_item("grid_col", spec.grid.col)?;
-                s.set_item("grid_col_span", spec.grid.col_span)?;
-                s.set_item("filtered", spec.filtered)?;
-                match &spec.config {
-                    ChartConfig::GroupedBar(c) => {
-                        s.set_item("x_col", &c.x_col)?;
-                        s.set_item("group_col", &c.group_col)?;
-                        s.set_item("value_col", &c.value_col)?;
-                        s.set_item("y_label", &c.y_label)?;
+            let py_modules = PyList::empty(py);
+            for module in &page.modules {
+                let m = PyDict::new(py);
+                match module {
+                    PageModule::Chart(spec) => {
+                        m.set_item("module_type", "chart")?;
+                        m.set_item("title", &spec.title)?;
+                        m.set_item("chart_type", spec.config.chart_type_str())?;
+                        m.set_item("source_key", &spec.source_key)?;
+                        m.set_item("grid_row", spec.grid.row)?;
+                        m.set_item("grid_col", spec.grid.col)?;
+                        m.set_item("grid_col_span", spec.grid.col_span)?;
+                        m.set_item("filtered", spec.filtered)?;
+                        match &spec.config {
+                            ChartConfig::GroupedBar(c) => {
+                                m.set_item("x_col", &c.x_col)?;
+                                m.set_item("group_col", &c.group_col)?;
+                                m.set_item("value_col", &c.value_col)?;
+                                m.set_item("y_label", &c.y_label)?;
+                            }
+                            ChartConfig::Line(c) => {
+                                m.set_item("x_col", &c.x_col)?;
+                                m.set_item("y_cols", c.y_cols.join(","))?;
+                                m.set_item("y_label", &c.y_label)?;
+                            }
+                            ChartConfig::HBar(c) => {
+                                m.set_item("category_col", &c.category_col)?;
+                                m.set_item("value_col", &c.value_col)?;
+                                m.set_item("x_label", &c.x_label)?;
+                            }
+                            ChartConfig::Scatter(c) => {
+                                m.set_item("x_col", &c.x_col)?;
+                                m.set_item("y_col", &c.y_col)?;
+                                m.set_item("x_label", &c.x_label)?;
+                                m.set_item("y_label", &c.y_label)?;
+                            }
+                        }
                     }
-                    ChartConfig::Line(c) => {
-                        s.set_item("x_col", &c.x_col)?;
-                        s.set_item("y_cols", c.y_cols.join(","))?;
-                        s.set_item("y_label", &c.y_label)?;
+                    PageModule::Paragraph(spec) => {
+                        m.set_item("module_type", "paragraph")?;
+                        m.set_item("title", spec.title.as_deref().unwrap_or(""))?;
+                        m.set_item("has_title", spec.title.is_some())?;
+                        m.set_item("text", &spec.text)?;
+                        m.set_item("grid_row", spec.grid.row)?;
+                        m.set_item("grid_col", spec.grid.col)?;
+                        m.set_item("grid_col_span", spec.grid.col_span)?;
                     }
-                    ChartConfig::HBar(c) => {
-                        s.set_item("category_col", &c.category_col)?;
-                        s.set_item("value_col", &c.value_col)?;
-                        s.set_item("x_label", &c.x_label)?;
-                    }
-                    ChartConfig::Scatter(c) => {
-                        s.set_item("x_col", &c.x_col)?;
-                        s.set_item("y_col", &c.y_col)?;
-                        s.set_item("x_label", &c.x_label)?;
-                        s.set_item("y_label", &c.y_label)?;
+                    PageModule::Table(spec) => {
+                        m.set_item("module_type", "table")?;
+                        m.set_item("title", &spec.title)?;
+                        m.set_item("source_key", &spec.source_key)?;
+                        m.set_item("grid_row", spec.grid.row)?;
+                        m.set_item("grid_col", spec.grid.col)?;
+                        m.set_item("grid_col_span", spec.grid.col_span)?;
+
+                        let py_cols = PyList::empty(py);
+                        for col in &spec.columns {
+                            let c = PyDict::new(py);
+                            c.set_item("key", &col.key)?;
+                            c.set_item("label", &col.label)?;
+                            match &col.format {
+                                ColumnFormat::Text => {
+                                    c.set_item("format", "text")?;
+                                }
+                                ColumnFormat::Number { decimals } => {
+                                    c.set_item("format", "number")?;
+                                    c.set_item("decimals", *decimals)?;
+                                }
+                                ColumnFormat::Currency { symbol, decimals } => {
+                                    c.set_item("format", "currency")?;
+                                    c.set_item("symbol", symbol.as_str())?;
+                                    c.set_item("decimals", *decimals)?;
+                                }
+                                ColumnFormat::Percent { decimals } => {
+                                    c.set_item("format", "percent")?;
+                                    c.set_item("decimals", *decimals)?;
+                                }
+                            }
+                            py_cols.append(c)?;
+                        }
+                        m.set_item("columns", py_cols)?;
                     }
                 }
-                py_specs.append(s)?;
+                py_modules.append(m)?;
             }
-            p.set_item("specs", py_specs)?;
+            p.set_item("modules", py_modules)?;
 
             let py_filters = PyList::empty(py);
             for filter in &page.filters {
