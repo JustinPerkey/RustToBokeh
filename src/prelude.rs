@@ -27,4 +27,4 @@ pub use crate::modules::{
     TableColumn, TableSpec, TableSpecBuilder,
 };
 pub use crate::pages::{Page, PageBuilder};
-pub use crate::{Dashboard, render_dashboard, serialize_df};
+pub use crate::{Dashboard, NavStyle, render_dashboard, serialize_df};

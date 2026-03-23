@@ -82,6 +82,30 @@ pub use modules::{
 };
 pub use pages::{Page, PageBuilder};
 pub use render::render_dashboard;
+// NavStyle is defined below and re-exported via `pub use` in prelude
+
+/// Navigation bar orientation for the rendered dashboard.
+///
+/// - `Horizontal` (default) — sticky top bar with page links laid out in a row,
+///   categories shown as inline labels before their group of links.
+/// - `Vertical` — fixed left sidebar with categories as section headings and
+///   page links stacked below each heading. The main content shifts right to
+///   accommodate the sidebar.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum NavStyle {
+    #[default]
+    Horizontal,
+    Vertical,
+}
+
+impl NavStyle {
+    fn as_str(self) -> &'static str {
+        match self {
+            NavStyle::Horizontal => "horizontal",
+            NavStyle::Vertical => "vertical",
+        }
+    }
+}
 
 use polars::io::ipc::IpcWriter;
 use polars::io::SerWriter;
@@ -143,6 +167,8 @@ pub struct Dashboard {
     frames: Vec<(String, Vec<u8>)>,
     pages: Vec<Page>,
     output_dir: String,
+    title: String,
+    nav_style: NavStyle,
 }
 
 impl Dashboard {
@@ -152,7 +178,28 @@ impl Dashboard {
             frames: Vec::new(),
             pages: Vec::new(),
             output_dir: "output".into(),
+            title: String::new(),
+            nav_style: NavStyle::Horizontal,
         }
+    }
+
+    /// Set the report title displayed in the navigation bar on every page.
+    ///
+    /// When set, the title appears as a prominent label at the leading edge of
+    /// the navigation (horizontal mode) or at the top of the sidebar (vertical
+    /// mode). Defaults to empty (no title shown).
+    pub fn title(mut self, title: &str) -> Self {
+        self.title = title.into();
+        self
+    }
+
+    /// Set the navigation bar orientation.
+    ///
+    /// Defaults to [`NavStyle::Horizontal`]. Use [`NavStyle::Vertical`] to
+    /// render a fixed left sidebar instead of a sticky top bar.
+    pub fn nav_style(mut self, style: NavStyle) -> Self {
+        self.nav_style = style;
+        self
     }
 
     /// Set the output directory for generated HTML files.
@@ -204,7 +251,7 @@ impl Dashboard {
             .iter()
             .map(|(k, v)| (k.as_str(), v.clone()))
             .collect();
-        render_dashboard(&refs, &self.pages, &self.output_dir)
+        render_dashboard(&refs, &self.pages, &self.output_dir, &self.title, self.nav_style.as_str())
     }
 }
 
