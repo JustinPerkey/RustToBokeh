@@ -22,60 +22,73 @@
 
         /* ── Horizontal nav ────────────────────────────────────────────────── */
         .nav-horizontal {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 4px 8px;
-            padding: 10px 20px;
-            background: #f8f9fa;
-            border-bottom: 2px solid #e0e0e0;
+            background: #fff;
+            border-bottom: 1px solid #dde2e8;
             position: sticky;
             top: 0;
             z-index: 100;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
         }
-        .nav-horizontal .nav-report-title {
-            font-size: 1.0em;
-            font-weight: 700;
-            color: #2c3e50;
-            margin-right: 12px;
-            padding-right: 14px;
-            border-right: 2px solid #d0d0d0;
-            white-space: nowrap;
-            line-height: 1.2;
-        }
-        .nav-horizontal .nav-group {
+        .nav-horizontal .nav-header {
             display: flex;
             align-items: center;
-            flex-wrap: wrap;
-            gap: 4px;
+            padding: 0 20px;
+        }
+        .nav-horizontal .nav-report-title {
+            font-size: 0.95em;
+            font-weight: 700;
+            color: #2c3e50;
+            white-space: nowrap;
+            padding: 12px 16px 12px 0;
+            margin-right: 4px;
+            border-right: 2px solid #dde2e8;
+            flex-shrink: 0;
+        }
+        .nav-horizontal .nav-tabs-scroll {
+            display: flex;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            flex: 1;
+        }
+        .nav-horizontal .nav-tabs-scroll::-webkit-scrollbar { display: none; }
+        .nav-horizontal .nav-group {
+            display: flex;
+            align-items: stretch;
+            flex-shrink: 0;
         }
         .nav-horizontal .nav-group + .nav-group {
-            border-left: 1px solid #d8d8d8;
-            padding-left: 10px;
-            margin-left: 4px;
+            border-left: 1px solid #dde2e8;
+            margin-left: 2px;
+            padding-left: 2px;
         }
         .nav-horizontal .nav-category-label {
-            font-size: 0.7em;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #999;
-            margin-right: 4px;
-            white-space: nowrap;
+            display: none; /* Labels shown as tooltips/separators; use group borders instead */
         }
         .nav-horizontal a {
+            display: flex;
+            align-items: center;
             text-decoration: none;
-            padding: 5px 12px;
-            border-radius: 6px;
+            padding: 0 14px;
+            height: 44px;
             font-size: 0.83em;
             font-weight: 500;
-            color: #4C72B0;
-            background: #e8eef7;
-            transition: background 0.15s, color 0.15s;
+            color: #555;
             white-space: nowrap;
+            border-bottom: 3px solid transparent;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
         }
-        .nav-horizontal a:hover { background: #4C72B0; color: white; }
-        .nav-horizontal a.active { background: #4C72B0; color: white; font-weight: 700; }
+        .nav-horizontal a:hover {
+            color: #4C72B0;
+            background: #f0f4fb;
+            border-bottom-color: #a0b8d8;
+        }
+        .nav-horizontal a.active {
+            color: #4C72B0;
+            font-weight: 700;
+            border-bottom-color: #4C72B0;
+            background: #f0f4fb;
+        }
 
         /* ── Vertical nav ──────────────────────────────────────────────────── */
         .nav-vertical {
@@ -302,22 +315,23 @@
     {% else %}
     <!-- ── Horizontal top nav ────────────────────────────────────────────── -->
     <nav class="nav-horizontal">
-        {% if report_title %}
-        <div class="nav-report-title">{{ report_title }}</div>
-        {% endif %}
-        {% for group_name, group_links in nav_links | groupby("category") %}
-        <div class="nav-group">
-            {% if group_name %}
-            <span class="nav-category-label">{{ group_name }}</span>
+        <div class="nav-header">
+            {% if report_title %}
+            <div class="nav-report-title">{{ report_title }}</div>
             {% endif %}
-            {% for link in group_links %}
-            <a href="{{ link.slug }}.html"
-               {% if link.slug == current_slug %}class="active"{% endif %}>
-                {{ link.label }}
-            </a>
-            {% endfor %}
+            <div class="nav-tabs-scroll">
+                {% for group_name, group_links in nav_links | groupby("category") %}
+                <div class="nav-group">
+                    {% for link in group_links %}
+                    <a href="{{ link.slug }}.html"
+                       {% if link.slug == current_slug %}class="active"{% endif %}>
+                        {{ link.label }}
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
         </div>
-        {% endfor %}
     </nav>
     {% endif %}
 
