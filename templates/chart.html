@@ -22,60 +22,180 @@
 
         /* ── Horizontal nav ────────────────────────────────────────────────── */
         .nav-horizontal {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 4px 8px;
-            padding: 10px 20px;
-            background: #f8f9fa;
-            border-bottom: 2px solid #e0e0e0;
+            background: #fff;
+            border-bottom: 1px solid #dde2e8;
             position: sticky;
             top: 0;
             z-index: 100;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .nav-horizontal .nav-header {
+            display: flex;
+            align-items: stretch;
+            padding: 0 20px;
         }
         .nav-horizontal .nav-report-title {
-            font-size: 1.0em;
+            font-size: 0.95em;
             font-weight: 700;
             color: #2c3e50;
-            margin-right: 12px;
-            padding-right: 14px;
-            border-right: 2px solid #d0d0d0;
             white-space: nowrap;
-            line-height: 1.2;
-        }
-        .nav-horizontal .nav-group {
+            padding: 0 16px 0 0;
+            margin-right: 4px;
+            border-right: 2px solid #dde2e8;
+            flex-shrink: 0;
             display: flex;
             align-items: center;
-            flex-wrap: wrap;
-            gap: 4px;
         }
-        .nav-horizontal .nav-group + .nav-group {
-            border-left: 1px solid #d8d8d8;
-            padding-left: 10px;
-            margin-left: 4px;
+        /* Scrollable row of top-level tabs + dropdown triggers */
+        .nav-horizontal .nav-tabs-scroll {
+            display: flex;
+            align-items: stretch;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            flex: 1;
         }
-        .nav-horizontal .nav-category-label {
-            font-size: 0.7em;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #999;
-            margin-right: 4px;
-            white-space: nowrap;
-        }
-        .nav-horizontal a {
+        .nav-horizontal .nav-tabs-scroll::-webkit-scrollbar { display: none; }
+
+        /* ── Shared tab link style ─────────────────────────────────────────── */
+        .nav-horizontal .nav-tab {
+            display: flex;
+            align-items: center;
             text-decoration: none;
-            padding: 5px 12px;
-            border-radius: 6px;
+            padding: 0 14px;
+            height: 44px;
             font-size: 0.83em;
             font-weight: 500;
-            color: #4C72B0;
-            background: #e8eef7;
-            transition: background 0.15s, color 0.15s;
+            color: #555;
             white-space: nowrap;
+            border-bottom: 3px solid transparent;
+            flex-shrink: 0;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
         }
-        .nav-horizontal a:hover { background: #4C72B0; color: white; }
-        .nav-horizontal a.active { background: #4C72B0; color: white; font-weight: 700; }
+        .nav-horizontal .nav-tab:hover {
+            color: #4C72B0;
+            background: #f0f4fb;
+            border-bottom-color: #a0b8d8;
+        }
+        .nav-horizontal .nav-tab.active {
+            color: #4C72B0;
+            font-weight: 700;
+            border-bottom-color: #4C72B0;
+            background: #f0f4fb;
+        }
+
+        /* ── Dropdown (category with children or sub-items) ────────────────── */
+        .nav-horizontal .nav-dd {
+            position: relative;
+            display: flex;
+            align-items: stretch;
+            flex-shrink: 0;
+        }
+        .nav-horizontal .nav-dd-trigger {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 0 14px;
+            height: 44px;
+            border: none;
+            background: none;
+            font-family: inherit;
+            font-size: 0.83em;
+            font-weight: 500;
+            color: #555;
+            white-space: nowrap;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+        }
+        .nav-horizontal .nav-dd-trigger .caret {
+            font-size: 0.7em;
+            opacity: 0.55;
+        }
+        .nav-horizontal .nav-dd:hover > .nav-dd-trigger,
+        .nav-horizontal .nav-dd.open > .nav-dd-trigger {
+            color: #4C72B0;
+            background: #f0f4fb;
+            border-bottom-color: #a0b8d8;
+        }
+        .nav-horizontal .nav-dd.has-active > .nav-dd-trigger {
+            color: #4C72B0;
+            font-weight: 700;
+            border-bottom-color: #4C72B0;
+            background: #f0f4fb;
+        }
+        /* Top-level dropdown menu */
+        .nav-horizontal .nav-dd-menu {
+            display: none;
+            position: fixed; /* escape overflow-x:auto clipping on scroll container */
+            background: #fff;
+            border: 1px solid #dde2e8;
+            border-radius: 6px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+            min-width: 190px;
+            z-index: 1000;
+            padding: 4px 0;
+        }
+        /* Dropdown page link */
+        .nav-horizontal .nav-dd-item {
+            display: block;
+            padding: 8px 18px;
+            font-size: 0.83em;
+            font-weight: 500;
+            color: #444;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: background 0.1s, color 0.1s;
+        }
+        .nav-horizontal .nav-dd-item:hover { background: #f0f4fb; color: #4C72B0; }
+        .nav-horizontal .nav-dd-item.active { background: #f0f4fb; color: #4C72B0; font-weight: 700; }
+        /* Divider between pages and sub-groups */
+        .nav-horizontal .nav-dd-divider {
+            border: none;
+            border-top: 1px solid #eee;
+            margin: 4px 0;
+        }
+        /* Sub-dropdown (nested category) */
+        .nav-horizontal .nav-dd-sub {
+            position: relative;
+        }
+        .nav-horizontal .nav-dd-sub-trigger {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            padding: 8px 14px 8px 18px;
+            border: none;
+            background: none;
+            font-family: inherit;
+            font-size: 0.83em;
+            font-weight: 500;
+            color: #444;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: background 0.1s, color 0.1s;
+            text-align: left;
+        }
+        .nav-horizontal .nav-dd-sub-trigger .caret { font-size: 0.7em; opacity: 0.55; }
+        .nav-horizontal .nav-dd-sub:hover > .nav-dd-sub-trigger,
+        .nav-horizontal .nav-dd-sub.open > .nav-dd-sub-trigger {
+            background: #f0f4fb; color: #4C72B0;
+        }
+        .nav-horizontal .nav-dd-sub.has-active > .nav-dd-sub-trigger {
+            color: #4C72B0; font-weight: 700;
+        }
+        /* Sub-menu — position fixed, placed to the right by JS */
+        .nav-horizontal .nav-dd-sub-menu {
+            display: none;
+            position: fixed;
+            background: #fff;
+            border: 1px solid #dde2e8;
+            border-radius: 6px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+            min-width: 190px;
+            z-index: 1001;
+            padding: 4px 0;
+        }
 
         /* ── Vertical nav ──────────────────────────────────────────────────── */
         .nav-vertical {
@@ -97,33 +217,51 @@
             border-bottom: 1px solid rgba(255,255,255,0.12);
             line-height: 1.3;
         }
-        .nav-vertical .nav-group {
-            margin-top: 6px;
-        }
-        .nav-vertical .nav-category-label {
-            display: block;
-            color: rgba(255,255,255,0.4);
+        /* Collapsible category group via <details>/<summary> */
+        .nav-vertical details { }
+        .nav-vertical details > summary {
+            list-style: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+            color: rgba(255,255,255,0.45);
             font-size: 0.67em;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.09em;
-            padding: 10px 16px 3px;
+            padding: 10px 14px 4px;
         }
+        .nav-vertical details > summary::-webkit-details-marker { display: none; }
+        .nav-vertical details > summary::after {
+            content: "▸";
+            font-size: 0.9em;
+            opacity: 0.6;
+            transition: transform 0.15s;
+        }
+        .nav-vertical details[open] > summary::after { transform: rotate(90deg); }
+        /* Nested sub-group inside a vertical details block */
+        .nav-vertical details details > summary {
+            font-size: 0.65em;
+            padding-left: 0; /* indent comes from parent container */
+            color: rgba(255,255,255,0.35);
+        }
+        /* Indent containers */
+        .nav-vertical .nav-indent { padding-left: 10px; }
         .nav-vertical a {
             display: block;
             text-decoration: none;
-            padding: 7px 16px 7px 22px;
+            padding: 7px 14px 7px 22px;
             font-size: 0.85em;
             font-weight: 500;
             color: rgba(255,255,255,0.72);
             transition: background 0.12s, color 0.12s;
         }
         .nav-vertical a:hover { background: rgba(255,255,255,0.08); color: white; }
-        .nav-vertical a.active {
-            background: #4C72B0;
-            color: white;
-            font-weight: 700;
-        }
+        .nav-vertical a.active { background: #4C72B0; color: white; font-weight: 700; }
+        /* Uncategorized pages at the top of the sidebar */
+        .nav-vertical .nav-uncategorized { margin-top: 8px; }
 
         /* ── Page layout ───────────────────────────────────────────────────── */
         .layout-horizontal .page-content {
@@ -278,48 +416,145 @@
 </head>
 <body class="{% if nav_style == 'vertical' %}layout-vertical{% else %}layout-horizontal{% endif %}">
 
+    {# Sub-dropdown node (right-opening panel, recursive).
+       cur = current_slug passed explicitly because Jinja2 macros don't inherit outer scope. #}
+    {% macro h_dd_sub_node(node, cur) %}
+    <div class="nav-dd-sub{% if node.has_active %} has-active{% endif %}">
+        <button class="nav-dd-sub-trigger">{{ node.label }}<span class="caret">▸</span></button>
+        <div class="nav-dd-sub-menu">
+            {% for page in node.pages %}
+            <a href="{{ page.slug }}.html"
+               class="nav-dd-item{% if page.slug == cur %} active{% endif %}">{{ page.label }}</a>
+            {% endfor %}
+            {% if node.pages and node.children %}<hr class="nav-dd-divider">{% endif %}
+            {% for child in node.children %}{{ h_dd_sub_node(child, cur) }}{% endfor %}
+        </div>
+    </div>
+    {% endmacro %}
+
+    {# ── Top-level horizontal dropdown node ──────────────────────────────── #}
+    {% macro h_dd_node(node, cur) %}
+    <div class="nav-dd{% if node.has_active %} has-active{% endif %}">
+        <button class="nav-dd-trigger">{{ node.label }}<span class="caret">▾</span></button>
+        <div class="nav-dd-menu">
+            {% for page in node.pages %}
+            <a href="{{ page.slug }}.html"
+               class="nav-dd-item{% if page.slug == cur %} active{% endif %}">{{ page.label }}</a>
+            {% endfor %}
+            {% if node.pages and node.children %}<hr class="nav-dd-divider">{% endif %}
+            {% for child in node.children %}{{ h_dd_sub_node(child, cur) }}{% endfor %}
+        </div>
+    </div>
+    {% endmacro %}
+
+    {# ── Recursive vertical sidebar node ─────────────────────────────────── #}
+    {% macro v_node(node, cur) %}
+    <details{% if node.has_active %} open{% endif %}>
+        <summary>{{ node.label }}</summary>
+        <div class="nav-indent">
+            {% for page in node.pages %}
+            <a href="{{ page.slug }}.html"{% if page.slug == cur %} class="active"{% endif %}>{{ page.label }}</a>
+            {% endfor %}
+            {% for child in node.children %}{{ v_node(child, cur) }}{% endfor %}
+        </div>
+    </details>
+    {% endmacro %}
+
     {% if nav_style == "vertical" %}
     <!-- ── Vertical sidebar nav ──────────────────────────────────────────── -->
     <nav class="nav-vertical">
         {% if report_title %}
         <div class="nav-report-title">{{ report_title }}</div>
         {% endif %}
-        {% for group_name, group_links in nav_links | groupby("category") %}
-        <div class="nav-group">
-            {% if group_name %}
-            <span class="nav-category-label">{{ group_name }}</span>
-            {% endif %}
-            {% for link in group_links %}
-            <a href="{{ link.slug }}.html"
-               {% if link.slug == current_slug %}class="active"{% endif %}>
-                {{ link.label }}
-            </a>
+        <div class="nav-uncategorized">
+            {% for page in nav_tree.pages %}
+            <a href="{{ page.slug }}.html"{% if page.slug == current_slug %} class="active"{% endif %}>{{ page.label }}</a>
             {% endfor %}
         </div>
-        {% endfor %}
+        {% for node in nav_tree.children %}{{ v_node(node, current_slug) }}{% endfor %}
     </nav>
 
     {% else %}
     <!-- ── Horizontal top nav ────────────────────────────────────────────── -->
     <nav class="nav-horizontal">
-        {% if report_title %}
-        <div class="nav-report-title">{{ report_title }}</div>
-        {% endif %}
-        {% for group_name, group_links in nav_links | groupby("category") %}
-        <div class="nav-group">
-            {% if group_name %}
-            <span class="nav-category-label">{{ group_name }}</span>
+        <div class="nav-header">
+            {% if report_title %}
+            <div class="nav-report-title">{{ report_title }}</div>
             {% endif %}
-            {% for link in group_links %}
-            <a href="{{ link.slug }}.html"
-               {% if link.slug == current_slug %}class="active"{% endif %}>
-                {{ link.label }}
-            </a>
-            {% endfor %}
+            <div class="nav-tabs-scroll">
+                {% for page in nav_tree.pages %}
+                <a href="{{ page.slug }}.html"
+                   class="nav-tab{% if page.slug == current_slug %} active{% endif %}">{{ page.label }}</a>
+                {% endfor %}
+                {% for node in nav_tree.children %}{{ h_dd_node(node, current_slug) }}{% endfor %}
+            </div>
         </div>
-        {% endfor %}
     </nav>
     {% endif %}
+
+    <script>
+    // Nav dropdowns: menus use position:fixed (to escape overflow-x:auto clipping).
+    // JS handles both hover (mouseenter/leave with a short delay) and click-to-toggle.
+    (function () {
+        function showMenu(menu, x, y) {
+            clearTimeout(menu._ht);
+            // Clamp to viewport so menu never spawns off-screen
+            menu.style.left = x + 'px';
+            menu.style.top  = y + 'px';
+            menu.style.display = 'block';
+            // After paint, clamp right edge
+            var vw = window.innerWidth;
+            var mw = menu.offsetWidth;
+            if (x + mw > vw) menu.style.left = Math.max(0, vw - mw) + 'px';
+        }
+        function hideMenu(menu) {
+            menu._ht = setTimeout(function () { menu.style.display = 'none'; }, 150);
+        }
+        function keepOpen(menu) { clearTimeout(menu._ht); }
+
+        function wire(trigger, menu, openRight) {
+            trigger.addEventListener('mouseenter', function () {
+                var r = trigger.getBoundingClientRect();
+                showMenu(menu, openRight ? r.right : r.left, openRight ? r.top : r.bottom);
+            });
+            trigger.addEventListener('mouseleave', function () { hideMenu(menu); });
+            menu.addEventListener('mouseenter', function () { keepOpen(menu); });
+            menu.addEventListener('mouseleave', function () { hideMenu(menu); });
+        }
+
+        // Top-level dropdowns
+        document.querySelectorAll('.nav-horizontal .nav-dd').forEach(function (dd) {
+            var t = dd.querySelector(':scope > .nav-dd-trigger');
+            var m = dd.querySelector(':scope > .nav-dd-menu');
+            if (!t || !m) return;
+            wire(t, m, false);
+            // Toggle on click (touch / keyboard users)
+            t.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (m.style.display === 'block') {
+                    m.style.display = 'none';
+                } else {
+                    var r = t.getBoundingClientRect();
+                    showMenu(m, r.left, r.bottom);
+                }
+            });
+        });
+
+        // Sub-menus (open to the right of their trigger row)
+        document.querySelectorAll('.nav-horizontal .nav-dd-sub').forEach(function (sub) {
+            var t = sub.querySelector(':scope > .nav-dd-sub-trigger');
+            var m = sub.querySelector(':scope > .nav-dd-sub-menu');
+            if (!t || !m) return;
+            wire(t, m, true);
+        });
+
+        // Click outside closes everything
+        document.addEventListener('click', function () {
+            document.querySelectorAll('.nav-horizontal .nav-dd-menu, .nav-horizontal .nav-dd-sub-menu')
+                    .forEach(function (m) { m.style.display = 'none'; });
+        });
+    })();
+    </script>
 
     <div class="page-content">
         <h1>{{ title }}</h1>

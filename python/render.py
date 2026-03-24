@@ -445,6 +445,74 @@ def build_filter_objects(page_filters, source_cache):
     return views, widgets
 
 
+# ── Nav tree builder ────────────────────────────────────────────────────────
+
+def build_nav_tree(nav_links, current_slug):
+    """
+    Parse a flat nav_links list into a nested tree.
+
+    Category strings use "/" as a hierarchy separator, e.g. "Financial/Revenue".
+    Returns a root node dict::
+
+        {
+          "pages": [link, ...],          # pages with no category
+          "children": [node, ...],       # top-level category nodes
+          "has_active": bool,
+        }
+
+    Each interior node::
+
+        {
+          "label": str,
+          "path": str,                   # full slash-joined path
+          "pages": [link, ...],          # pages assigned to exactly this node
+          "children": [node, ...],
+          "has_active": bool,
+        }
+    """
+    root = {"pages": [], "children": {}}
+
+    for link in nav_links:
+        cat = link.get("category", "").strip()
+        if not cat:
+            root["pages"].append(link)
+        else:
+            parts = [p.strip() for p in cat.split("/") if p.strip()]
+            node = root
+            path_parts = []
+            for i, part in enumerate(parts):
+                path_parts.append(part)
+                path = "/".join(path_parts)
+                if part not in node["children"]:
+                    node["children"][part] = {
+                        "label": part,
+                        "path": path,
+                        "pages": [],
+                        "children": {},
+                    }
+                if i == len(parts) - 1:
+                    node["children"][part]["pages"].append(link)
+                else:
+                    node = node["children"][part]
+
+    def finalize(node):
+        children = [finalize(c) for c in node["children"].values()]
+        has_active = any(p["slug"] == current_slug for p in node["pages"]) or any(
+            c["has_active"] for c in children
+        )
+        result = {"pages": node["pages"], "children": children, "has_active": has_active}
+        if "label" in node:
+            result["label"] = node["label"]
+            result["path"] = node["path"]
+        return result
+
+    root_children = [finalize(c) for c in root["children"].values()]
+    root_has_active = any(p["slug"] == current_slug for p in root["pages"]) or any(
+        c["has_active"] for c in root_children
+    )
+    return {"pages": root["pages"], "children": root_children, "has_active": root_has_active}
+
+
 # ── Render all pages ────────────────────────────────────────────────────────
 
 os.makedirs(output_dir, exist_ok=True)
@@ -557,6 +625,7 @@ for page in pages:
         filter_items=filter_items,
         grid_cols=page["grid_cols"],
         nav_links=nav_links,
+        nav_tree=build_nav_tree(nav_links, page["slug"]),
         current_slug=page["slug"],
     )
 
