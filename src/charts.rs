@@ -42,6 +42,256 @@ use crate::error::ChartError;
 /// with a [`ChartError::GridValidation`](crate::error::ChartError::GridValidation) error.
 pub const MAX_GRID_COLS: usize = 6;
 
+// ── Visual customisation types ────────────────────────────────────────────────
+
+/// A color palette used to assign colors to groups or series.
+///
+/// Used by grouped-bar and line charts to override the default seaborn-style
+/// color cycle.
+///
+/// # Examples
+///
+/// ```ignore
+/// use rust_to_bokeh::prelude::*;
+///
+/// // Bokeh built-in named palette
+/// let p = PaletteSpec::Named("Plasma256".into());
+///
+/// // Custom hex colors — cycled when fewer colors than groups
+/// let p = PaletteSpec::Custom(vec!["#e74c3c".into(), "#3498db".into()]);
+/// ```
+pub enum PaletteSpec {
+    /// One of Bokeh's built-in named palettes (e.g. `"Category10"`,
+    /// `"Category20"`, `"Viridis256"`, `"Plasma256"`).
+    Named(String),
+    /// A list of hex color strings (e.g. `"#4C72B0"`).  Cycled when fewer
+    /// entries are supplied than there are groups or series.
+    Custom(Vec<String>),
+}
+
+/// Format applied to a single tooltip field.
+///
+/// Used inside [`TooltipSpec`] to control how each hover value is displayed.
+pub enum TooltipFormat {
+    /// Plain text — renders the value as-is.
+    Text,
+    /// Fixed-point number.  Decimal places default to `2` when `None`.
+    Number(Option<u8>),
+    /// Percentage.  The raw value is shown with a `%` suffix.
+    /// Decimal places default to `1` when `None`.
+    Percent(Option<u8>),
+    /// Currency — prefixed with `$` and formatted with thousand separators.
+    Currency,
+}
+
+/// A single row in a chart tooltip.
+pub struct TooltipField {
+    /// Column name in the data source.
+    pub column: String,
+    /// Human-readable label shown before the value.
+    pub label: String,
+    /// How to format the column value.
+    pub format: TooltipFormat,
+}
+
+/// Custom tooltip definition for a chart.
+///
+/// When provided, replaces the default Bokeh `HoverTool` tooltip with the
+/// specified fields in the order they were added.  If omitted the renderer
+/// falls back to a sensible default based on the chart's column names.
+///
+/// Build with [`TooltipSpec::builder`].
+///
+/// # Example
+///
+/// ```ignore
+/// use rust_to_bokeh::prelude::*;
+///
+/// let tt = TooltipSpec::builder()
+///     .field("region",  "Region",  TooltipFormat::Text)
+///     .field("revenue", "Revenue", TooltipFormat::Currency)
+///     .field("growth",  "Growth",  TooltipFormat::Percent(Some(1)))
+///     .build();
+/// ```
+pub struct TooltipSpec {
+    /// Ordered list of fields to show in the tooltip.
+    pub fields: Vec<TooltipField>,
+}
+
+/// Builder for [`TooltipSpec`].
+///
+/// Call [`field`](TooltipSpecBuilder::field) once per tooltip row, then
+/// [`build`](TooltipSpecBuilder::build).
+pub struct TooltipSpecBuilder {
+    fields: Vec<TooltipField>,
+}
+
+impl TooltipSpec {
+    /// Create a new builder for a tooltip specification.
+    #[must_use]
+    pub fn builder() -> TooltipSpecBuilder {
+        TooltipSpecBuilder { fields: Vec::new() }
+    }
+}
+
+impl TooltipSpecBuilder {
+    /// Add a field row to the tooltip.
+    ///
+    /// Fields appear in the order they are added.
+    #[must_use]
+    pub fn field(mut self, column: &str, label: &str, format: TooltipFormat) -> Self {
+        self.fields.push(TooltipField {
+            column: column.into(),
+            label: label.into(),
+            format,
+        });
+        self
+    }
+
+    /// Consume the builder and produce a [`TooltipSpec`].
+    #[must_use]
+    pub fn build(self) -> TooltipSpec {
+        TooltipSpec { fields: self.fields }
+    }
+}
+
+/// Per-axis display customisation for a chart.
+///
+/// Controls the initial visible range, pan/zoom bounds, tick-label formatting,
+/// label orientation, and grid-line visibility.  All fields are optional;
+/// omitting a field preserves the Bokeh default for that property.
+///
+/// Build with [`AxisConfig::builder`].
+///
+/// # Example
+///
+/// ```ignore
+/// use rust_to_bokeh::prelude::*;
+///
+/// // Dollar-formatted X axis, view 0–500, pan locked to 0–600
+/// let x = AxisConfig::builder()
+///     .range(0.0, 500.0)
+///     .bounds(0.0, 600.0)
+///     .tick_format("$0,0")
+///     .build();
+///
+/// // Y axis with 45° label rotation and no grid lines
+/// let y = AxisConfig::builder()
+///     .label_rotation(45.0)
+///     .show_grid(false)
+///     .build();
+/// ```
+pub struct AxisConfig {
+    /// Start of the initial visible range (`Range1d.start` in Bokeh).
+    pub start: Option<f64>,
+    /// End of the initial visible range (`Range1d.end` in Bokeh).
+    pub end: Option<f64>,
+    /// Lower pan/zoom bound (`x_range.bounds[0]` in Bokeh).
+    /// Requires [`bounds_max`](AxisConfig::bounds_max) to also be set.
+    pub bounds_min: Option<f64>,
+    /// Upper pan/zoom bound (`x_range.bounds[1]` in Bokeh).
+    /// Requires [`bounds_min`](AxisConfig::bounds_min) to also be set.
+    pub bounds_max: Option<f64>,
+    /// Rotation of major-tick labels in degrees (e.g. `45.0`).
+    pub label_rotation: Option<f64>,
+    /// [Numeral.js](http://numeraljs.com/) format string for tick labels
+    /// (e.g. `"$0,0"`, `"0.0%"`, `"0.00"`).
+    pub tick_format: Option<String>,
+    /// Whether to draw grid lines for this axis.  Defaults to `true`.
+    pub show_grid: bool,
+}
+
+/// Builder for [`AxisConfig`].
+pub struct AxisConfigBuilder {
+    start: Option<f64>,
+    end: Option<f64>,
+    bounds_min: Option<f64>,
+    bounds_max: Option<f64>,
+    label_rotation: Option<f64>,
+    tick_format: Option<String>,
+    show_grid: bool,
+}
+
+impl AxisConfig {
+    /// Create a new builder for axis configuration.
+    #[must_use]
+    pub fn builder() -> AxisConfigBuilder {
+        AxisConfigBuilder {
+            start: None,
+            end: None,
+            bounds_min: None,
+            bounds_max: None,
+            label_rotation: None,
+            tick_format: None,
+            show_grid: true,
+        }
+    }
+}
+
+impl AxisConfigBuilder {
+    /// Set the initial visible range of the axis.
+    ///
+    /// Maps to `Range1d(start=start, end=end)` in Bokeh.
+    #[must_use]
+    pub fn range(mut self, start: f64, end: f64) -> Self {
+        self.start = Some(start);
+        self.end = Some(end);
+        self
+    }
+
+    /// Set the pan/zoom bounding limits for the axis.
+    ///
+    /// Maps to `range.bounds = (min, max)` in Bokeh.  Both values must be
+    /// supplied; the user cannot pan or zoom beyond these limits at runtime.
+    #[must_use]
+    pub fn bounds(mut self, min: f64, max: f64) -> Self {
+        self.bounds_min = Some(min);
+        self.bounds_max = Some(max);
+        self
+    }
+
+    /// Set the rotation of major-tick labels in degrees.
+    ///
+    /// Positive values rotate the labels counter-clockwise.  `45.0` is a
+    /// common choice for long category labels.
+    #[must_use]
+    pub fn label_rotation(mut self, degrees: f64) -> Self {
+        self.label_rotation = Some(degrees);
+        self
+    }
+
+    /// Set the [numeral.js](http://numeraljs.com/) format string for tick labels.
+    ///
+    /// Examples: `"$0,0"` (currency with commas), `"0.0%"` (percentage),
+    /// `"0.00"` (fixed two decimals), `"0.0a"` (abbreviated, e.g. `"1.2k"`).
+    #[must_use]
+    pub fn tick_format(mut self, fmt: &str) -> Self {
+        self.tick_format = Some(fmt.into());
+        self
+    }
+
+    /// Control whether grid lines are drawn for this axis (default: `true`).
+    #[must_use]
+    pub fn show_grid(mut self, show: bool) -> Self {
+        self.show_grid = show;
+        self
+    }
+
+    /// Consume the builder and produce an [`AxisConfig`].
+    #[must_use]
+    pub fn build(self) -> AxisConfig {
+        AxisConfig {
+            start: self.start,
+            end: self.end,
+            bounds_min: self.bounds_min,
+            bounds_max: self.bounds_max,
+            label_rotation: self.label_rotation,
+            tick_format: self.tick_format,
+            show_grid: self.show_grid,
+        }
+    }
+}
+
 // ── Chart configuration structs ──────────────────────────────────────────────
 
 /// Configuration for a grouped bar chart.
@@ -72,6 +322,18 @@ pub struct GroupedBarConfig {
     pub value_col: String,
     /// Label displayed on the Y axis.
     pub y_label: String,
+    /// Color palette for the group bars.  Defaults to the built-in seaborn
+    /// color cycle when `None`.
+    pub palette: Option<PaletteSpec>,
+    /// Width of each bar as a fraction of the available slot (0.0–1.0).
+    /// Defaults to `0.9` when `None`.
+    pub bar_width: Option<f64>,
+    /// Custom hover tooltip.  Defaults to the chart column names when `None`.
+    pub tooltips: Option<TooltipSpec>,
+    /// X-axis display configuration.
+    pub x_axis: Option<AxisConfig>,
+    /// Y-axis display configuration.
+    pub y_axis: Option<AxisConfig>,
 }
 
 /// Builder for [`GroupedBarConfig`].
@@ -83,6 +345,11 @@ pub struct GroupedBarConfigBuilder {
     group_col: Option<String>,
     value_col: Option<String>,
     y_label: Option<String>,
+    palette: Option<PaletteSpec>,
+    bar_width: Option<f64>,
+    tooltips: Option<TooltipSpec>,
+    x_axis: Option<AxisConfig>,
+    y_axis: Option<AxisConfig>,
 }
 
 impl GroupedBarConfig {
@@ -94,6 +361,11 @@ impl GroupedBarConfig {
             group_col: None,
             value_col: None,
             y_label: None,
+            palette: None,
+            bar_width: None,
+            tooltips: None,
+            x_axis: None,
+            y_axis: None,
         }
     }
 }
@@ -118,9 +390,39 @@ impl GroupedBarConfigBuilder {
         self
     }
     /// Set the Y-axis label text.
-    #[must_use] 
+    #[must_use]
     pub fn y_label(mut self, label: &str) -> Self {
         self.y_label = Some(label.into());
+        self
+    }
+    /// Set the color palette for the group bars.
+    #[must_use]
+    pub fn palette(mut self, palette: PaletteSpec) -> Self {
+        self.palette = Some(palette);
+        self
+    }
+    /// Set the bar width as a fraction of the available slot width (0.0–1.0).
+    #[must_use]
+    pub fn bar_width(mut self, width: f64) -> Self {
+        self.bar_width = Some(width);
+        self
+    }
+    /// Set a custom hover tooltip.
+    #[must_use]
+    pub fn tooltips(mut self, tooltips: TooltipSpec) -> Self {
+        self.tooltips = Some(tooltips);
+        self
+    }
+    /// Configure the X axis appearance.
+    #[must_use]
+    pub fn x_axis(mut self, axis: AxisConfig) -> Self {
+        self.x_axis = Some(axis);
+        self
+    }
+    /// Configure the Y axis appearance.
+    #[must_use]
+    pub fn y_axis(mut self, axis: AxisConfig) -> Self {
+        self.y_axis = Some(axis);
         self
     }
 
@@ -139,6 +441,11 @@ impl GroupedBarConfigBuilder {
                 .value_col
                 .ok_or(ChartError::MissingField("value_col"))?,
             y_label: self.y_label.ok_or(ChartError::MissingField("y_label"))?,
+            palette: self.palette,
+            bar_width: self.bar_width,
+            tooltips: self.tooltips,
+            x_axis: self.x_axis,
+            y_axis: self.y_axis,
         })
     }
 }
@@ -171,6 +478,20 @@ pub struct LineConfig {
     pub y_cols: Vec<String>,
     /// Label displayed on the Y axis.
     pub y_label: String,
+    /// Color palette for the lines.  Defaults to the built-in seaborn color
+    /// cycle when `None`.
+    pub palette: Option<PaletteSpec>,
+    /// Stroke width of the lines in screen units.  Defaults to `2.5` when `None`.
+    pub line_width: Option<f64>,
+    /// Size of the scatter markers drawn at each data point.
+    /// Defaults to `7` when `None`.
+    pub point_size: Option<f64>,
+    /// Custom hover tooltip.  Defaults to the chart column names when `None`.
+    pub tooltips: Option<TooltipSpec>,
+    /// X-axis display configuration.
+    pub x_axis: Option<AxisConfig>,
+    /// Y-axis display configuration.
+    pub y_axis: Option<AxisConfig>,
 }
 
 /// Builder for [`LineConfig`].
@@ -181,6 +502,12 @@ pub struct LineConfigBuilder {
     x_col: Option<String>,
     y_cols: Option<Vec<String>>,
     y_label: Option<String>,
+    palette: Option<PaletteSpec>,
+    line_width: Option<f64>,
+    point_size: Option<f64>,
+    tooltips: Option<TooltipSpec>,
+    x_axis: Option<AxisConfig>,
+    y_axis: Option<AxisConfig>,
 }
 
 impl LineConfig {
@@ -191,6 +518,12 @@ impl LineConfig {
             x_col: None,
             y_cols: None,
             y_label: None,
+            palette: None,
+            line_width: None,
+            point_size: None,
+            tooltips: None,
+            x_axis: None,
+            y_axis: None,
         }
     }
 }
@@ -209,9 +542,45 @@ impl LineConfigBuilder {
         self
     }
     /// Set the Y-axis label text.
-    #[must_use] 
+    #[must_use]
     pub fn y_label(mut self, label: &str) -> Self {
         self.y_label = Some(label.into());
+        self
+    }
+    /// Set the color palette for the lines.
+    #[must_use]
+    pub fn palette(mut self, palette: PaletteSpec) -> Self {
+        self.palette = Some(palette);
+        self
+    }
+    /// Set the stroke width of each line in screen units.
+    #[must_use]
+    pub fn line_width(mut self, width: f64) -> Self {
+        self.line_width = Some(width);
+        self
+    }
+    /// Set the size of the scatter markers drawn at each data point.
+    #[must_use]
+    pub fn point_size(mut self, size: f64) -> Self {
+        self.point_size = Some(size);
+        self
+    }
+    /// Set a custom hover tooltip.
+    #[must_use]
+    pub fn tooltips(mut self, tooltips: TooltipSpec) -> Self {
+        self.tooltips = Some(tooltips);
+        self
+    }
+    /// Configure the X axis appearance.
+    #[must_use]
+    pub fn x_axis(mut self, axis: AxisConfig) -> Self {
+        self.x_axis = Some(axis);
+        self
+    }
+    /// Configure the Y axis appearance.
+    #[must_use]
+    pub fn y_axis(mut self, axis: AxisConfig) -> Self {
+        self.y_axis = Some(axis);
         self
     }
 
@@ -225,6 +594,12 @@ impl LineConfigBuilder {
             x_col: self.x_col.ok_or(ChartError::MissingField("x_col"))?,
             y_cols: self.y_cols.ok_or(ChartError::MissingField("y_cols"))?,
             y_label: self.y_label.ok_or(ChartError::MissingField("y_label"))?,
+            palette: self.palette,
+            line_width: self.line_width,
+            point_size: self.point_size,
+            tooltips: self.tooltips,
+            x_axis: self.x_axis,
+            y_axis: self.y_axis,
         })
     }
 }
@@ -255,6 +630,15 @@ pub struct HBarConfig {
     pub value_col: String,
     /// Label displayed on the X axis (the value axis for horizontal bars).
     pub x_label: String,
+    /// Fill color for the bars as a hex string (e.g. `"#e74c3c"`).
+    /// Defaults to `"#4C72B0"` when `None`.
+    pub color: Option<String>,
+    /// Custom hover tooltip.  Defaults to the chart column names when `None`.
+    pub tooltips: Option<TooltipSpec>,
+    /// X-axis (value axis) display configuration.
+    pub x_axis: Option<AxisConfig>,
+    /// Y-axis (category axis) display configuration.
+    pub y_axis: Option<AxisConfig>,
 }
 
 /// Builder for [`HBarConfig`].
@@ -265,6 +649,10 @@ pub struct HBarConfigBuilder {
     category_col: Option<String>,
     value_col: Option<String>,
     x_label: Option<String>,
+    color: Option<String>,
+    tooltips: Option<TooltipSpec>,
+    x_axis: Option<AxisConfig>,
+    y_axis: Option<AxisConfig>,
 }
 
 impl HBarConfig {
@@ -275,6 +663,10 @@ impl HBarConfig {
             category_col: None,
             value_col: None,
             x_label: None,
+            color: None,
+            tooltips: None,
+            x_axis: None,
+            y_axis: None,
         }
     }
 }
@@ -293,9 +685,33 @@ impl HBarConfigBuilder {
         self
     }
     /// Set the X-axis label text.
-    #[must_use] 
+    #[must_use]
     pub fn x_label(mut self, label: &str) -> Self {
         self.x_label = Some(label.into());
+        self
+    }
+    /// Set the fill color for the bars as a hex string (e.g. `"#e74c3c"`).
+    #[must_use]
+    pub fn color(mut self, color: &str) -> Self {
+        self.color = Some(color.into());
+        self
+    }
+    /// Set a custom hover tooltip.
+    #[must_use]
+    pub fn tooltips(mut self, tooltips: TooltipSpec) -> Self {
+        self.tooltips = Some(tooltips);
+        self
+    }
+    /// Configure the X axis (value axis) appearance.
+    #[must_use]
+    pub fn x_axis(mut self, axis: AxisConfig) -> Self {
+        self.x_axis = Some(axis);
+        self
+    }
+    /// Configure the Y axis (category axis) appearance.
+    #[must_use]
+    pub fn y_axis(mut self, axis: AxisConfig) -> Self {
+        self.y_axis = Some(axis);
         self
     }
 
@@ -313,6 +729,10 @@ impl HBarConfigBuilder {
                 .value_col
                 .ok_or(ChartError::MissingField("value_col"))?,
             x_label: self.x_label.ok_or(ChartError::MissingField("x_label"))?,
+            color: self.color,
+            tooltips: self.tooltips,
+            x_axis: self.x_axis,
+            y_axis: self.y_axis,
         })
     }
 }
@@ -347,6 +767,22 @@ pub struct ScatterConfig {
     pub x_label: String,
     /// Label displayed on the Y axis.
     pub y_label: String,
+    /// Fill color for the markers as a hex string.  Defaults to `"#4C72B0"`.
+    pub color: Option<String>,
+    /// Bokeh marker type (e.g. `"circle"`, `"square"`, `"diamond"`,
+    /// `"triangle"`, `"inverted_triangle"`, `"hex"`, `"star"`).
+    /// Defaults to `"circle"` when `None`.
+    pub marker: Option<String>,
+    /// Marker size in screen units.  Defaults to `10` when `None`.
+    pub marker_size: Option<f64>,
+    /// Fill alpha (0.0 = transparent, 1.0 = opaque).  Defaults to `0.7`.
+    pub alpha: Option<f64>,
+    /// Custom hover tooltip.  Defaults to the chart column names when `None`.
+    pub tooltips: Option<TooltipSpec>,
+    /// X-axis display configuration.
+    pub x_axis: Option<AxisConfig>,
+    /// Y-axis display configuration.
+    pub y_axis: Option<AxisConfig>,
 }
 
 /// Builder for [`ScatterConfig`].
@@ -358,6 +794,13 @@ pub struct ScatterConfigBuilder {
     y_col: Option<String>,
     x_label: Option<String>,
     y_label: Option<String>,
+    color: Option<String>,
+    marker: Option<String>,
+    marker_size: Option<f64>,
+    alpha: Option<f64>,
+    tooltips: Option<TooltipSpec>,
+    x_axis: Option<AxisConfig>,
+    y_axis: Option<AxisConfig>,
 }
 
 impl ScatterConfig {
@@ -369,6 +812,13 @@ impl ScatterConfig {
             y_col: None,
             x_label: None,
             y_label: None,
+            color: None,
+            marker: None,
+            marker_size: None,
+            alpha: None,
+            tooltips: None,
+            x_axis: None,
+            y_axis: None,
         }
     }
 }
@@ -393,9 +843,51 @@ impl ScatterConfigBuilder {
         self
     }
     /// Set the Y-axis label text.
-    #[must_use] 
+    #[must_use]
     pub fn y_label(mut self, label: &str) -> Self {
         self.y_label = Some(label.into());
+        self
+    }
+    /// Set the fill color for the markers as a hex string.
+    #[must_use]
+    pub fn color(mut self, color: &str) -> Self {
+        self.color = Some(color.into());
+        self
+    }
+    /// Set the Bokeh marker type (e.g. `"circle"`, `"square"`, `"diamond"`).
+    #[must_use]
+    pub fn marker(mut self, marker: &str) -> Self {
+        self.marker = Some(marker.into());
+        self
+    }
+    /// Set the marker size in screen units.
+    #[must_use]
+    pub fn marker_size(mut self, size: f64) -> Self {
+        self.marker_size = Some(size);
+        self
+    }
+    /// Set the fill alpha (0.0 = transparent, 1.0 = opaque).
+    #[must_use]
+    pub fn alpha(mut self, alpha: f64) -> Self {
+        self.alpha = Some(alpha);
+        self
+    }
+    /// Set a custom hover tooltip.
+    #[must_use]
+    pub fn tooltips(mut self, tooltips: TooltipSpec) -> Self {
+        self.tooltips = Some(tooltips);
+        self
+    }
+    /// Configure the X axis appearance.
+    #[must_use]
+    pub fn x_axis(mut self, axis: AxisConfig) -> Self {
+        self.x_axis = Some(axis);
+        self
+    }
+    /// Configure the Y axis appearance.
+    #[must_use]
+    pub fn y_axis(mut self, axis: AxisConfig) -> Self {
+        self.y_axis = Some(axis);
         self
     }
 
@@ -410,6 +902,13 @@ impl ScatterConfigBuilder {
             y_col: self.y_col.ok_or(ChartError::MissingField("y_col"))?,
             x_label: self.x_label.ok_or(ChartError::MissingField("x_label"))?,
             y_label: self.y_label.ok_or(ChartError::MissingField("y_label"))?,
+            color: self.color,
+            marker: self.marker,
+            marker_size: self.marker_size,
+            alpha: self.alpha,
+            tooltips: self.tooltips,
+            x_axis: self.x_axis,
+            y_axis: self.y_axis,
         })
     }
 }
@@ -483,6 +982,12 @@ pub struct ChartSpec {
     /// [`CDSView`](https://docs.bokeh.org/en/latest/docs/reference/models/sources.html#cdsview).
     /// Set to `true` by calling [`ChartSpecBuilder::filtered`].
     pub filtered: bool,
+    /// Explicit figure width in pixels.  When `None`, the chart uses
+    /// `sizing_mode="stretch_width"` to fill its grid cell.
+    pub width: Option<u32>,
+    /// Explicit figure height in pixels.  When `None`, each chart type uses
+    /// a sensible default (typically 400 px).
+    pub height: Option<u32>,
 }
 
 // ── Filter types ─────────────────────────────────────────────────────────────
@@ -585,6 +1090,8 @@ pub struct ChartSpecBuilder {
     config: ChartConfig,
     grid: GridCell,
     filtered: bool,
+    width: Option<u32>,
+    height: Option<u32>,
 }
 
 impl ChartSpecBuilder {
@@ -604,6 +1111,8 @@ impl ChartSpecBuilder {
                 col_span: 1,
             },
             filtered: false,
+            width: None,
+            height: None,
         }
     }
 
@@ -651,14 +1160,27 @@ impl ChartSpecBuilder {
     /// Only charts with the same `source_key` as a page's [`FilterSpec`]s
     /// will be affected. Charts that are not marked as filtered will display
     /// all data regardless of filter state.
-    #[must_use] 
+    #[must_use]
     pub fn filtered(mut self) -> Self {
         self.filtered = true;
         self
     }
 
+    /// Set explicit pixel dimensions for the figure.
+    ///
+    /// When called, the chart uses `sizing_mode="fixed"` at the given
+    /// dimensions instead of the default `"stretch_width"` responsive layout.
+    /// Either dimension can be changed independently by calling this method
+    /// once with the desired values (both must be supplied together).
+    #[must_use]
+    pub fn dimensions(mut self, width: u32, height: u32) -> Self {
+        self.width = Some(width);
+        self.height = Some(height);
+        self
+    }
+
     /// Consume the builder and produce a [`ChartSpec`].
-    #[must_use] 
+    #[must_use]
     pub fn build(self) -> ChartSpec {
         ChartSpec {
             title: self.title,
@@ -666,6 +1188,8 @@ impl ChartSpecBuilder {
             config: self.config,
             grid: self.grid,
             filtered: self.filtered,
+            width: self.width,
+            height: self.height,
         }
     }
 }
@@ -1173,5 +1697,495 @@ mod tests {
             }
             _ => panic!("expected TopN config"),
         }
+    }
+
+    // ── PaletteSpec ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn palette_spec_named_stores_name() {
+        match PaletteSpec::Named("Plasma256".into()) {
+            PaletteSpec::Named(n) => assert_eq!(n, "Plasma256"),
+            _ => panic!("expected Named"),
+        }
+    }
+
+    #[test]
+    fn palette_spec_custom_stores_colors() {
+        let colors = vec!["#ff0000".to_string(), "#00ff00".to_string()];
+        match PaletteSpec::Custom(colors.clone()) {
+            PaletteSpec::Custom(c) => assert_eq!(c, colors),
+            _ => panic!("expected Custom"),
+        }
+    }
+
+    // ── TooltipSpec / TooltipSpecBuilder ──────────────────────────────────────
+
+    #[test]
+    fn tooltip_spec_builder_empty() {
+        let tt = TooltipSpec::builder().build();
+        assert!(tt.fields.is_empty());
+    }
+
+    #[test]
+    fn tooltip_spec_builder_single_field() {
+        let tt = TooltipSpec::builder()
+            .field("col", "Label", TooltipFormat::Text)
+            .build();
+        assert_eq!(tt.fields.len(), 1);
+        assert_eq!(tt.fields[0].column, "col");
+        assert_eq!(tt.fields[0].label, "Label");
+        assert!(matches!(tt.fields[0].format, TooltipFormat::Text));
+    }
+
+    #[test]
+    fn tooltip_spec_builder_field_ordering_preserved() {
+        let tt = TooltipSpec::builder()
+            .field("a", "A", TooltipFormat::Text)
+            .field("b", "B", TooltipFormat::Number(None))
+            .field("c", "C", TooltipFormat::Currency)
+            .build();
+        assert_eq!(tt.fields.len(), 3);
+        assert_eq!(tt.fields[0].column, "a");
+        assert_eq!(tt.fields[1].column, "b");
+        assert_eq!(tt.fields[2].column, "c");
+    }
+
+    #[test]
+    fn tooltip_format_number_with_decimals() {
+        let tt = TooltipSpec::builder()
+            .field("v", "V", TooltipFormat::Number(Some(3)))
+            .build();
+        match tt.fields[0].format {
+            TooltipFormat::Number(Some(d)) => assert_eq!(d, 3),
+            _ => panic!("expected Number(Some(3))"),
+        }
+    }
+
+    #[test]
+    fn tooltip_format_number_no_decimals() {
+        let tt = TooltipSpec::builder()
+            .field("v", "V", TooltipFormat::Number(None))
+            .build();
+        assert!(matches!(tt.fields[0].format, TooltipFormat::Number(None)));
+    }
+
+    #[test]
+    fn tooltip_format_percent_with_decimals() {
+        let tt = TooltipSpec::builder()
+            .field("v", "V", TooltipFormat::Percent(Some(2)))
+            .build();
+        match tt.fields[0].format {
+            TooltipFormat::Percent(Some(d)) => assert_eq!(d, 2),
+            _ => panic!("expected Percent(Some(2))"),
+        }
+    }
+
+    #[test]
+    fn tooltip_format_currency() {
+        let tt = TooltipSpec::builder()
+            .field("v", "V", TooltipFormat::Currency)
+            .build();
+        assert!(matches!(tt.fields[0].format, TooltipFormat::Currency));
+    }
+
+    // ── AxisConfig / AxisConfigBuilder ────────────────────────────────────────
+
+    #[test]
+    fn axis_config_defaults_all_none_show_grid_true() {
+        let ax = AxisConfig::builder().build();
+        assert!(ax.start.is_none());
+        assert!(ax.end.is_none());
+        assert!(ax.bounds_min.is_none());
+        assert!(ax.bounds_max.is_none());
+        assert!(ax.label_rotation.is_none());
+        assert!(ax.tick_format.is_none());
+        assert!(ax.show_grid);
+    }
+
+    #[test]
+    fn axis_config_range_sets_start_and_end() {
+        let ax = AxisConfig::builder().range(0.0, 100.0).build();
+        assert_eq!(ax.start, Some(0.0));
+        assert_eq!(ax.end, Some(100.0));
+    }
+
+    #[test]
+    fn axis_config_bounds_sets_min_and_max() {
+        let ax = AxisConfig::builder().bounds(10.0, 200.0).build();
+        assert_eq!(ax.bounds_min, Some(10.0));
+        assert_eq!(ax.bounds_max, Some(200.0));
+    }
+
+    #[test]
+    fn axis_config_label_rotation() {
+        let ax = AxisConfig::builder().label_rotation(45.0).build();
+        assert_eq!(ax.label_rotation, Some(45.0));
+    }
+
+    #[test]
+    fn axis_config_tick_format() {
+        let ax = AxisConfig::builder().tick_format("$0,0").build();
+        assert_eq!(ax.tick_format.as_deref(), Some("$0,0"));
+    }
+
+    #[test]
+    fn axis_config_show_grid_false() {
+        let ax = AxisConfig::builder().show_grid(false).build();
+        assert!(!ax.show_grid);
+    }
+
+    #[test]
+    fn axis_config_full_chain() {
+        let ax = AxisConfig::builder()
+            .range(0.0, 500.0)
+            .bounds(0.0, 600.0)
+            .label_rotation(30.0)
+            .tick_format("0.0%")
+            .show_grid(false)
+            .build();
+        assert_eq!(ax.start, Some(0.0));
+        assert_eq!(ax.end, Some(500.0));
+        assert_eq!(ax.bounds_min, Some(0.0));
+        assert_eq!(ax.bounds_max, Some(600.0));
+        assert_eq!(ax.label_rotation, Some(30.0));
+        assert_eq!(ax.tick_format.as_deref(), Some("0.0%"));
+        assert!(!ax.show_grid);
+    }
+
+    // ── GroupedBarConfig optional fields ──────────────────────────────────────
+
+    #[test]
+    fn grouped_bar_optional_fields_default_none() {
+        let cfg = GroupedBarConfig::builder()
+            .x("x").group("g").value("v").y_label("Y")
+            .build().unwrap();
+        assert!(cfg.palette.is_none());
+        assert!(cfg.bar_width.is_none());
+        assert!(cfg.tooltips.is_none());
+        assert!(cfg.x_axis.is_none());
+        assert!(cfg.y_axis.is_none());
+    }
+
+    #[test]
+    fn grouped_bar_with_named_palette() {
+        let cfg = GroupedBarConfig::builder()
+            .x("x").group("g").value("v").y_label("Y")
+            .palette(PaletteSpec::Named("Viridis256".into()))
+            .build().unwrap();
+        assert!(matches!(cfg.palette, Some(PaletteSpec::Named(ref n)) if n == "Viridis256"));
+    }
+
+    #[test]
+    fn grouped_bar_with_custom_palette() {
+        let cfg = GroupedBarConfig::builder()
+            .x("x").group("g").value("v").y_label("Y")
+            .palette(PaletteSpec::Custom(vec!["#ff0000".into()]))
+            .build().unwrap();
+        assert!(matches!(cfg.palette, Some(PaletteSpec::Custom(_))));
+    }
+
+    #[test]
+    fn grouped_bar_with_bar_width() {
+        let cfg = GroupedBarConfig::builder()
+            .x("x").group("g").value("v").y_label("Y")
+            .bar_width(0.6)
+            .build().unwrap();
+        assert_eq!(cfg.bar_width, Some(0.6));
+    }
+
+    #[test]
+    fn grouped_bar_with_tooltips() {
+        let tt = TooltipSpec::builder()
+            .field("x", "X", TooltipFormat::Text)
+            .build();
+        let cfg = GroupedBarConfig::builder()
+            .x("x").group("g").value("v").y_label("Y")
+            .tooltips(tt)
+            .build().unwrap();
+        assert!(cfg.tooltips.is_some());
+        assert_eq!(cfg.tooltips.unwrap().fields.len(), 1);
+    }
+
+    #[test]
+    fn grouped_bar_with_x_axis() {
+        let ax = AxisConfig::builder().tick_format("$0").build();
+        let cfg = GroupedBarConfig::builder()
+            .x("x").group("g").value("v").y_label("Y")
+            .x_axis(ax)
+            .build().unwrap();
+        assert!(cfg.x_axis.is_some());
+        assert_eq!(cfg.x_axis.unwrap().tick_format.as_deref(), Some("$0"));
+    }
+
+    #[test]
+    fn grouped_bar_with_y_axis() {
+        let ax = AxisConfig::builder().range(0.0, 200.0).build();
+        let cfg = GroupedBarConfig::builder()
+            .x("x").group("g").value("v").y_label("Y")
+            .y_axis(ax)
+            .build().unwrap();
+        assert_eq!(cfg.y_axis.as_ref().unwrap().start, Some(0.0));
+        assert_eq!(cfg.y_axis.as_ref().unwrap().end, Some(200.0));
+    }
+
+    // ── LineConfig optional fields ────────────────────────────────────────────
+
+    #[test]
+    fn line_optional_fields_default_none() {
+        let cfg = LineConfig::builder()
+            .x("x").y_cols(&["a"]).y_label("Y")
+            .build().unwrap();
+        assert!(cfg.palette.is_none());
+        assert!(cfg.line_width.is_none());
+        assert!(cfg.point_size.is_none());
+        assert!(cfg.tooltips.is_none());
+        assert!(cfg.x_axis.is_none());
+        assert!(cfg.y_axis.is_none());
+    }
+
+    #[test]
+    fn line_with_palette() {
+        let cfg = LineConfig::builder()
+            .x("x").y_cols(&["a"]).y_label("Y")
+            .palette(PaletteSpec::Named("Magma256".into()))
+            .build().unwrap();
+        assert!(matches!(cfg.palette, Some(PaletteSpec::Named(_))));
+    }
+
+    #[test]
+    fn line_with_line_width() {
+        let cfg = LineConfig::builder()
+            .x("x").y_cols(&["a"]).y_label("Y")
+            .line_width(4.0)
+            .build().unwrap();
+        assert_eq!(cfg.line_width, Some(4.0));
+    }
+
+    #[test]
+    fn line_with_point_size() {
+        let cfg = LineConfig::builder()
+            .x("x").y_cols(&["a"]).y_label("Y")
+            .point_size(12.0)
+            .build().unwrap();
+        assert_eq!(cfg.point_size, Some(12.0));
+    }
+
+    #[test]
+    fn line_with_tooltips() {
+        let tt = TooltipSpec::builder()
+            .field("a", "A", TooltipFormat::Number(Some(1)))
+            .build();
+        let cfg = LineConfig::builder()
+            .x("x").y_cols(&["a"]).y_label("Y")
+            .tooltips(tt)
+            .build().unwrap();
+        assert!(cfg.tooltips.is_some());
+    }
+
+    #[test]
+    fn line_with_y_axis() {
+        let ax = AxisConfig::builder().show_grid(false).build();
+        let cfg = LineConfig::builder()
+            .x("x").y_cols(&["a"]).y_label("Y")
+            .y_axis(ax)
+            .build().unwrap();
+        assert!(!cfg.y_axis.as_ref().unwrap().show_grid);
+    }
+
+    // ── HBarConfig optional fields ────────────────────────────────────────────
+
+    #[test]
+    fn hbar_optional_fields_default_none() {
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X")
+            .build().unwrap();
+        assert!(cfg.color.is_none());
+        assert!(cfg.tooltips.is_none());
+        assert!(cfg.x_axis.is_none());
+        assert!(cfg.y_axis.is_none());
+    }
+
+    #[test]
+    fn hbar_with_color() {
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X")
+            .color("#e74c3c")
+            .build().unwrap();
+        assert_eq!(cfg.color.as_deref(), Some("#e74c3c"));
+    }
+
+    #[test]
+    fn hbar_with_tooltips() {
+        let tt = TooltipSpec::builder()
+            .field("c", "Cat", TooltipFormat::Text)
+            .field("v", "Val", TooltipFormat::Number(None))
+            .build();
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X")
+            .tooltips(tt)
+            .build().unwrap();
+        let fields = &cfg.tooltips.unwrap().fields;
+        assert_eq!(fields.len(), 2);
+        assert_eq!(fields[0].column, "c");
+        assert_eq!(fields[1].column, "v");
+    }
+
+    #[test]
+    fn hbar_with_x_axis_bounds() {
+        let ax = AxisConfig::builder().bounds(0.0, 100.0).build();
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X")
+            .x_axis(ax)
+            .build().unwrap();
+        assert_eq!(cfg.x_axis.as_ref().unwrap().bounds_min, Some(0.0));
+        assert_eq!(cfg.x_axis.as_ref().unwrap().bounds_max, Some(100.0));
+    }
+
+    #[test]
+    fn hbar_with_y_axis() {
+        let ax = AxisConfig::builder().label_rotation(30.0).build();
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X")
+            .y_axis(ax)
+            .build().unwrap();
+        assert_eq!(cfg.y_axis.as_ref().unwrap().label_rotation, Some(30.0));
+    }
+
+    // ── ScatterConfig optional fields ─────────────────────────────────────────
+
+    #[test]
+    fn scatter_optional_fields_default_none() {
+        let cfg = ScatterConfig::builder()
+            .x("x").y("y").x_label("X").y_label("Y")
+            .build().unwrap();
+        assert!(cfg.color.is_none());
+        assert!(cfg.marker.is_none());
+        assert!(cfg.marker_size.is_none());
+        assert!(cfg.alpha.is_none());
+        assert!(cfg.tooltips.is_none());
+        assert!(cfg.x_axis.is_none());
+        assert!(cfg.y_axis.is_none());
+    }
+
+    #[test]
+    fn scatter_with_color() {
+        let cfg = ScatterConfig::builder()
+            .x("x").y("y").x_label("X").y_label("Y")
+            .color("#9b59b6")
+            .build().unwrap();
+        assert_eq!(cfg.color.as_deref(), Some("#9b59b6"));
+    }
+
+    #[test]
+    fn scatter_with_marker() {
+        let cfg = ScatterConfig::builder()
+            .x("x").y("y").x_label("X").y_label("Y")
+            .marker("diamond")
+            .build().unwrap();
+        assert_eq!(cfg.marker.as_deref(), Some("diamond"));
+    }
+
+    #[test]
+    fn scatter_with_marker_size() {
+        let cfg = ScatterConfig::builder()
+            .x("x").y("y").x_label("X").y_label("Y")
+            .marker_size(14.0)
+            .build().unwrap();
+        assert_eq!(cfg.marker_size, Some(14.0));
+    }
+
+    #[test]
+    fn scatter_with_alpha() {
+        let cfg = ScatterConfig::builder()
+            .x("x").y("y").x_label("X").y_label("Y")
+            .alpha(0.5)
+            .build().unwrap();
+        assert_eq!(cfg.alpha, Some(0.5));
+    }
+
+    #[test]
+    fn scatter_with_tooltips() {
+        let tt = TooltipSpec::builder()
+            .field("x", "X Axis", TooltipFormat::Currency)
+            .field("y", "Y Axis", TooltipFormat::Percent(Some(1)))
+            .build();
+        let cfg = ScatterConfig::builder()
+            .x("x").y("y").x_label("X").y_label("Y")
+            .tooltips(tt)
+            .build().unwrap();
+        let fields = &cfg.tooltips.as_ref().unwrap().fields;
+        assert_eq!(fields.len(), 2);
+        assert!(matches!(fields[0].format, TooltipFormat::Currency));
+        assert!(matches!(fields[1].format, TooltipFormat::Percent(Some(1))));
+    }
+
+    #[test]
+    fn scatter_with_x_axis_range_and_bounds() {
+        let ax = AxisConfig::builder()
+            .range(0.0, 500.0)
+            .bounds(0.0, 600.0)
+            .build();
+        let cfg = ScatterConfig::builder()
+            .x("x").y("y").x_label("X").y_label("Y")
+            .x_axis(ax)
+            .build().unwrap();
+        let x = cfg.x_axis.as_ref().unwrap();
+        assert_eq!(x.start, Some(0.0));
+        assert_eq!(x.end, Some(500.0));
+        assert_eq!(x.bounds_min, Some(0.0));
+        assert_eq!(x.bounds_max, Some(600.0));
+    }
+
+    #[test]
+    fn scatter_with_y_axis() {
+        let ax = AxisConfig::builder().tick_format("0.00").show_grid(false).build();
+        let cfg = ScatterConfig::builder()
+            .x("x").y("y").x_label("X").y_label("Y")
+            .y_axis(ax)
+            .build().unwrap();
+        let y = cfg.y_axis.as_ref().unwrap();
+        assert_eq!(y.tick_format.as_deref(), Some("0.00"));
+        assert!(!y.show_grid);
+    }
+
+    // ── ChartSpecBuilder::dimensions ──────────────────────────────────────────
+
+    #[test]
+    fn chart_spec_dimensions_default_none() {
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X")
+            .build().unwrap();
+        let spec = ChartSpecBuilder::hbar("Chart", "data", cfg).build();
+        assert!(spec.width.is_none());
+        assert!(spec.height.is_none());
+    }
+
+    #[test]
+    fn chart_spec_dimensions_sets_width_and_height() {
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X")
+            .build().unwrap();
+        let spec = ChartSpecBuilder::hbar("Chart", "data", cfg)
+            .dimensions(800, 600)
+            .build();
+        assert_eq!(spec.width, Some(800));
+        assert_eq!(spec.height, Some(600));
+    }
+
+    #[test]
+    fn chart_spec_dimensions_independent_of_filtered_and_grid() {
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X")
+            .build().unwrap();
+        let spec = ChartSpecBuilder::hbar("Chart", "data", cfg)
+            .at(1, 0, 2)
+            .filtered()
+            .dimensions(1200, 400)
+            .build();
+        assert_eq!(spec.grid.row, 1);
+        assert_eq!(spec.grid.col_span, 2);
+        assert!(spec.filtered);
+        assert_eq!(spec.width, Some(1200));
+        assert_eq!(spec.height, Some(400));
     }
 }

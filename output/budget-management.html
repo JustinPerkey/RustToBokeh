@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Budget Management — RustToBokeh</title>
+    <title>Annual Business Dashboard — Budget Management — RustToBokeh</title>
     
     
     <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.6.3.min.js"></script>
@@ -20,47 +20,280 @@
         * { box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #f8f9fa;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* ── Horizontal nav ────────────────────────────────────────────────── */
+        .nav-horizontal {
+            background: #fff;
+            border-bottom: 1px solid #dde2e8;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .nav-horizontal .nav-header {
+            display: flex;
+            align-items: stretch;
+            padding: 0 20px;
+        }
+        .nav-horizontal .nav-report-title {
+            font-size: 0.95em;
+            font-weight: 700;
+            color: #2c3e50;
+            white-space: nowrap;
+            padding: 0 16px 0 0;
+            margin-right: 4px;
+            border-right: 2px solid #dde2e8;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+        }
+        /* Scrollable row of top-level tabs + dropdown triggers */
+        .nav-horizontal .nav-tabs-scroll {
+            display: flex;
+            align-items: stretch;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            flex: 1;
+        }
+        .nav-horizontal .nav-tabs-scroll::-webkit-scrollbar { display: none; }
+
+        /* ── Shared tab link style ─────────────────────────────────────────── */
+        .nav-horizontal .nav-tab {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            padding: 0 14px;
+            height: 44px;
+            font-size: 0.83em;
+            font-weight: 500;
+            color: #555;
+            white-space: nowrap;
+            border-bottom: 3px solid transparent;
+            flex-shrink: 0;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+        }
+        .nav-horizontal .nav-tab:hover {
+            color: #4C72B0;
+            background: #f0f4fb;
+            border-bottom-color: #a0b8d8;
+        }
+        .nav-horizontal .nav-tab.active {
+            color: #4C72B0;
+            font-weight: 700;
+            border-bottom-color: #4C72B0;
+            background: #f0f4fb;
+        }
+
+        /* ── Dropdown (category with children or sub-items) ────────────────── */
+        .nav-horizontal .nav-dd {
+            position: relative;
+            display: flex;
+            align-items: stretch;
+            flex-shrink: 0;
+        }
+        .nav-horizontal .nav-dd-trigger {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 0 14px;
+            height: 44px;
+            border: none;
+            background: none;
+            font-family: inherit;
+            font-size: 0.83em;
+            font-weight: 500;
+            color: #555;
+            white-space: nowrap;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+        }
+        .nav-horizontal .nav-dd-trigger .caret {
+            font-size: 0.7em;
+            opacity: 0.55;
+        }
+        .nav-horizontal .nav-dd:hover > .nav-dd-trigger,
+        .nav-horizontal .nav-dd.open > .nav-dd-trigger {
+            color: #4C72B0;
+            background: #f0f4fb;
+            border-bottom-color: #a0b8d8;
+        }
+        .nav-horizontal .nav-dd.has-active > .nav-dd-trigger {
+            color: #4C72B0;
+            font-weight: 700;
+            border-bottom-color: #4C72B0;
+            background: #f0f4fb;
+        }
+        /* Top-level dropdown menu */
+        .nav-horizontal .nav-dd-menu {
+            display: none;
+            position: fixed; /* escape overflow-x:auto clipping on scroll container */
+            background: #fff;
+            border: 1px solid #dde2e8;
+            border-radius: 6px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+            min-width: 190px;
+            z-index: 1000;
+            padding: 4px 0;
+        }
+        /* Dropdown page link */
+        .nav-horizontal .nav-dd-item {
+            display: block;
+            padding: 8px 18px;
+            font-size: 0.83em;
+            font-weight: 500;
+            color: #444;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: background 0.1s, color 0.1s;
+        }
+        .nav-horizontal .nav-dd-item:hover { background: #f0f4fb; color: #4C72B0; }
+        .nav-horizontal .nav-dd-item.active { background: #f0f4fb; color: #4C72B0; font-weight: 700; }
+        /* Divider between pages and sub-groups */
+        .nav-horizontal .nav-dd-divider {
+            border: none;
+            border-top: 1px solid #eee;
+            margin: 4px 0;
+        }
+        /* Sub-dropdown (nested category) */
+        .nav-horizontal .nav-dd-sub {
+            position: relative;
+        }
+        .nav-horizontal .nav-dd-sub-trigger {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            padding: 8px 14px 8px 18px;
+            border: none;
+            background: none;
+            font-family: inherit;
+            font-size: 0.83em;
+            font-weight: 500;
+            color: #444;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: background 0.1s, color 0.1s;
+            text-align: left;
+        }
+        .nav-horizontal .nav-dd-sub-trigger .caret { font-size: 0.7em; opacity: 0.55; }
+        .nav-horizontal .nav-dd-sub:hover > .nav-dd-sub-trigger,
+        .nav-horizontal .nav-dd-sub.open > .nav-dd-sub-trigger {
+            background: #f0f4fb; color: #4C72B0;
+        }
+        .nav-horizontal .nav-dd-sub.has-active > .nav-dd-sub-trigger {
+            color: #4C72B0; font-weight: 700;
+        }
+        /* Sub-menu — position fixed, placed to the right by JS */
+        .nav-horizontal .nav-dd-sub-menu {
+            display: none;
+            position: fixed;
+            background: #fff;
+            border: 1px solid #dde2e8;
+            border-radius: 6px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+            min-width: 190px;
+            z-index: 1001;
+            padding: 4px 0;
+        }
+
+        /* ── Vertical nav ──────────────────────────────────────────────────── */
+        .nav-vertical {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 220px;
+            height: 100vh;
+            overflow-y: auto;
+            background: #2c3e50;
+            z-index: 100;
+            padding-bottom: 24px;
+        }
+        .nav-vertical .nav-report-title {
+            color: white;
+            font-size: 0.95em;
+            font-weight: 700;
+            padding: 18px 16px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.12);
+            line-height: 1.3;
+        }
+        /* Collapsible category group via <details>/<summary> */
+        .nav-vertical details { }
+        .nav-vertical details > summary {
+            list-style: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+            color: rgba(255,255,255,0.45);
+            font-size: 0.67em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.09em;
+            padding: 10px 14px 4px;
+        }
+        .nav-vertical details > summary::-webkit-details-marker { display: none; }
+        .nav-vertical details > summary::after {
+            content: "▸";
+            font-size: 0.9em;
+            opacity: 0.6;
+            transition: transform 0.15s;
+        }
+        .nav-vertical details[open] > summary::after { transform: rotate(90deg); }
+        /* Nested sub-group inside a vertical details block */
+        .nav-vertical details details > summary {
+            font-size: 0.65em;
+            padding-left: 0; /* indent comes from parent container */
+            color: rgba(255,255,255,0.35);
+        }
+        /* Indent containers */
+        .nav-vertical .nav-indent { padding-left: 10px; }
+        .nav-vertical a {
+            display: block;
+            text-decoration: none;
+            padding: 7px 14px 7px 22px;
+            font-size: 0.85em;
+            font-weight: 500;
+            color: rgba(255,255,255,0.72);
+            transition: background 0.12s, color 0.12s;
+        }
+        .nav-vertical a:hover { background: rgba(255,255,255,0.08); color: white; }
+        .nav-vertical a.active { background: #4C72B0; color: white; font-weight: 700; }
+        /* Uncategorized pages at the top of the sidebar */
+        .nav-vertical .nav-uncategorized { margin-top: 8px; }
+
+        /* ── Page layout ───────────────────────────────────────────────────── */
+        .layout-horizontal .page-content {
             max-width: 1600px;
             margin: 0 auto;
             padding: 0 20px 40px;
-            background: #f8f9fa;
-            color: #333;
         }
-        nav {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            padding: 14px 0;
-            margin-bottom: 8px;
-            border-bottom: 2px solid #e0e0e0;
-            position: sticky;
-            top: 0;
-            background: #f8f9fa;
-            z-index: 100;
+        .layout-vertical .page-content {
+            margin-left: 220px;
+            padding: 0 24px 40px;
         }
-        nav a {
-            text-decoration: none;
-            padding: 6px 14px;
-            border-radius: 6px;
-            font-size: 0.85em;
-            font-weight: 500;
-            color: #4C72B0;
-            background: #e8eef7;
-            transition: background 0.15s, color 0.15s;
-        }
-        nav a:hover { background: #4C72B0; color: white; }
-        nav a.active { background: #4C72B0; color: white; font-weight: 700; }
+
+        /* ── Page header ───────────────────────────────────────────────────── */
         h1 {
             color: #2c3e50;
             border-bottom: 3px solid #4C72B0;
             padding-bottom: 12px;
-            margin: 16px 0 8px;
+            margin: 20px 0 8px;
         }
         .subtitle {
             color: #666;
             margin-bottom: 20px;
             font-size: 0.9em;
         }
+
+        /* ── Grid layout ───────────────────────────────────────────────────── */
         .grid-layout {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -81,12 +314,16 @@
             padding-bottom: 8px;
             border-bottom: 1px solid #e8eef7;
         }
+
+        /* ── Footer ────────────────────────────────────────────────────────── */
         footer {
             margin-top: 20px;
             color: #999;
             font-size: 0.8em;
             text-align: center;
         }
+
+        /* ── Tech badges ───────────────────────────────────────────────────── */
         .tech-badge {
             display: inline-block;
             background: #e8eef7;
@@ -97,6 +334,8 @@
             font-weight: 600;
             font-size: 0.85em;
         }
+
+        /* ── Filter bar ────────────────────────────────────────────────────── */
         .filter-bar {
             display: flex;
             flex-wrap: wrap;
@@ -126,7 +365,8 @@
             color: #2c3e50;
             cursor: pointer;
         }
-        /* ── Paragraph module ── */
+
+        /* ── Paragraph module ──────────────────────────────────────────────── */
         .paragraph-module {
             height: 100%;
             box-sizing: border-box;
@@ -138,7 +378,8 @@
             font-size: 0.95em;
         }
         .paragraph-module p:last-child { margin-bottom: 0; }
-        /* ── Table module ── */
+
+        /* ── Table module ──────────────────────────────────────────────────── */
         .table-module { overflow: hidden; }
         .table-wrapper {
             overflow-x: auto;
@@ -167,7 +408,8 @@
             border-bottom: 1px solid #e9ecef;
             color: #2c3e50;
         }
-        /* ── Shared module heading (paragraph + table) ── */
+
+        /* ── Shared module heading (paragraph + table) ─────────────────────── */
         .module-title {
             color: #2c3e50;
             font-size: 1.0em;
@@ -178,159 +420,232 @@
         }
     </style>
 </head>
-<body>
-    <nav>
-        
-        <a href="executive-summary.html"
-           >
-            Executive
-        </a>
-        
-        <a href="revenue-overview.html"
-           >
-            Revenue
-        </a>
-        
-        <a href="expense-analysis.html"
-           >
-            Expenses
-        </a>
-        
-        <a href="quarterly-performance.html"
-           >
-            Quarterly
-        </a>
-        
-        <a href="product-analysis.html"
-           >
-            Products
-        </a>
-        
-        <a href="regional-breakdown.html"
-           >
-            Regions
-        </a>
-        
-        <a href="team-metrics.html"
-           >
-            Team
-        </a>
-        
-        <a href="customer-insights.html"
-           >
-            Customers
-        </a>
-        
-        <a href="web-analytics.html"
-           >
-            Web
-        </a>
-        
-        <a href="market-position.html"
-           >
-            Market
-        </a>
-        
-        <a href="budget-management.html"
-           class="active">
-            Budget
-        </a>
-        
-        <a href="project-portfolio.html"
-           >
-            Projects
-        </a>
-        
-        <a href="growth-indicators.html"
-           >
-            Growth
-        </a>
-        
-        <a href="cost-optimization.html"
-           >
-            Costs
-        </a>
-        
-        <a href="marketing-roi.html"
-           >
-            Marketing
-        </a>
-        
-        <a href="operations-dashboard.html"
-           >
-            Operations
-        </a>
-        
-        <a href="financial-health.html"
-           >
-            Finance
-        </a>
-        
-        <a href="workforce-planning.html"
-           >
-            Workforce
-        </a>
-        
-        <a href="forecast-targets.html"
-           >
-            Forecast
-        </a>
-        
-        <a href="annual-review.html"
-           >
-            Annual
-        </a>
-        
-        <a href="module-showcase.html"
-           >
-            Showcase
-        </a>
-        
-    </nav>
-    <h1>Budget Management</h1>
-    <p class="subtitle">
-        <span class="tech-badge">Polars</span>
-        <span class="tech-badge">Arrow IPC</span>
-        <span class="tech-badge">Bokeh</span>
-        <span class="tech-badge">PyO3</span>
-        <span class="tech-badge">Jinja2</span>
-    </p>
+<body class="layout-vertical">
+
     
-    <div class="grid-layout">
+    
+
+    
+    
+
+    
+    
+
+    
+    <!-- ── Vertical sidebar nav ──────────────────────────────────────────── -->
+    <nav class="nav-vertical">
         
-        <div class="chart-container"
-             style="grid-row: 1; grid-column: 1 / span 2;">
+        <div class="nav-report-title">Annual Business Dashboard</div>
+        
+        <div class="nav-uncategorized">
             
-            <h2 class="chart-title">Budget vs Actual Spending</h2>
+            <a href="executive-summary.html">Executive</a>
             
-            <div id="d22d4f88-c177-400a-91a0-5925bc66f0d4" data-root-id="p3120" style="display: contents;"></div>
         </div>
         
-        <div class="chart-container"
-             style="grid-row: 2; grid-column: 1 / span 1;">
+    <details open>
+        <summary>Financial</summary>
+        <div class="nav-indent">
             
-            <h2 class="chart-title">Cost Categories</h2>
+            <a href="revenue-overview.html">Revenue</a>
             
-            <div id="aea92e70-d4ab-45ba-8875-4b7ad53fd30b" data-root-id="p3178" style="display: contents;"></div>
+            <a href="expense-analysis.html">Expenses</a>
+            
+            <a href="quarterly-performance.html">Quarterly</a>
+            
+            <a href="budget-management.html" class="active">Budget</a>
+            
+            <a href="financial-health.html">Finance</a>
+            
+            <a href="annual-review.html">Annual</a>
+            
+            
         </div>
-        
-        <div class="chart-container"
-             style="grid-row: 2; grid-column: 2 / span 1;">
+    </details>
+    
+    <details>
+        <summary>Commercial</summary>
+        <div class="nav-indent">
             
-            <h2 class="chart-title">Revenue Trend</h2>
+            <a href="product-analysis.html">Products</a>
             
-            <div id="bdcfc97a-2a08-48d8-9f9e-db0bddc8c28a" data-root-id="p3236" style="display: contents;"></div>
+            <a href="regional-breakdown.html">Regions</a>
+            
+            <a href="market-position.html">Market</a>
+            
+            
         </div>
+    </details>
+    
+    <details>
+        <summary>People</summary>
+        <div class="nav-indent">
+            
+            <a href="team-metrics.html">Team</a>
+            
+            <a href="customer-insights.html">Customers</a>
+            
+            <a href="workforce-planning.html">Workforce</a>
+            
+            
+        </div>
+    </details>
+    
+    <details>
+        <summary>Digital</summary>
+        <div class="nav-indent">
+            
+            <a href="web-analytics.html">Web</a>
+            
+            <a href="growth-indicators.html">Growth</a>
+            
+            <a href="marketing-roi.html">Marketing</a>
+            
+            
+        </div>
+    </details>
+    
+    <details>
+        <summary>Operations</summary>
+        <div class="nav-indent">
+            
+            <a href="project-portfolio.html">Projects</a>
+            
+            <a href="cost-optimization.html">Costs</a>
+            
+            <a href="operations-dashboard.html">Operations</a>
+            
+            <a href="forecast-targets.html">Forecast</a>
+            
+            
+        </div>
+    </details>
+    
+    <details>
+        <summary>Reference</summary>
+        <div class="nav-indent">
+            
+            <a href="module-showcase.html">Showcase</a>
+            
+            <a href="chart-customisation.html">Customisation</a>
+            
+            
+        </div>
+    </details>
+    
+    </nav>
+
+    
+
+    <script>
+    // Nav dropdowns: menus use position:fixed (to escape overflow-x:auto clipping).
+    // JS handles both hover (mouseenter/leave with a short delay) and click-to-toggle.
+    (function () {
+        function showMenu(menu, x, y) {
+            clearTimeout(menu._ht);
+            // Clamp to viewport so menu never spawns off-screen
+            menu.style.left = x + 'px';
+            menu.style.top  = y + 'px';
+            menu.style.display = 'block';
+            // After paint, clamp right edge
+            var vw = window.innerWidth;
+            var mw = menu.offsetWidth;
+            if (x + mw > vw) menu.style.left = Math.max(0, vw - mw) + 'px';
+        }
+        function hideMenu(menu) {
+            menu._ht = setTimeout(function () { menu.style.display = 'none'; }, 150);
+        }
+        function keepOpen(menu) { clearTimeout(menu._ht); }
+
+        function wire(trigger, menu, openRight) {
+            trigger.addEventListener('mouseenter', function () {
+                var r = trigger.getBoundingClientRect();
+                showMenu(menu, openRight ? r.right : r.left, openRight ? r.top : r.bottom);
+            });
+            trigger.addEventListener('mouseleave', function () { hideMenu(menu); });
+            menu.addEventListener('mouseenter', function () { keepOpen(menu); });
+            menu.addEventListener('mouseleave', function () { hideMenu(menu); });
+        }
+
+        // Top-level dropdowns
+        document.querySelectorAll('.nav-horizontal .nav-dd').forEach(function (dd) {
+            var t = dd.querySelector(':scope > .nav-dd-trigger');
+            var m = dd.querySelector(':scope > .nav-dd-menu');
+            if (!t || !m) return;
+            wire(t, m, false);
+            // Toggle on click (touch / keyboard users)
+            t.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (m.style.display === 'block') {
+                    m.style.display = 'none';
+                } else {
+                    var r = t.getBoundingClientRect();
+                    showMenu(m, r.left, r.bottom);
+                }
+            });
+        });
+
+        // Sub-menus (open to the right of their trigger row)
+        document.querySelectorAll('.nav-horizontal .nav-dd-sub').forEach(function (sub) {
+            var t = sub.querySelector(':scope > .nav-dd-sub-trigger');
+            var m = sub.querySelector(':scope > .nav-dd-sub-menu');
+            if (!t || !m) return;
+            wire(t, m, true);
+        });
+
+        // Click outside closes everything
+        document.addEventListener('click', function () {
+            document.querySelectorAll('.nav-horizontal .nav-dd-menu, .nav-horizontal .nav-dd-sub-menu')
+                    .forEach(function (m) { m.style.display = 'none'; });
+        });
+    })();
+    </script>
+
+    <div class="page-content">
+        <h1>Budget Management</h1>
+        <p class="subtitle">
+            <span class="tech-badge">Polars</span>
+            <span class="tech-badge">Arrow IPC</span>
+            <span class="tech-badge">Bokeh</span>
+            <span class="tech-badge">PyO3</span>
+            <span class="tech-badge">Jinja2</span>
+        </p>
         
-    </div>
-        <script type="text/javascript">
+        <div class="grid-layout">
+            
+            <div class="chart-container"
+                 style="grid-row: 1; grid-column: 1 / span 2;">
+                
+                <h2 class="chart-title">Budget vs Actual Spending</h2>
+                
+                <div id="c2109bca-07ee-4c9e-a1ef-24ba3abf1013" data-root-id="p3120" style="display: contents;"></div>
+            </div>
+            
+            <div class="chart-container"
+                 style="grid-row: 2; grid-column: 1 / span 1;">
+                
+                <h2 class="chart-title">Cost Categories</h2>
+                
+                <div id="e2486d46-3d1b-487a-81f1-8213cdd33fff" data-root-id="p3178" style="display: contents;"></div>
+            </div>
+            
+            <div class="chart-container"
+                 style="grid-row: 2; grid-column: 2 / span 1;">
+                
+                <h2 class="chart-title">Revenue Trend</h2>
+                
+                <div id="db96d316-8956-45af-b410-d7dd8367517e" data-root-id="p3236" style="display: contents;"></div>
+            </div>
+            
+        </div>
+            <script type="text/javascript">
         (function() {
   const fn = function() {
     Bokeh.safely(function() {
       (function(root) {
         function embed_document(root) {
-        const docs_json = '{"5bcc8ce4-00a2-40e5-bd8f-ae5a7c8f1e5d":{"version":"3.6.3","title":"Bokeh Application","roots":[{"type":"object","name":"Figure","id":"p3120","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"FactorRange","id":"p3119","attributes":{"factors":[["Engineering","Budget"],["Engineering","Actual"],["Marketing","Budget"],["Marketing","Actual"],["Sales","Budget"],["Sales","Actual"],["Support","Budget"],["Support","Actual"],["Finance","Budget"],["Finance","Actual"],["Operations","Budget"],["Operations","Actual"]],"range_padding":0.1}},"y_range":{"type":"object","name":"DataRange1d","id":"p3122"},"x_scale":{"type":"object","name":"CategoricalScale","id":"p3130"},"y_scale":{"type":"object","name":"LinearScale","id":"p3131"},"title":{"type":"object","name":"Title","id":"p3123","attributes":{"text":"Budget vs Actual Spending"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p3172","attributes":{"data_source":{"type":"object","name":"ColumnDataSource","id":"p3116","attributes":{"selected":{"type":"object","name":"Selection","id":"p3117","attributes":{"indices":[],"line_indices":[]}},"selection_policy":{"type":"object","name":"UnionRenderers","id":"p3118"},"data":{"type":"map","entries":[["department",["Engineering","Engineering","Marketing","Marketing","Sales","Sales","Support","Support","Finance","Finance","Operations","Operations"]],["type",["Budget","Actual","Budget","Actual","Budget","Actual","Budget","Actual","Budget","Actual","Budget","Actual"]],["amount",[500.0,480.0,200.0,220.0,300.0,310.0,150.0,140.0,100.0,95.0,250.0,235.0]],["_factors_department_type",[["Engineering","Budget"],["Engineering","Actual"],["Marketing","Budget"],["Marketing","Actual"],["Sales","Budget"],["Sales","Actual"],["Support","Budget"],["Support","Actual"],["Finance","Budget"],["Finance","Actual"],["Operations","Budget"],["Operations","Actual"]]]]}}},"view":{"type":"object","name":"CDSView","id":"p3173","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p3174"}}},"glyph":{"type":"object","name":"VBar","id":"p3168","attributes":{"x":{"type":"field","field":"_factors_department_type"},"width":{"type":"value","value":0.9},"top":{"type":"field","field":"amount"},"line_color":{"type":"value","value":"white"},"fill_color":{"type":"field","field":"_factors_department_type","transform":{"type":"object","name":"CategoricalColorMapper","id":"p3164","attributes":{"palette":["#4C72B0","#DD8452"],"factors":["Budget","Actual"],"start":1,"end":2}}}}},"selection_glyph":{"type":"object","name":"VBar","id":"p3170","attributes":{"x":{"type":"field","field":"_factors_department_type"},"width":{"type":"value","value":0.9},"top":{"type":"field","field":"amount"},"line_color":{"type":"value","value":"white"},"fill_color":{"type":"value","value":"firebrick"}}},"nonselection_glyph":{"type":"object","name":"VBar","id":"p3169","attributes":{"x":{"type":"field","field":"_factors_department_type"},"width":{"type":"value","value":0.9},"top":{"type":"field","field":"amount"},"line_color":{"type":"value","value":"white"},"line_alpha":{"type":"value","value":0.1},"fill_color":{"type":"field","field":"_factors_department_type","transform":{"id":"p3164"}},"fill_alpha":{"type":"value","value":0.2},"hatch_alpha":{"type":"value","value":0.1}}},"muted_glyph":{"type":"object","name":"VBar","id":"p3171","attributes":{"x":{"type":"field","field":"_factors_department_type"},"width":{"type":"value","value":0.9},"top":{"type":"field","field":"amount"},"line_color":{"type":"value","value":"white"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"field","field":"_factors_department_type","transform":{"id":"p3164"}},"fill_alpha":{"type":"value","value":0.2},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p3129","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p3142"},{"type":"object","name":"WheelZoomTool","id":"p3143","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p3144","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p3145","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p3151","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p3150","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p3152"},{"type":"object","name":"SaveTool","id":"p3153"},{"type":"object","name":"HoverTool","id":"p3154","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxSelectTool","id":"p3155","attributes":{"renderers":"auto","overlay":{"type":"object","name":"BoxAnnotation","id":"p3156","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"editable":true,"handles":{"type":"object","name":"BoxInteractionHandles","id":"p3162","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p3161","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"TapTool","id":"p3163","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"LinearAxis","id":"p3137","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p3138","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p3139"},"axis_label":"USD (k)","major_label_policy":{"type":"object","name":"AllLabels","id":"p3140"}}}],"below":[{"type":"object","name":"CategoricalAxis","id":"p3132","attributes":{"ticker":{"type":"object","name":"CategoricalTicker","id":"p3133"},"formatter":{"type":"object","name":"CategoricalTickFormatter","id":"p3134"},"major_label_orientation":1.0,"major_label_policy":{"type":"object","name":"AllLabels","id":"p3135"},"group_label_orientation":0.5}}],"center":[{"type":"object","name":"Grid","id":"p3136","attributes":{"axis":{"id":"p3132"},"grid_line_color":null}},{"type":"object","name":"Grid","id":"p3141","attributes":{"dimension":1,"axis":{"id":"p3137"}}}]}},{"type":"object","name":"Figure","id":"p3178","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"DataRange1d","id":"p3180"},"y_range":{"type":"object","name":"FactorRange","id":"p3188","attributes":{"factors":["Legal","Training","Travel","Software Licenses","Office","Marketing","Cloud Infra","Salaries"]}},"x_scale":{"type":"object","name":"LinearScale","id":"p3189"},"y_scale":{"type":"object","name":"CategoricalScale","id":"p3190"},"title":{"type":"object","name":"Title","id":"p3181","attributes":{"text":"Cost Categories"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p3230","attributes":{"data_source":{"type":"object","name":"ColumnDataSource","id":"p3175","attributes":{"selected":{"type":"object","name":"Selection","id":"p3176","attributes":{"indices":[],"line_indices":[]}},"selection_policy":{"type":"object","name":"UnionRenderers","id":"p3177"},"data":{"type":"map","entries":[["category",["Salaries","Cloud Infra","Marketing","Office","Software Licenses","Travel","Training","Legal"]],["amount",[850.0,320.0,200.0,150.0,95.0,60.0,45.0,35.0]]]}}},"view":{"type":"object","name":"CDSView","id":"p3231","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p3232"}}},"glyph":{"type":"object","name":"HBar","id":"p3226","attributes":{"y":{"type":"field","field":"category"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"amount"},"line_color":{"type":"value","value":"white"},"fill_color":{"type":"value","value":"#4C72B0"}}},"selection_glyph":{"type":"object","name":"HBar","id":"p3228","attributes":{"y":{"type":"field","field":"category"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"amount"},"line_color":{"type":"value","value":"white"},"fill_color":{"type":"value","value":"firebrick"}}},"nonselection_glyph":{"type":"object","name":"HBar","id":"p3227","attributes":{"y":{"type":"field","field":"category"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"amount"},"line_color":{"type":"value","value":"white"},"line_alpha":{"type":"value","value":0.1},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_alpha":{"type":"value","value":0.1}}},"muted_glyph":{"type":"object","name":"HBar","id":"p3229","attributes":{"y":{"type":"field","field":"category"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"amount"},"line_color":{"type":"value","value":"white"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p3187","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p3201"},{"type":"object","name":"WheelZoomTool","id":"p3202","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p3203","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p3204","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p3210","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p3209","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p3211"},{"type":"object","name":"SaveTool","id":"p3212"},{"type":"object","name":"HoverTool","id":"p3213","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxSelectTool","id":"p3214","attributes":{"renderers":"auto","overlay":{"type":"object","name":"BoxAnnotation","id":"p3215","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"editable":true,"handles":{"type":"object","name":"BoxInteractionHandles","id":"p3221","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p3220","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"TapTool","id":"p3222","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"CategoricalAxis","id":"p3196","attributes":{"ticker":{"type":"object","name":"CategoricalTicker","id":"p3197"},"formatter":{"type":"object","name":"CategoricalTickFormatter","id":"p3198"},"major_label_policy":{"type":"object","name":"AllLabels","id":"p3199"}}}],"below":[{"type":"object","name":"LinearAxis","id":"p3191","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p3192","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p3193"},"axis_label":"USD (k)","major_label_policy":{"type":"object","name":"AllLabels","id":"p3194"}}}],"center":[{"type":"object","name":"Grid","id":"p3195","attributes":{"axis":{"id":"p3191"}}},{"type":"object","name":"Grid","id":"p3200","attributes":{"dimension":1,"axis":{"id":"p3196"},"grid_line_color":null}}]}},{"type":"object","name":"Figure","id":"p3236","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"FactorRange","id":"p3246","attributes":{"factors":["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]}},"y_range":{"type":"object","name":"DataRange1d","id":"p3238"},"x_scale":{"type":"object","name":"CategoricalScale","id":"p3247"},"y_scale":{"type":"object","name":"LinearScale","id":"p3248"},"title":{"type":"object","name":"Title","id":"p3239","attributes":{"text":"Revenue Trend"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p3287","attributes":{"data_source":{"type":"object","name":"ColumnDataSource","id":"p3233","attributes":{"selected":{"type":"object","name":"Selection","id":"p3234","attributes":{"indices":[],"line_indices":[]}},"selection_policy":{"type":"object","name":"UnionRenderers","id":"p3235"},"data":{"type":"map","entries":[["month",["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]],["revenue",[120.5,135.2,148.7,162.3,175.0,190.8,205.1,198.4,210.7,225.3,240.6,280.9]],["expenses",[95.0,102.5,110.3,118.7,125.2,132.8,140.1,136.5,145.2,152.7,160.3,175.5]],["profit",[25.5,32.7,38.4,43.6,49.8,58.0,65.0,61.9,65.5,72.6,80.3,105.4]],["margin",[21.2,24.2,25.8,26.9,28.5,30.4,31.7,31.2,31.1,32.2,33.4,37.5]]]}}},"view":{"type":"object","name":"CDSView","id":"p3288","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p3289"}}},"glyph":{"type":"object","name":"Line","id":"p3284","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"revenue"},"line_color":"#4C72B0","line_width":2.5}},"nonselection_glyph":{"type":"object","name":"Line","id":"p3285","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"revenue"},"line_color":"#4C72B0","line_alpha":0.1,"line_width":2.5}},"muted_glyph":{"type":"object","name":"Line","id":"p3286","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"revenue"},"line_color":"#4C72B0","line_alpha":0.2,"line_width":2.5}}}},{"type":"object","name":"GlyphRenderer","id":"p3299","attributes":{"data_source":{"id":"p3233"},"view":{"type":"object","name":"CDSView","id":"p3300","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p3301"}}},"glyph":{"type":"object","name":"Scatter","id":"p3295","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"revenue"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"fill_color":{"type":"value","value":"#4C72B0"},"hatch_color":{"type":"value","value":"#4C72B0"}}},"selection_glyph":{"type":"object","name":"Scatter","id":"p3297","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"revenue"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"firebrick"},"fill_color":{"type":"value","value":"firebrick"},"hatch_color":{"type":"value","value":"firebrick"}}},"nonselection_glyph":{"type":"object","name":"Scatter","id":"p3296","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"revenue"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.3},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.3},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.3}}},"muted_glyph":{"type":"object","name":"Scatter","id":"p3298","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"revenue"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.2}}}}},{"type":"object","name":"GlyphRenderer","id":"p3308","attributes":{"data_source":{"id":"p3233"},"view":{"type":"object","name":"CDSView","id":"p3309","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p3310"}}},"glyph":{"type":"object","name":"Line","id":"p3305","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"expenses"},"line_color":"#DD8452","line_width":2.5}},"nonselection_glyph":{"type":"object","name":"Line","id":"p3306","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"expenses"},"line_color":"#DD8452","line_alpha":0.1,"line_width":2.5}},"muted_glyph":{"type":"object","name":"Line","id":"p3307","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"expenses"},"line_color":"#DD8452","line_alpha":0.2,"line_width":2.5}}}},{"type":"object","name":"GlyphRenderer","id":"p3319","attributes":{"data_source":{"id":"p3233"},"view":{"type":"object","name":"CDSView","id":"p3320","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p3321"}}},"glyph":{"type":"object","name":"Scatter","id":"p3315","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"expenses"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#DD8452"},"fill_color":{"type":"value","value":"#DD8452"},"hatch_color":{"type":"value","value":"#DD8452"}}},"selection_glyph":{"type":"object","name":"Scatter","id":"p3317","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"expenses"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"firebrick"},"fill_color":{"type":"value","value":"firebrick"},"hatch_color":{"type":"value","value":"firebrick"}}},"nonselection_glyph":{"type":"object","name":"Scatter","id":"p3316","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"expenses"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#DD8452"},"line_alpha":{"type":"value","value":0.3},"fill_color":{"type":"value","value":"#DD8452"},"fill_alpha":{"type":"value","value":0.3},"hatch_color":{"type":"value","value":"#DD8452"},"hatch_alpha":{"type":"value","value":0.3}}},"muted_glyph":{"type":"object","name":"Scatter","id":"p3318","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"expenses"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#DD8452"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#DD8452"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#DD8452"},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p3245","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p3259"},{"type":"object","name":"WheelZoomTool","id":"p3260","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p3261","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p3262","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p3268","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p3267","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p3269"},{"type":"object","name":"SaveTool","id":"p3270"},{"type":"object","name":"HoverTool","id":"p3271","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxSelectTool","id":"p3272","attributes":{"renderers":"auto","overlay":{"type":"object","name":"BoxAnnotation","id":"p3273","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"editable":true,"handles":{"type":"object","name":"BoxInteractionHandles","id":"p3279","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p3278","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"TapTool","id":"p3280","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"LinearAxis","id":"p3254","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p3255","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p3256"},"axis_label":"USD (k)","major_label_policy":{"type":"object","name":"AllLabels","id":"p3257"}}}],"below":[{"type":"object","name":"CategoricalAxis","id":"p3249","attributes":{"ticker":{"type":"object","name":"CategoricalTicker","id":"p3250"},"formatter":{"type":"object","name":"CategoricalTickFormatter","id":"p3251"},"major_label_policy":{"type":"object","name":"AllLabels","id":"p3252"}}}],"center":[{"type":"object","name":"Grid","id":"p3253","attributes":{"axis":{"id":"p3249"}}},{"type":"object","name":"Grid","id":"p3258","attributes":{"dimension":1,"axis":{"id":"p3254"}}},{"type":"object","name":"Legend","id":"p3290","attributes":{"location":"top_left","click_policy":"hide","items":[{"type":"object","name":"LegendItem","id":"p3291","attributes":{"label":{"type":"value","value":"revenue"},"renderers":[{"id":"p3287"},{"id":"p3299"}]}},{"type":"object","name":"LegendItem","id":"p3311","attributes":{"label":{"type":"value","value":"expenses"},"renderers":[{"id":"p3308"},{"id":"p3319"}]}}]}}]}}]}}';
-        const render_items = [{"docid":"5bcc8ce4-00a2-40e5-bd8f-ae5a7c8f1e5d","roots":{"p3120":"d22d4f88-c177-400a-91a0-5925bc66f0d4","p3178":"aea92e70-d4ab-45ba-8875-4b7ad53fd30b","p3236":"bdcfc97a-2a08-48d8-9f9e-db0bddc8c28a"},"root_ids":["p3120","p3178","p3236"]}];
+        const docs_json = '{"aa65aeb7-db9a-4150-8313-70a3609c6593":{"version":"3.6.3","title":"Bokeh Application","roots":[{"type":"object","name":"Figure","id":"p3120","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"FactorRange","id":"p3119","attributes":{"factors":[["Engineering","Budget"],["Engineering","Actual"],["Marketing","Budget"],["Marketing","Actual"],["Sales","Budget"],["Sales","Actual"],["Support","Budget"],["Support","Actual"],["Finance","Budget"],["Finance","Actual"],["Operations","Budget"],["Operations","Actual"]],"range_padding":0.1}},"y_range":{"type":"object","name":"DataRange1d","id":"p3122"},"x_scale":{"type":"object","name":"CategoricalScale","id":"p3130"},"y_scale":{"type":"object","name":"LinearScale","id":"p3131"},"title":{"type":"object","name":"Title","id":"p3123","attributes":{"text":"Budget vs Actual Spending"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p3172","attributes":{"data_source":{"type":"object","name":"ColumnDataSource","id":"p3116","attributes":{"selected":{"type":"object","name":"Selection","id":"p3117","attributes":{"indices":[],"line_indices":[]}},"selection_policy":{"type":"object","name":"UnionRenderers","id":"p3118"},"data":{"type":"map","entries":[["department",["Engineering","Engineering","Marketing","Marketing","Sales","Sales","Support","Support","Finance","Finance","Operations","Operations"]],["type",["Budget","Actual","Budget","Actual","Budget","Actual","Budget","Actual","Budget","Actual","Budget","Actual"]],["amount",[500.0,480.0,200.0,220.0,300.0,310.0,150.0,140.0,100.0,95.0,250.0,235.0]],["_factors_department_type",[["Engineering","Budget"],["Engineering","Actual"],["Marketing","Budget"],["Marketing","Actual"],["Sales","Budget"],["Sales","Actual"],["Support","Budget"],["Support","Actual"],["Finance","Budget"],["Finance","Actual"],["Operations","Budget"],["Operations","Actual"]]]]}}},"view":{"type":"object","name":"CDSView","id":"p3173","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p3174"}}},"glyph":{"type":"object","name":"VBar","id":"p3168","attributes":{"x":{"type":"field","field":"_factors_department_type"},"width":{"type":"value","value":0.9},"top":{"type":"field","field":"amount"},"line_color":{"type":"value","value":"white"},"fill_color":{"type":"field","field":"_factors_department_type","transform":{"type":"object","name":"CategoricalColorMapper","id":"p3164","attributes":{"palette":["#4C72B0","#DD8452"],"factors":["Budget","Actual"],"start":1,"end":2}}}}},"selection_glyph":{"type":"object","name":"VBar","id":"p3170","attributes":{"x":{"type":"field","field":"_factors_department_type"},"width":{"type":"value","value":0.9},"top":{"type":"field","field":"amount"},"line_color":{"type":"value","value":"white"},"fill_color":{"type":"value","value":"firebrick"}}},"nonselection_glyph":{"type":"object","name":"VBar","id":"p3169","attributes":{"x":{"type":"field","field":"_factors_department_type"},"width":{"type":"value","value":0.9},"top":{"type":"field","field":"amount"},"line_color":{"type":"value","value":"white"},"line_alpha":{"type":"value","value":0.1},"fill_color":{"type":"field","field":"_factors_department_type","transform":{"id":"p3164"}},"fill_alpha":{"type":"value","value":0.2},"hatch_alpha":{"type":"value","value":0.1}}},"muted_glyph":{"type":"object","name":"VBar","id":"p3171","attributes":{"x":{"type":"field","field":"_factors_department_type"},"width":{"type":"value","value":0.9},"top":{"type":"field","field":"amount"},"line_color":{"type":"value","value":"white"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"field","field":"_factors_department_type","transform":{"id":"p3164"}},"fill_alpha":{"type":"value","value":0.2},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p3129","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p3142"},{"type":"object","name":"WheelZoomTool","id":"p3143","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p3144","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p3145","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p3151","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p3150","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p3152"},{"type":"object","name":"SaveTool","id":"p3153"},{"type":"object","name":"HoverTool","id":"p3154","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxSelectTool","id":"p3155","attributes":{"renderers":"auto","overlay":{"type":"object","name":"BoxAnnotation","id":"p3156","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"editable":true,"handles":{"type":"object","name":"BoxInteractionHandles","id":"p3162","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p3161","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"TapTool","id":"p3163","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"LinearAxis","id":"p3137","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p3138","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p3139"},"axis_label":"USD (k)","major_label_policy":{"type":"object","name":"AllLabels","id":"p3140"}}}],"below":[{"type":"object","name":"CategoricalAxis","id":"p3132","attributes":{"ticker":{"type":"object","name":"CategoricalTicker","id":"p3133"},"formatter":{"type":"object","name":"CategoricalTickFormatter","id":"p3134"},"major_label_orientation":1.0,"major_label_policy":{"type":"object","name":"AllLabels","id":"p3135"},"group_label_orientation":0.5}}],"center":[{"type":"object","name":"Grid","id":"p3136","attributes":{"axis":{"id":"p3132"},"grid_line_color":null}},{"type":"object","name":"Grid","id":"p3141","attributes":{"dimension":1,"axis":{"id":"p3137"}}}]}},{"type":"object","name":"Figure","id":"p3178","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"DataRange1d","id":"p3180"},"y_range":{"type":"object","name":"FactorRange","id":"p3188","attributes":{"factors":["Legal","Training","Travel","Software Licenses","Office","Marketing","Cloud Infra","Salaries"]}},"x_scale":{"type":"object","name":"LinearScale","id":"p3189"},"y_scale":{"type":"object","name":"CategoricalScale","id":"p3190"},"title":{"type":"object","name":"Title","id":"p3181","attributes":{"text":"Cost Categories"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p3230","attributes":{"data_source":{"type":"object","name":"ColumnDataSource","id":"p3175","attributes":{"selected":{"type":"object","name":"Selection","id":"p3176","attributes":{"indices":[],"line_indices":[]}},"selection_policy":{"type":"object","name":"UnionRenderers","id":"p3177"},"data":{"type":"map","entries":[["category",["Salaries","Cloud Infra","Marketing","Office","Software Licenses","Travel","Training","Legal"]],["amount",[850.0,320.0,200.0,150.0,95.0,60.0,45.0,35.0]]]}}},"view":{"type":"object","name":"CDSView","id":"p3231","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p3232"}}},"glyph":{"type":"object","name":"HBar","id":"p3226","attributes":{"y":{"type":"field","field":"category"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"amount"},"line_color":{"type":"value","value":"white"},"fill_color":{"type":"value","value":"#4C72B0"}}},"selection_glyph":{"type":"object","name":"HBar","id":"p3228","attributes":{"y":{"type":"field","field":"category"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"amount"},"line_color":{"type":"value","value":"white"},"fill_color":{"type":"value","value":"firebrick"}}},"nonselection_glyph":{"type":"object","name":"HBar","id":"p3227","attributes":{"y":{"type":"field","field":"category"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"amount"},"line_color":{"type":"value","value":"white"},"line_alpha":{"type":"value","value":0.1},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_alpha":{"type":"value","value":0.1}}},"muted_glyph":{"type":"object","name":"HBar","id":"p3229","attributes":{"y":{"type":"field","field":"category"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"amount"},"line_color":{"type":"value","value":"white"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p3187","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p3201"},{"type":"object","name":"WheelZoomTool","id":"p3202","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p3203","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p3204","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p3210","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p3209","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p3211"},{"type":"object","name":"SaveTool","id":"p3212"},{"type":"object","name":"HoverTool","id":"p3213","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxSelectTool","id":"p3214","attributes":{"renderers":"auto","overlay":{"type":"object","name":"BoxAnnotation","id":"p3215","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"editable":true,"handles":{"type":"object","name":"BoxInteractionHandles","id":"p3221","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p3220","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"TapTool","id":"p3222","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"CategoricalAxis","id":"p3196","attributes":{"ticker":{"type":"object","name":"CategoricalTicker","id":"p3197"},"formatter":{"type":"object","name":"CategoricalTickFormatter","id":"p3198"},"major_label_policy":{"type":"object","name":"AllLabels","id":"p3199"}}}],"below":[{"type":"object","name":"LinearAxis","id":"p3191","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p3192","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p3193"},"axis_label":"USD (k)","major_label_policy":{"type":"object","name":"AllLabels","id":"p3194"}}}],"center":[{"type":"object","name":"Grid","id":"p3195","attributes":{"axis":{"id":"p3191"}}},{"type":"object","name":"Grid","id":"p3200","attributes":{"dimension":1,"axis":{"id":"p3196"},"grid_line_color":null}}]}},{"type":"object","name":"Figure","id":"p3236","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"FactorRange","id":"p3246","attributes":{"factors":["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]}},"y_range":{"type":"object","name":"DataRange1d","id":"p3238"},"x_scale":{"type":"object","name":"CategoricalScale","id":"p3247"},"y_scale":{"type":"object","name":"LinearScale","id":"p3248"},"title":{"type":"object","name":"Title","id":"p3239","attributes":{"text":"Revenue Trend"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p3287","attributes":{"data_source":{"type":"object","name":"ColumnDataSource","id":"p3233","attributes":{"selected":{"type":"object","name":"Selection","id":"p3234","attributes":{"indices":[],"line_indices":[]}},"selection_policy":{"type":"object","name":"UnionRenderers","id":"p3235"},"data":{"type":"map","entries":[["month",["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]],["revenue",[120.5,135.2,148.7,162.3,175.0,190.8,205.1,198.4,210.7,225.3,240.6,280.9]],["expenses",[95.0,102.5,110.3,118.7,125.2,132.8,140.1,136.5,145.2,152.7,160.3,175.5]],["profit",[25.5,32.7,38.4,43.6,49.8,58.0,65.0,61.9,65.5,72.6,80.3,105.4]],["margin",[21.2,24.2,25.8,26.9,28.5,30.4,31.7,31.2,31.1,32.2,33.4,37.5]]]}}},"view":{"type":"object","name":"CDSView","id":"p3288","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p3289"}}},"glyph":{"type":"object","name":"Line","id":"p3284","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"revenue"},"line_color":"#4C72B0","line_width":2.5}},"nonselection_glyph":{"type":"object","name":"Line","id":"p3285","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"revenue"},"line_color":"#4C72B0","line_alpha":0.1,"line_width":2.5}},"muted_glyph":{"type":"object","name":"Line","id":"p3286","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"revenue"},"line_color":"#4C72B0","line_alpha":0.2,"line_width":2.5}}}},{"type":"object","name":"GlyphRenderer","id":"p3299","attributes":{"data_source":{"id":"p3233"},"view":{"type":"object","name":"CDSView","id":"p3300","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p3301"}}},"glyph":{"type":"object","name":"Scatter","id":"p3295","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"revenue"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"fill_color":{"type":"value","value":"#4C72B0"},"hatch_color":{"type":"value","value":"#4C72B0"}}},"selection_glyph":{"type":"object","name":"Scatter","id":"p3297","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"revenue"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"firebrick"},"fill_color":{"type":"value","value":"firebrick"},"hatch_color":{"type":"value","value":"firebrick"}}},"nonselection_glyph":{"type":"object","name":"Scatter","id":"p3296","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"revenue"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.3},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.3},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.3}}},"muted_glyph":{"type":"object","name":"Scatter","id":"p3298","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"revenue"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.2}}}}},{"type":"object","name":"GlyphRenderer","id":"p3308","attributes":{"data_source":{"id":"p3233"},"view":{"type":"object","name":"CDSView","id":"p3309","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p3310"}}},"glyph":{"type":"object","name":"Line","id":"p3305","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"expenses"},"line_color":"#DD8452","line_width":2.5}},"nonselection_glyph":{"type":"object","name":"Line","id":"p3306","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"expenses"},"line_color":"#DD8452","line_alpha":0.1,"line_width":2.5}},"muted_glyph":{"type":"object","name":"Line","id":"p3307","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"expenses"},"line_color":"#DD8452","line_alpha":0.2,"line_width":2.5}}}},{"type":"object","name":"GlyphRenderer","id":"p3319","attributes":{"data_source":{"id":"p3233"},"view":{"type":"object","name":"CDSView","id":"p3320","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p3321"}}},"glyph":{"type":"object","name":"Scatter","id":"p3315","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"expenses"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#DD8452"},"fill_color":{"type":"value","value":"#DD8452"},"hatch_color":{"type":"value","value":"#DD8452"}}},"selection_glyph":{"type":"object","name":"Scatter","id":"p3317","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"expenses"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"firebrick"},"fill_color":{"type":"value","value":"firebrick"},"hatch_color":{"type":"value","value":"firebrick"}}},"nonselection_glyph":{"type":"object","name":"Scatter","id":"p3316","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"expenses"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#DD8452"},"line_alpha":{"type":"value","value":0.3},"fill_color":{"type":"value","value":"#DD8452"},"fill_alpha":{"type":"value","value":0.3},"hatch_color":{"type":"value","value":"#DD8452"},"hatch_alpha":{"type":"value","value":0.3}}},"muted_glyph":{"type":"object","name":"Scatter","id":"p3318","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"expenses"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#DD8452"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#DD8452"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#DD8452"},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p3245","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p3259"},{"type":"object","name":"WheelZoomTool","id":"p3260","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p3261","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p3262","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p3268","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p3267","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p3269"},{"type":"object","name":"SaveTool","id":"p3270"},{"type":"object","name":"HoverTool","id":"p3271","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxSelectTool","id":"p3272","attributes":{"renderers":"auto","overlay":{"type":"object","name":"BoxAnnotation","id":"p3273","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"editable":true,"handles":{"type":"object","name":"BoxInteractionHandles","id":"p3279","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p3278","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"TapTool","id":"p3280","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"LinearAxis","id":"p3254","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p3255","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p3256"},"axis_label":"USD (k)","major_label_policy":{"type":"object","name":"AllLabels","id":"p3257"}}}],"below":[{"type":"object","name":"CategoricalAxis","id":"p3249","attributes":{"ticker":{"type":"object","name":"CategoricalTicker","id":"p3250"},"formatter":{"type":"object","name":"CategoricalTickFormatter","id":"p3251"},"major_label_policy":{"type":"object","name":"AllLabels","id":"p3252"}}}],"center":[{"type":"object","name":"Grid","id":"p3253","attributes":{"axis":{"id":"p3249"}}},{"type":"object","name":"Grid","id":"p3258","attributes":{"dimension":1,"axis":{"id":"p3254"}}},{"type":"object","name":"Legend","id":"p3290","attributes":{"location":"top_left","click_policy":"hide","items":[{"type":"object","name":"LegendItem","id":"p3291","attributes":{"label":{"type":"value","value":"revenue"},"renderers":[{"id":"p3287"},{"id":"p3299"}]}},{"type":"object","name":"LegendItem","id":"p3311","attributes":{"label":{"type":"value","value":"expenses"},"renderers":[{"id":"p3308"},{"id":"p3319"}]}}]}}]}}]}}';
+        const render_items = [{"docid":"aa65aeb7-db9a-4150-8313-70a3609c6593","roots":{"p3120":"c2109bca-07ee-4c9e-a1ef-24ba3abf1013","p3178":"e2486d46-3d1b-487a-81f1-8213cdd33fff","p3236":"db96d316-8956-45af-b410-d7dd8367517e"},"root_ids":["p3120","p3178","p3236"]}];
         root.Bokeh.embed.embed_items(docs_json, render_items);
         }
         if (root.Bokeh !== undefined) {
@@ -358,6 +673,7 @@
 })();
     </script>
 
-    <footer>Generated by RustToBokeh</footer>
+        <footer>Generated by RustToBokeh</footer>
+    </div>
 </body>
 </html>

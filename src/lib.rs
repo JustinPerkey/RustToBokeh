@@ -68,9 +68,11 @@ pub mod prelude;
 mod render;
 
 pub use charts::{
-    ChartConfig, ChartSpec, ChartSpecBuilder, FilterConfig, FilterSpec, GridCell, GroupedBarConfig,
-    GroupedBarConfigBuilder, HBarConfig, HBarConfigBuilder, LineConfig, LineConfigBuilder,
-    ScatterConfig, ScatterConfigBuilder, MAX_GRID_COLS,
+    AxisConfig, AxisConfigBuilder, ChartConfig, ChartSpec, ChartSpecBuilder, FilterConfig,
+    FilterSpec, GridCell, GroupedBarConfig, GroupedBarConfigBuilder, HBarConfig,
+    HBarConfigBuilder, LineConfig, LineConfigBuilder, PaletteSpec, ScatterConfig,
+    ScatterConfigBuilder, TooltipField, TooltipFormat, TooltipSpec, TooltipSpecBuilder,
+    MAX_GRID_COLS,
 };
 pub use error::ChartError;
 pub use modules::{
