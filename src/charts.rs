@@ -1698,4 +1698,494 @@ mod tests {
             _ => panic!("expected TopN config"),
         }
     }
+
+    // ── PaletteSpec ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn palette_spec_named_stores_name() {
+        match PaletteSpec::Named("Plasma256".into()) {
+            PaletteSpec::Named(n) => assert_eq!(n, "Plasma256"),
+            _ => panic!("expected Named"),
+        }
+    }
+
+    #[test]
+    fn palette_spec_custom_stores_colors() {
+        let colors = vec!["#ff0000".to_string(), "#00ff00".to_string()];
+        match PaletteSpec::Custom(colors.clone()) {
+            PaletteSpec::Custom(c) => assert_eq!(c, colors),
+            _ => panic!("expected Custom"),
+        }
+    }
+
+    // ── TooltipSpec / TooltipSpecBuilder ──────────────────────────────────────
+
+    #[test]
+    fn tooltip_spec_builder_empty() {
+        let tt = TooltipSpec::builder().build();
+        assert!(tt.fields.is_empty());
+    }
+
+    #[test]
+    fn tooltip_spec_builder_single_field() {
+        let tt = TooltipSpec::builder()
+            .field("col", "Label", TooltipFormat::Text)
+            .build();
+        assert_eq!(tt.fields.len(), 1);
+        assert_eq!(tt.fields[0].column, "col");
+        assert_eq!(tt.fields[0].label, "Label");
+        assert!(matches!(tt.fields[0].format, TooltipFormat::Text));
+    }
+
+    #[test]
+    fn tooltip_spec_builder_field_ordering_preserved() {
+        let tt = TooltipSpec::builder()
+            .field("a", "A", TooltipFormat::Text)
+            .field("b", "B", TooltipFormat::Number(None))
+            .field("c", "C", TooltipFormat::Currency)
+            .build();
+        assert_eq!(tt.fields.len(), 3);
+        assert_eq!(tt.fields[0].column, "a");
+        assert_eq!(tt.fields[1].column, "b");
+        assert_eq!(tt.fields[2].column, "c");
+    }
+
+    #[test]
+    fn tooltip_format_number_with_decimals() {
+        let tt = TooltipSpec::builder()
+            .field("v", "V", TooltipFormat::Number(Some(3)))
+            .build();
+        match tt.fields[0].format {
+            TooltipFormat::Number(Some(d)) => assert_eq!(d, 3),
+            _ => panic!("expected Number(Some(3))"),
+        }
+    }
+
+    #[test]
+    fn tooltip_format_number_no_decimals() {
+        let tt = TooltipSpec::builder()
+            .field("v", "V", TooltipFormat::Number(None))
+            .build();
+        assert!(matches!(tt.fields[0].format, TooltipFormat::Number(None)));
+    }
+
+    #[test]
+    fn tooltip_format_percent_with_decimals() {
+        let tt = TooltipSpec::builder()
+            .field("v", "V", TooltipFormat::Percent(Some(2)))
+            .build();
+        match tt.fields[0].format {
+            TooltipFormat::Percent(Some(d)) => assert_eq!(d, 2),
+            _ => panic!("expected Percent(Some(2))"),
+        }
+    }
+
+    #[test]
+    fn tooltip_format_currency() {
+        let tt = TooltipSpec::builder()
+            .field("v", "V", TooltipFormat::Currency)
+            .build();
+        assert!(matches!(tt.fields[0].format, TooltipFormat::Currency));
+    }
+
+    // ── AxisConfig / AxisConfigBuilder ────────────────────────────────────────
+
+    #[test]
+    fn axis_config_defaults_all_none_show_grid_true() {
+        let ax = AxisConfig::builder().build();
+        assert!(ax.start.is_none());
+        assert!(ax.end.is_none());
+        assert!(ax.bounds_min.is_none());
+        assert!(ax.bounds_max.is_none());
+        assert!(ax.label_rotation.is_none());
+        assert!(ax.tick_format.is_none());
+        assert!(ax.show_grid);
+    }
+
+    #[test]
+    fn axis_config_range_sets_start_and_end() {
+        let ax = AxisConfig::builder().range(0.0, 100.0).build();
+        assert_eq!(ax.start, Some(0.0));
+        assert_eq!(ax.end, Some(100.0));
+    }
+
+    #[test]
+    fn axis_config_bounds_sets_min_and_max() {
+        let ax = AxisConfig::builder().bounds(10.0, 200.0).build();
+        assert_eq!(ax.bounds_min, Some(10.0));
+        assert_eq!(ax.bounds_max, Some(200.0));
+    }
+
+    #[test]
+    fn axis_config_label_rotation() {
+        let ax = AxisConfig::builder().label_rotation(45.0).build();
+        assert_eq!(ax.label_rotation, Some(45.0));
+    }
+
+    #[test]
+    fn axis_config_tick_format() {
+        let ax = AxisConfig::builder().tick_format("$0,0").build();
+        assert_eq!(ax.tick_format.as_deref(), Some("$0,0"));
+    }
+
+    #[test]
+    fn axis_config_show_grid_false() {
+        let ax = AxisConfig::builder().show_grid(false).build();
+        assert!(!ax.show_grid);
+    }
+
+    #[test]
+    fn axis_config_full_chain() {
+        let ax = AxisConfig::builder()
+            .range(0.0, 500.0)
+            .bounds(0.0, 600.0)
+            .label_rotation(30.0)
+            .tick_format("0.0%")
+            .show_grid(false)
+            .build();
+        assert_eq!(ax.start, Some(0.0));
+        assert_eq!(ax.end, Some(500.0));
+        assert_eq!(ax.bounds_min, Some(0.0));
+        assert_eq!(ax.bounds_max, Some(600.0));
+        assert_eq!(ax.label_rotation, Some(30.0));
+        assert_eq!(ax.tick_format.as_deref(), Some("0.0%"));
+        assert!(!ax.show_grid);
+    }
+
+    // ── GroupedBarConfig optional fields ──────────────────────────────────────
+
+    #[test]
+    fn grouped_bar_optional_fields_default_none() {
+        let cfg = GroupedBarConfig::builder()
+            .x("x").group("g").value("v").y_label("Y")
+            .build().unwrap();
+        assert!(cfg.palette.is_none());
+        assert!(cfg.bar_width.is_none());
+        assert!(cfg.tooltips.is_none());
+        assert!(cfg.x_axis.is_none());
+        assert!(cfg.y_axis.is_none());
+    }
+
+    #[test]
+    fn grouped_bar_with_named_palette() {
+        let cfg = GroupedBarConfig::builder()
+            .x("x").group("g").value("v").y_label("Y")
+            .palette(PaletteSpec::Named("Viridis256".into()))
+            .build().unwrap();
+        assert!(matches!(cfg.palette, Some(PaletteSpec::Named(ref n)) if n == "Viridis256"));
+    }
+
+    #[test]
+    fn grouped_bar_with_custom_palette() {
+        let cfg = GroupedBarConfig::builder()
+            .x("x").group("g").value("v").y_label("Y")
+            .palette(PaletteSpec::Custom(vec!["#ff0000".into()]))
+            .build().unwrap();
+        assert!(matches!(cfg.palette, Some(PaletteSpec::Custom(_))));
+    }
+
+    #[test]
+    fn grouped_bar_with_bar_width() {
+        let cfg = GroupedBarConfig::builder()
+            .x("x").group("g").value("v").y_label("Y")
+            .bar_width(0.6)
+            .build().unwrap();
+        assert_eq!(cfg.bar_width, Some(0.6));
+    }
+
+    #[test]
+    fn grouped_bar_with_tooltips() {
+        let tt = TooltipSpec::builder()
+            .field("x", "X", TooltipFormat::Text)
+            .build();
+        let cfg = GroupedBarConfig::builder()
+            .x("x").group("g").value("v").y_label("Y")
+            .tooltips(tt)
+            .build().unwrap();
+        assert!(cfg.tooltips.is_some());
+        assert_eq!(cfg.tooltips.unwrap().fields.len(), 1);
+    }
+
+    #[test]
+    fn grouped_bar_with_x_axis() {
+        let ax = AxisConfig::builder().tick_format("$0").build();
+        let cfg = GroupedBarConfig::builder()
+            .x("x").group("g").value("v").y_label("Y")
+            .x_axis(ax)
+            .build().unwrap();
+        assert!(cfg.x_axis.is_some());
+        assert_eq!(cfg.x_axis.unwrap().tick_format.as_deref(), Some("$0"));
+    }
+
+    #[test]
+    fn grouped_bar_with_y_axis() {
+        let ax = AxisConfig::builder().range(0.0, 200.0).build();
+        let cfg = GroupedBarConfig::builder()
+            .x("x").group("g").value("v").y_label("Y")
+            .y_axis(ax)
+            .build().unwrap();
+        assert_eq!(cfg.y_axis.as_ref().unwrap().start, Some(0.0));
+        assert_eq!(cfg.y_axis.as_ref().unwrap().end, Some(200.0));
+    }
+
+    // ── LineConfig optional fields ────────────────────────────────────────────
+
+    #[test]
+    fn line_optional_fields_default_none() {
+        let cfg = LineConfig::builder()
+            .x("x").y_cols(&["a"]).y_label("Y")
+            .build().unwrap();
+        assert!(cfg.palette.is_none());
+        assert!(cfg.line_width.is_none());
+        assert!(cfg.point_size.is_none());
+        assert!(cfg.tooltips.is_none());
+        assert!(cfg.x_axis.is_none());
+        assert!(cfg.y_axis.is_none());
+    }
+
+    #[test]
+    fn line_with_palette() {
+        let cfg = LineConfig::builder()
+            .x("x").y_cols(&["a"]).y_label("Y")
+            .palette(PaletteSpec::Named("Magma256".into()))
+            .build().unwrap();
+        assert!(matches!(cfg.palette, Some(PaletteSpec::Named(_))));
+    }
+
+    #[test]
+    fn line_with_line_width() {
+        let cfg = LineConfig::builder()
+            .x("x").y_cols(&["a"]).y_label("Y")
+            .line_width(4.0)
+            .build().unwrap();
+        assert_eq!(cfg.line_width, Some(4.0));
+    }
+
+    #[test]
+    fn line_with_point_size() {
+        let cfg = LineConfig::builder()
+            .x("x").y_cols(&["a"]).y_label("Y")
+            .point_size(12.0)
+            .build().unwrap();
+        assert_eq!(cfg.point_size, Some(12.0));
+    }
+
+    #[test]
+    fn line_with_tooltips() {
+        let tt = TooltipSpec::builder()
+            .field("a", "A", TooltipFormat::Number(Some(1)))
+            .build();
+        let cfg = LineConfig::builder()
+            .x("x").y_cols(&["a"]).y_label("Y")
+            .tooltips(tt)
+            .build().unwrap();
+        assert!(cfg.tooltips.is_some());
+    }
+
+    #[test]
+    fn line_with_y_axis() {
+        let ax = AxisConfig::builder().show_grid(false).build();
+        let cfg = LineConfig::builder()
+            .x("x").y_cols(&["a"]).y_label("Y")
+            .y_axis(ax)
+            .build().unwrap();
+        assert!(!cfg.y_axis.as_ref().unwrap().show_grid);
+    }
+
+    // ── HBarConfig optional fields ────────────────────────────────────────────
+
+    #[test]
+    fn hbar_optional_fields_default_none() {
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X")
+            .build().unwrap();
+        assert!(cfg.color.is_none());
+        assert!(cfg.tooltips.is_none());
+        assert!(cfg.x_axis.is_none());
+        assert!(cfg.y_axis.is_none());
+    }
+
+    #[test]
+    fn hbar_with_color() {
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X")
+            .color("#e74c3c")
+            .build().unwrap();
+        assert_eq!(cfg.color.as_deref(), Some("#e74c3c"));
+    }
+
+    #[test]
+    fn hbar_with_tooltips() {
+        let tt = TooltipSpec::builder()
+            .field("c", "Cat", TooltipFormat::Text)
+            .field("v", "Val", TooltipFormat::Number(None))
+            .build();
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X")
+            .tooltips(tt)
+            .build().unwrap();
+        let fields = &cfg.tooltips.unwrap().fields;
+        assert_eq!(fields.len(), 2);
+        assert_eq!(fields[0].column, "c");
+        assert_eq!(fields[1].column, "v");
+    }
+
+    #[test]
+    fn hbar_with_x_axis_bounds() {
+        let ax = AxisConfig::builder().bounds(0.0, 100.0).build();
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X")
+            .x_axis(ax)
+            .build().unwrap();
+        assert_eq!(cfg.x_axis.as_ref().unwrap().bounds_min, Some(0.0));
+        assert_eq!(cfg.x_axis.as_ref().unwrap().bounds_max, Some(100.0));
+    }
+
+    #[test]
+    fn hbar_with_y_axis() {
+        let ax = AxisConfig::builder().label_rotation(30.0).build();
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X")
+            .y_axis(ax)
+            .build().unwrap();
+        assert_eq!(cfg.y_axis.as_ref().unwrap().label_rotation, Some(30.0));
+    }
+
+    // ── ScatterConfig optional fields ─────────────────────────────────────────
+
+    #[test]
+    fn scatter_optional_fields_default_none() {
+        let cfg = ScatterConfig::builder()
+            .x("x").y("y").x_label("X").y_label("Y")
+            .build().unwrap();
+        assert!(cfg.color.is_none());
+        assert!(cfg.marker.is_none());
+        assert!(cfg.marker_size.is_none());
+        assert!(cfg.alpha.is_none());
+        assert!(cfg.tooltips.is_none());
+        assert!(cfg.x_axis.is_none());
+        assert!(cfg.y_axis.is_none());
+    }
+
+    #[test]
+    fn scatter_with_color() {
+        let cfg = ScatterConfig::builder()
+            .x("x").y("y").x_label("X").y_label("Y")
+            .color("#9b59b6")
+            .build().unwrap();
+        assert_eq!(cfg.color.as_deref(), Some("#9b59b6"));
+    }
+
+    #[test]
+    fn scatter_with_marker() {
+        let cfg = ScatterConfig::builder()
+            .x("x").y("y").x_label("X").y_label("Y")
+            .marker("diamond")
+            .build().unwrap();
+        assert_eq!(cfg.marker.as_deref(), Some("diamond"));
+    }
+
+    #[test]
+    fn scatter_with_marker_size() {
+        let cfg = ScatterConfig::builder()
+            .x("x").y("y").x_label("X").y_label("Y")
+            .marker_size(14.0)
+            .build().unwrap();
+        assert_eq!(cfg.marker_size, Some(14.0));
+    }
+
+    #[test]
+    fn scatter_with_alpha() {
+        let cfg = ScatterConfig::builder()
+            .x("x").y("y").x_label("X").y_label("Y")
+            .alpha(0.5)
+            .build().unwrap();
+        assert_eq!(cfg.alpha, Some(0.5));
+    }
+
+    #[test]
+    fn scatter_with_tooltips() {
+        let tt = TooltipSpec::builder()
+            .field("x", "X Axis", TooltipFormat::Currency)
+            .field("y", "Y Axis", TooltipFormat::Percent(Some(1)))
+            .build();
+        let cfg = ScatterConfig::builder()
+            .x("x").y("y").x_label("X").y_label("Y")
+            .tooltips(tt)
+            .build().unwrap();
+        let fields = &cfg.tooltips.as_ref().unwrap().fields;
+        assert_eq!(fields.len(), 2);
+        assert!(matches!(fields[0].format, TooltipFormat::Currency));
+        assert!(matches!(fields[1].format, TooltipFormat::Percent(Some(1))));
+    }
+
+    #[test]
+    fn scatter_with_x_axis_range_and_bounds() {
+        let ax = AxisConfig::builder()
+            .range(0.0, 500.0)
+            .bounds(0.0, 600.0)
+            .build();
+        let cfg = ScatterConfig::builder()
+            .x("x").y("y").x_label("X").y_label("Y")
+            .x_axis(ax)
+            .build().unwrap();
+        let x = cfg.x_axis.as_ref().unwrap();
+        assert_eq!(x.start, Some(0.0));
+        assert_eq!(x.end, Some(500.0));
+        assert_eq!(x.bounds_min, Some(0.0));
+        assert_eq!(x.bounds_max, Some(600.0));
+    }
+
+    #[test]
+    fn scatter_with_y_axis() {
+        let ax = AxisConfig::builder().tick_format("0.00").show_grid(false).build();
+        let cfg = ScatterConfig::builder()
+            .x("x").y("y").x_label("X").y_label("Y")
+            .y_axis(ax)
+            .build().unwrap();
+        let y = cfg.y_axis.as_ref().unwrap();
+        assert_eq!(y.tick_format.as_deref(), Some("0.00"));
+        assert!(!y.show_grid);
+    }
+
+    // ── ChartSpecBuilder::dimensions ──────────────────────────────────────────
+
+    #[test]
+    fn chart_spec_dimensions_default_none() {
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X")
+            .build().unwrap();
+        let spec = ChartSpecBuilder::hbar("Chart", "data", cfg).build();
+        assert!(spec.width.is_none());
+        assert!(spec.height.is_none());
+    }
+
+    #[test]
+    fn chart_spec_dimensions_sets_width_and_height() {
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X")
+            .build().unwrap();
+        let spec = ChartSpecBuilder::hbar("Chart", "data", cfg)
+            .dimensions(800, 600)
+            .build();
+        assert_eq!(spec.width, Some(800));
+        assert_eq!(spec.height, Some(600));
+    }
+
+    #[test]
+    fn chart_spec_dimensions_independent_of_filtered_and_grid() {
+        let cfg = HBarConfig::builder()
+            .category("c").value("v").x_label("X")
+            .build().unwrap();
+        let spec = ChartSpecBuilder::hbar("Chart", "data", cfg)
+            .at(1, 0, 2)
+            .filtered()
+            .dimensions(1200, 400)
+            .build();
+        assert_eq!(spec.grid.row, 1);
+        assert_eq!(spec.grid.col_span, 2);
+        assert!(spec.filtered);
+        assert_eq!(spec.width, Some(1200));
+        assert_eq!(spec.height, Some(400));
+    }
 }
