@@ -11,6 +11,8 @@ import os
 
 import polars as pl
 from bokeh.embed import components
+import math
+
 from bokeh.models import (
     AllIndices,
     BooleanFilter,
@@ -19,8 +21,11 @@ from bokeh.models import (
     CustomJS,
     FactorRange,
     GroupFilter,
+    HoverTool,
     IndexFilter,
     IntersectionFilter,
+    NumeralTickFormatter,
+    Range1d,
     RangeSlider,
     Select,
     Slider,
@@ -59,6 +64,99 @@ def _get_flat_source(key, source_cache):
     return source
 
 
+# ── Visual customisation helpers ─────────────────────────────────────────────
+
+
+def _resolve_palette(palette_spec, n):
+    """Return a list of exactly n colors from a palette spec dict (or None)."""
+    if palette_spec is None:
+        base = _PALETTE
+        return (base * (n // len(base) + 1))[:n] if n > len(base) else base[:n]
+    kind = palette_spec["kind"]
+    if kind == "named":
+        import bokeh.palettes as _bp
+        name = palette_spec["value"]
+        if name in _bp.all_palettes:
+            sizes = sorted(_bp.all_palettes[name].keys())
+            best = next((s for s in sizes if s >= n), sizes[-1])
+            colors = list(_bp.all_palettes[name][best])
+            if len(colors) > n:
+                step = max(1, len(colors) // n)
+                colors = [colors[i * step] for i in range(n)]
+            return colors[:n]
+    if kind == "custom":
+        colors = palette_spec["value"]
+        return (colors * (n // len(colors) + 1))[:n] if n > len(colors) else colors[:n]
+    return _PALETTE[:n]
+
+
+def _build_hover_tool(spec):
+    """Build a HoverTool from the spec's tooltips list, or return None."""
+    tt_spec = spec.get("tooltips")
+    if not tt_spec:
+        return None
+    tooltips = []
+    for field in tt_spec:
+        col = field["column"]
+        label = field["label"]
+        fmt = field["format"]
+        dec = field.get("decimals")
+        if fmt == "text":
+            fmt_str = f"@{{{col}}}"
+        elif fmt == "number":
+            d = dec if dec is not None else 2
+            fmt_str = f"@{{{col}}}{{0.{'0' * d}}}"
+        elif fmt == "percent":
+            d = dec if dec is not None else 1
+            fmt_str = f"@{{{col}}}{{0.{'0' * d}%}}"
+        elif fmt == "currency":
+            fmt_str = f"@{{{col}}}{{$0,0}}"
+        else:
+            fmt_str = f"@{{{col}}}"
+        tooltips.append((label, fmt_str))
+    return HoverTool(tooltips=tooltips)
+
+
+def _apply_axis_config(axis_dict, bokeh_axis, range_obj, grid_obj):
+    """Apply an axis config dict to a Bokeh axis, range, and grid object."""
+    if axis_dict is None:
+        return
+    # Tick format
+    if axis_dict.get("tick_format") is not None:
+        bokeh_axis.formatter = NumeralTickFormatter(format=axis_dict["tick_format"])
+    # Label rotation (degrees → radians)
+    if axis_dict.get("label_rotation") is not None:
+        bokeh_axis.major_label_orientation = math.radians(axis_dict["label_rotation"])
+    # Grid visibility
+    if not axis_dict.get("show_grid", True):
+        grid_obj.grid_line_color = None
+    # Range start/end and pan bounds — only for numeric (non-FactorRange) axes
+    if not isinstance(range_obj, FactorRange):
+        if axis_dict.get("start") is not None:
+            range_obj.start = axis_dict["start"]
+        if axis_dict.get("end") is not None:
+            range_obj.end = axis_dict["end"]
+        bmin = axis_dict.get("bounds_min")
+        bmax = axis_dict.get("bounds_max")
+        if bmin is not None and bmax is not None:
+            range_obj.bounds = (bmin, bmax)
+
+
+def _figure_kw(spec, default_height=400):
+    """Return keyword arguments for figure() derived from a chart spec."""
+    kw = {
+        "title": spec["title"],
+        "toolbar_location": "above",
+        "height": spec["height"] if spec.get("height") else default_height,
+    }
+    if spec.get("width"):
+        kw["width"] = spec["width"]
+        kw["sizing_mode"] = "fixed"
+    else:
+        kw["sizing_mode"] = "stretch_width"
+    return kw
+
+
 # ── Chart builders ──────────────────────────────────────────────────────────
 # Each builder receives (spec_dict, source_cache, view) and returns a figure.
 # If view is not None, renderers attach it for CDSView-based filtering.
@@ -81,17 +179,24 @@ def build_grouped_bar(spec, source_cache, view=None):
         ]
 
     groups = df[group_col].unique(maintain_order=True).to_list()
-    palette = _PALETTE[: len(groups)]
-    fig = figure(
-        x_range=FactorRange(*source.data[factor_col]),
-        height=400,
-        title=spec["title"],
-        toolbar_location="above",
-        tools="pan,wheel_zoom,box_zoom,reset,save,hover,box_select,tap",
-        sizing_mode="stretch_width",
-    )
+    palette = _resolve_palette(spec.get("palette"), len(groups))
+
+    hover = _build_hover_tool(spec)
+    tools = "pan,wheel_zoom,box_zoom,reset,save,box_select,tap"
+    if hover is None:
+        tools = "pan,wheel_zoom,box_zoom,reset,save,hover,box_select,tap"
+
+    kw = _figure_kw(spec)
+    kw["x_range"] = FactorRange(*source.data[factor_col])
+    kw["tools"] = tools
+    fig = figure(**kw)
+    if hover:
+        fig.add_tools(hover)
+
     fig.vbar(
-        x=factor_col, top=value_col, width=0.9, source=source,
+        x=factor_col, top=value_col,
+        width=spec.get("bar_width", 0.9),
+        source=source,
         line_color="white",
         fill_color=factor_cmap(factor_col, palette=palette, factors=groups, start=1, end=2),
         selection_fill_color="firebrick",
@@ -103,6 +208,9 @@ def build_grouped_bar(spec, source_cache, view=None):
     fig.xaxis.group_label_orientation = 0.5
     fig.yaxis.axis_label = spec.get("y_label", "")
     fig.xgrid.grid_line_color = None
+
+    _apply_axis_config(spec.get("x_axis"), fig.xaxis[0], fig.x_range, fig.xgrid[0])
+    _apply_axis_config(spec.get("y_axis"), fig.yaxis[0], fig.y_range, fig.ygrid[0])
     return fig
 
 
@@ -115,19 +223,27 @@ def build_line_multi(spec, source_cache, view=None):
     source = _get_flat_source(key, source_cache)
     vkw = dict(view=view) if view else {}
 
-    fig = figure(
-        height=400,
-        title=spec["title"],
-        toolbar_location="above",
-        tools="pan,wheel_zoom,box_zoom,reset,save,hover,box_select,tap",
-        sizing_mode="stretch_width",
-        x_range=df[x_col].to_list(),
-    )
+    lw = spec.get("line_width", 2.5)
+    pt_size = spec.get("point_size", 7)
+
+    hover = _build_hover_tool(spec)
+    tools = "pan,wheel_zoom,box_zoom,reset,save,box_select,tap"
+    if hover is None:
+        tools = "pan,wheel_zoom,box_zoom,reset,save,hover,box_select,tap"
+
+    kw = _figure_kw(spec)
+    kw["x_range"] = df[x_col].to_list()
+    kw["tools"] = tools
+    fig = figure(**kw)
+    if hover:
+        fig.add_tools(hover)
+
+    palette = _resolve_palette(spec.get("palette"), len(y_cols))
     for i, col in enumerate(y_cols):
-        color = _PALETTE[i % len(_PALETTE)]
-        fig.line(x=x_col, y=col, source=source, line_width=2.5,
+        color = palette[i % len(palette)]
+        fig.line(x=x_col, y=col, source=source, line_width=lw,
                  color=color, legend_label=col, **vkw)
-        fig.scatter(x=x_col, y=col, source=source, size=7,
+        fig.scatter(x=x_col, y=col, source=source, size=pt_size,
                     color=color, legend_label=col,
                     selection_color="firebrick",
                     nonselection_alpha=0.3,
@@ -135,6 +251,9 @@ def build_line_multi(spec, source_cache, view=None):
     fig.yaxis.axis_label = spec.get("y_label", "")
     fig.legend.location = "top_left"
     fig.legend.click_policy = "hide"
+
+    _apply_axis_config(spec.get("x_axis"), fig.xaxis[0], fig.x_range, fig.xgrid[0])
+    _apply_axis_config(spec.get("y_axis"), fig.yaxis[0], fig.y_range, fig.ygrid[0])
     return fig
 
 
@@ -148,23 +267,33 @@ def build_hbar(spec, source_cache, view=None):
     vkw = dict(view=view) if view else {}
 
     cats = df[cat_col].to_list()
-    fig = figure(
-        y_range=list(reversed(cats)),
-        height=max(300, len(cats) * 40 + 80),
-        title=spec["title"],
-        toolbar_location="above",
-        tools="pan,wheel_zoom,box_zoom,reset,save,hover,box_select,tap",
-        sizing_mode="stretch_width",
-    )
+    default_height = max(300, len(cats) * 40 + 80)
+
+    hover = _build_hover_tool(spec)
+    tools = "pan,wheel_zoom,box_zoom,reset,save,box_select,tap"
+    if hover is None:
+        tools = "pan,wheel_zoom,box_zoom,reset,save,hover,box_select,tap"
+
+    kw = _figure_kw(spec, default_height=default_height)
+    kw["y_range"] = list(reversed(cats))
+    kw["tools"] = tools
+    fig = figure(**kw)
+    if hover:
+        fig.add_tools(hover)
+
+    fill_color = spec.get("color", "#4C72B0")
     fig.hbar(
         y=cat_col, right=val_col, height=0.7, source=source,
-        line_color="white", fill_color="#4C72B0",
+        line_color="white", fill_color=fill_color,
         selection_fill_color="firebrick",
         nonselection_fill_alpha=0.2,
         **vkw,
     )
     fig.xaxis.axis_label = spec.get("x_label", "")
     fig.ygrid.grid_line_color = None
+
+    _apply_axis_config(spec.get("x_axis"), fig.xaxis[0], fig.x_range, fig.xgrid[0])
+    _apply_axis_config(spec.get("y_axis"), fig.yaxis[0], fig.y_range, fig.ygrid[0])
     return fig
 
 
@@ -176,22 +305,32 @@ def build_scatter(spec, source_cache, view=None):
     source = _get_flat_source(key, source_cache)
     vkw = dict(view=view) if view else {}
 
-    fig = figure(
-        height=400,
-        title=spec["title"],
-        toolbar_location="above",
-        tools="pan,wheel_zoom,box_zoom,reset,save,hover,box_select,tap",
-        sizing_mode="stretch_width",
-    )
+    hover = _build_hover_tool(spec)
+    tools = "pan,wheel_zoom,box_zoom,reset,save,box_select,tap"
+    if hover is None:
+        tools = "pan,wheel_zoom,box_zoom,reset,save,hover,box_select,tap"
+
+    kw = _figure_kw(spec)
+    kw["tools"] = tools
+    fig = figure(**kw)
+    if hover:
+        fig.add_tools(hover)
+
     fig.scatter(
         x=x_col, y=y_col, source=source,
-        size=10, color="#4C72B0", alpha=0.7,
+        size=spec.get("marker_size", 10),
+        color=spec.get("color", "#4C72B0"),
+        alpha=spec.get("alpha", 0.7),
+        marker=spec.get("marker", "circle"),
         selection_color="firebrick",
         nonselection_alpha=0.2,
         **vkw,
     )
     fig.xaxis.axis_label = spec.get("x_label", "")
     fig.yaxis.axis_label = spec.get("y_label", "")
+
+    _apply_axis_config(spec.get("x_axis"), fig.xaxis[0], fig.x_range, fig.xgrid[0])
+    _apply_axis_config(spec.get("y_axis"), fig.yaxis[0], fig.y_range, fig.ygrid[0])
     return fig
 
 

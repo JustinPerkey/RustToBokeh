@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Customer Insights — RustToBokeh</title>
+    <title>Annual Business Dashboard — Customer Insights — RustToBokeh</title>
     
     
     <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.6.3.min.js"></script>
@@ -20,47 +20,280 @@
         * { box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #f8f9fa;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* ── Horizontal nav ────────────────────────────────────────────────── */
+        .nav-horizontal {
+            background: #fff;
+            border-bottom: 1px solid #dde2e8;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .nav-horizontal .nav-header {
+            display: flex;
+            align-items: stretch;
+            padding: 0 20px;
+        }
+        .nav-horizontal .nav-report-title {
+            font-size: 0.95em;
+            font-weight: 700;
+            color: #2c3e50;
+            white-space: nowrap;
+            padding: 0 16px 0 0;
+            margin-right: 4px;
+            border-right: 2px solid #dde2e8;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+        }
+        /* Scrollable row of top-level tabs + dropdown triggers */
+        .nav-horizontal .nav-tabs-scroll {
+            display: flex;
+            align-items: stretch;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            flex: 1;
+        }
+        .nav-horizontal .nav-tabs-scroll::-webkit-scrollbar { display: none; }
+
+        /* ── Shared tab link style ─────────────────────────────────────────── */
+        .nav-horizontal .nav-tab {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            padding: 0 14px;
+            height: 44px;
+            font-size: 0.83em;
+            font-weight: 500;
+            color: #555;
+            white-space: nowrap;
+            border-bottom: 3px solid transparent;
+            flex-shrink: 0;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+        }
+        .nav-horizontal .nav-tab:hover {
+            color: #4C72B0;
+            background: #f0f4fb;
+            border-bottom-color: #a0b8d8;
+        }
+        .nav-horizontal .nav-tab.active {
+            color: #4C72B0;
+            font-weight: 700;
+            border-bottom-color: #4C72B0;
+            background: #f0f4fb;
+        }
+
+        /* ── Dropdown (category with children or sub-items) ────────────────── */
+        .nav-horizontal .nav-dd {
+            position: relative;
+            display: flex;
+            align-items: stretch;
+            flex-shrink: 0;
+        }
+        .nav-horizontal .nav-dd-trigger {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 0 14px;
+            height: 44px;
+            border: none;
+            background: none;
+            font-family: inherit;
+            font-size: 0.83em;
+            font-weight: 500;
+            color: #555;
+            white-space: nowrap;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+        }
+        .nav-horizontal .nav-dd-trigger .caret {
+            font-size: 0.7em;
+            opacity: 0.55;
+        }
+        .nav-horizontal .nav-dd:hover > .nav-dd-trigger,
+        .nav-horizontal .nav-dd.open > .nav-dd-trigger {
+            color: #4C72B0;
+            background: #f0f4fb;
+            border-bottom-color: #a0b8d8;
+        }
+        .nav-horizontal .nav-dd.has-active > .nav-dd-trigger {
+            color: #4C72B0;
+            font-weight: 700;
+            border-bottom-color: #4C72B0;
+            background: #f0f4fb;
+        }
+        /* Top-level dropdown menu */
+        .nav-horizontal .nav-dd-menu {
+            display: none;
+            position: fixed; /* escape overflow-x:auto clipping on scroll container */
+            background: #fff;
+            border: 1px solid #dde2e8;
+            border-radius: 6px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+            min-width: 190px;
+            z-index: 1000;
+            padding: 4px 0;
+        }
+        /* Dropdown page link */
+        .nav-horizontal .nav-dd-item {
+            display: block;
+            padding: 8px 18px;
+            font-size: 0.83em;
+            font-weight: 500;
+            color: #444;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: background 0.1s, color 0.1s;
+        }
+        .nav-horizontal .nav-dd-item:hover { background: #f0f4fb; color: #4C72B0; }
+        .nav-horizontal .nav-dd-item.active { background: #f0f4fb; color: #4C72B0; font-weight: 700; }
+        /* Divider between pages and sub-groups */
+        .nav-horizontal .nav-dd-divider {
+            border: none;
+            border-top: 1px solid #eee;
+            margin: 4px 0;
+        }
+        /* Sub-dropdown (nested category) */
+        .nav-horizontal .nav-dd-sub {
+            position: relative;
+        }
+        .nav-horizontal .nav-dd-sub-trigger {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            padding: 8px 14px 8px 18px;
+            border: none;
+            background: none;
+            font-family: inherit;
+            font-size: 0.83em;
+            font-weight: 500;
+            color: #444;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: background 0.1s, color 0.1s;
+            text-align: left;
+        }
+        .nav-horizontal .nav-dd-sub-trigger .caret { font-size: 0.7em; opacity: 0.55; }
+        .nav-horizontal .nav-dd-sub:hover > .nav-dd-sub-trigger,
+        .nav-horizontal .nav-dd-sub.open > .nav-dd-sub-trigger {
+            background: #f0f4fb; color: #4C72B0;
+        }
+        .nav-horizontal .nav-dd-sub.has-active > .nav-dd-sub-trigger {
+            color: #4C72B0; font-weight: 700;
+        }
+        /* Sub-menu — position fixed, placed to the right by JS */
+        .nav-horizontal .nav-dd-sub-menu {
+            display: none;
+            position: fixed;
+            background: #fff;
+            border: 1px solid #dde2e8;
+            border-radius: 6px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+            min-width: 190px;
+            z-index: 1001;
+            padding: 4px 0;
+        }
+
+        /* ── Vertical nav ──────────────────────────────────────────────────── */
+        .nav-vertical {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 220px;
+            height: 100vh;
+            overflow-y: auto;
+            background: #2c3e50;
+            z-index: 100;
+            padding-bottom: 24px;
+        }
+        .nav-vertical .nav-report-title {
+            color: white;
+            font-size: 0.95em;
+            font-weight: 700;
+            padding: 18px 16px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.12);
+            line-height: 1.3;
+        }
+        /* Collapsible category group via <details>/<summary> */
+        .nav-vertical details { }
+        .nav-vertical details > summary {
+            list-style: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+            color: rgba(255,255,255,0.45);
+            font-size: 0.67em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.09em;
+            padding: 10px 14px 4px;
+        }
+        .nav-vertical details > summary::-webkit-details-marker { display: none; }
+        .nav-vertical details > summary::after {
+            content: "▸";
+            font-size: 0.9em;
+            opacity: 0.6;
+            transition: transform 0.15s;
+        }
+        .nav-vertical details[open] > summary::after { transform: rotate(90deg); }
+        /* Nested sub-group inside a vertical details block */
+        .nav-vertical details details > summary {
+            font-size: 0.65em;
+            padding-left: 0; /* indent comes from parent container */
+            color: rgba(255,255,255,0.35);
+        }
+        /* Indent containers */
+        .nav-vertical .nav-indent { padding-left: 10px; }
+        .nav-vertical a {
+            display: block;
+            text-decoration: none;
+            padding: 7px 14px 7px 22px;
+            font-size: 0.85em;
+            font-weight: 500;
+            color: rgba(255,255,255,0.72);
+            transition: background 0.12s, color 0.12s;
+        }
+        .nav-vertical a:hover { background: rgba(255,255,255,0.08); color: white; }
+        .nav-vertical a.active { background: #4C72B0; color: white; font-weight: 700; }
+        /* Uncategorized pages at the top of the sidebar */
+        .nav-vertical .nav-uncategorized { margin-top: 8px; }
+
+        /* ── Page layout ───────────────────────────────────────────────────── */
+        .layout-horizontal .page-content {
             max-width: 1600px;
             margin: 0 auto;
             padding: 0 20px 40px;
-            background: #f8f9fa;
-            color: #333;
         }
-        nav {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            padding: 14px 0;
-            margin-bottom: 8px;
-            border-bottom: 2px solid #e0e0e0;
-            position: sticky;
-            top: 0;
-            background: #f8f9fa;
-            z-index: 100;
+        .layout-vertical .page-content {
+            margin-left: 220px;
+            padding: 0 24px 40px;
         }
-        nav a {
-            text-decoration: none;
-            padding: 6px 14px;
-            border-radius: 6px;
-            font-size: 0.85em;
-            font-weight: 500;
-            color: #4C72B0;
-            background: #e8eef7;
-            transition: background 0.15s, color 0.15s;
-        }
-        nav a:hover { background: #4C72B0; color: white; }
-        nav a.active { background: #4C72B0; color: white; font-weight: 700; }
+
+        /* ── Page header ───────────────────────────────────────────────────── */
         h1 {
             color: #2c3e50;
             border-bottom: 3px solid #4C72B0;
             padding-bottom: 12px;
-            margin: 16px 0 8px;
+            margin: 20px 0 8px;
         }
         .subtitle {
             color: #666;
             margin-bottom: 20px;
             font-size: 0.9em;
         }
+
+        /* ── Grid layout ───────────────────────────────────────────────────── */
         .grid-layout {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -81,12 +314,16 @@
             padding-bottom: 8px;
             border-bottom: 1px solid #e8eef7;
         }
+
+        /* ── Footer ────────────────────────────────────────────────────────── */
         footer {
             margin-top: 20px;
             color: #999;
             font-size: 0.8em;
             text-align: center;
         }
+
+        /* ── Tech badges ───────────────────────────────────────────────────── */
         .tech-badge {
             display: inline-block;
             background: #e8eef7;
@@ -97,6 +334,8 @@
             font-weight: 600;
             font-size: 0.85em;
         }
+
+        /* ── Filter bar ────────────────────────────────────────────────────── */
         .filter-bar {
             display: flex;
             flex-wrap: wrap;
@@ -126,7 +365,8 @@
             color: #2c3e50;
             cursor: pointer;
         }
-        /* ── Paragraph module ── */
+
+        /* ── Paragraph module ──────────────────────────────────────────────── */
         .paragraph-module {
             height: 100%;
             box-sizing: border-box;
@@ -138,7 +378,8 @@
             font-size: 0.95em;
         }
         .paragraph-module p:last-child { margin-bottom: 0; }
-        /* ── Table module ── */
+
+        /* ── Table module ──────────────────────────────────────────────────── */
         .table-module { overflow: hidden; }
         .table-wrapper {
             overflow-x: auto;
@@ -167,7 +408,8 @@
             border-bottom: 1px solid #e9ecef;
             color: #2c3e50;
         }
-        /* ── Shared module heading (paragraph + table) ── */
+
+        /* ── Shared module heading (paragraph + table) ─────────────────────── */
         .module-title {
             color: #2c3e50;
             font-size: 1.0em;
@@ -178,170 +420,243 @@
         }
     </style>
 </head>
-<body>
-    <nav>
+<body class="layout-vertical">
+
+    
+    
+
+    
+    
+
+    
+    
+
+    
+    <!-- ── Vertical sidebar nav ──────────────────────────────────────────── -->
+    <nav class="nav-vertical">
         
-        <a href="executive-summary.html"
-           >
-            Executive
-        </a>
+        <div class="nav-report-title">Annual Business Dashboard</div>
         
-        <a href="revenue-overview.html"
-           >
-            Revenue
-        </a>
+        <div class="nav-uncategorized">
+            
+            <a href="executive-summary.html">Executive</a>
+            
+        </div>
         
-        <a href="expense-analysis.html"
-           >
-            Expenses
-        </a>
-        
-        <a href="quarterly-performance.html"
-           >
-            Quarterly
-        </a>
-        
-        <a href="product-analysis.html"
-           >
-            Products
-        </a>
-        
-        <a href="regional-breakdown.html"
-           >
-            Regions
-        </a>
-        
-        <a href="team-metrics.html"
-           >
-            Team
-        </a>
-        
-        <a href="customer-insights.html"
-           class="active">
-            Customers
-        </a>
-        
-        <a href="web-analytics.html"
-           >
-            Web
-        </a>
-        
-        <a href="market-position.html"
-           >
-            Market
-        </a>
-        
-        <a href="budget-management.html"
-           >
-            Budget
-        </a>
-        
-        <a href="project-portfolio.html"
-           >
-            Projects
-        </a>
-        
-        <a href="growth-indicators.html"
-           >
-            Growth
-        </a>
-        
-        <a href="cost-optimization.html"
-           >
-            Costs
-        </a>
-        
-        <a href="marketing-roi.html"
-           >
-            Marketing
-        </a>
-        
-        <a href="operations-dashboard.html"
-           >
-            Operations
-        </a>
-        
-        <a href="financial-health.html"
-           >
-            Finance
-        </a>
-        
-        <a href="workforce-planning.html"
-           >
-            Workforce
-        </a>
-        
-        <a href="forecast-targets.html"
-           >
-            Forecast
-        </a>
-        
-        <a href="annual-review.html"
-           >
-            Annual
-        </a>
-        
-        <a href="module-showcase.html"
-           >
-            Showcase
-        </a>
-        
+    <details>
+        <summary>Financial</summary>
+        <div class="nav-indent">
+            
+            <a href="revenue-overview.html">Revenue</a>
+            
+            <a href="expense-analysis.html">Expenses</a>
+            
+            <a href="quarterly-performance.html">Quarterly</a>
+            
+            <a href="budget-management.html">Budget</a>
+            
+            <a href="financial-health.html">Finance</a>
+            
+            <a href="annual-review.html">Annual</a>
+            
+            
+        </div>
+    </details>
+    
+    <details>
+        <summary>Commercial</summary>
+        <div class="nav-indent">
+            
+            <a href="product-analysis.html">Products</a>
+            
+            <a href="regional-breakdown.html">Regions</a>
+            
+            <a href="market-position.html">Market</a>
+            
+            
+        </div>
+    </details>
+    
+    <details open>
+        <summary>People</summary>
+        <div class="nav-indent">
+            
+            <a href="team-metrics.html">Team</a>
+            
+            <a href="customer-insights.html" class="active">Customers</a>
+            
+            <a href="workforce-planning.html">Workforce</a>
+            
+            
+        </div>
+    </details>
+    
+    <details>
+        <summary>Digital</summary>
+        <div class="nav-indent">
+            
+            <a href="web-analytics.html">Web</a>
+            
+            <a href="growth-indicators.html">Growth</a>
+            
+            <a href="marketing-roi.html">Marketing</a>
+            
+            
+        </div>
+    </details>
+    
+    <details>
+        <summary>Operations</summary>
+        <div class="nav-indent">
+            
+            <a href="project-portfolio.html">Projects</a>
+            
+            <a href="cost-optimization.html">Costs</a>
+            
+            <a href="operations-dashboard.html">Operations</a>
+            
+            <a href="forecast-targets.html">Forecast</a>
+            
+            
+        </div>
+    </details>
+    
+    <details>
+        <summary>Reference</summary>
+        <div class="nav-indent">
+            
+            <a href="module-showcase.html">Showcase</a>
+            
+            <a href="chart-customisation.html">Customisation</a>
+            
+            
+        </div>
+    </details>
+    
     </nav>
-    <h1>Customer Insights</h1>
-    <p class="subtitle">
-        <span class="tech-badge">Polars</span>
-        <span class="tech-badge">Arrow IPC</span>
-        <span class="tech-badge">Bokeh</span>
-        <span class="tech-badge">PyO3</span>
-        <span class="tech-badge">Jinja2</span>
-    </p>
+
     
-    <div class="filter-bar">
-        <span class="filter-bar-label">Filters</span>
+
+    <script>
+    // Nav dropdowns: menus use position:fixed (to escape overflow-x:auto clipping).
+    // JS handles both hover (mouseenter/leave with a short delay) and click-to-toggle.
+    (function () {
+        function showMenu(menu, x, y) {
+            clearTimeout(menu._ht);
+            // Clamp to viewport so menu never spawns off-screen
+            menu.style.left = x + 'px';
+            menu.style.top  = y + 'px';
+            menu.style.display = 'block';
+            // After paint, clamp right edge
+            var vw = window.innerWidth;
+            var mw = menu.offsetWidth;
+            if (x + mw > vw) menu.style.left = Math.max(0, vw - mw) + 'px';
+        }
+        function hideMenu(menu) {
+            menu._ht = setTimeout(function () { menu.style.display = 'none'; }, 150);
+        }
+        function keepOpen(menu) { clearTimeout(menu._ht); }
+
+        function wire(trigger, menu, openRight) {
+            trigger.addEventListener('mouseenter', function () {
+                var r = trigger.getBoundingClientRect();
+                showMenu(menu, openRight ? r.right : r.left, openRight ? r.top : r.bottom);
+            });
+            trigger.addEventListener('mouseleave', function () { hideMenu(menu); });
+            menu.addEventListener('mouseenter', function () { keepOpen(menu); });
+            menu.addEventListener('mouseleave', function () { hideMenu(menu); });
+        }
+
+        // Top-level dropdowns
+        document.querySelectorAll('.nav-horizontal .nav-dd').forEach(function (dd) {
+            var t = dd.querySelector(':scope > .nav-dd-trigger');
+            var m = dd.querySelector(':scope > .nav-dd-menu');
+            if (!t || !m) return;
+            wire(t, m, false);
+            // Toggle on click (touch / keyboard users)
+            t.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (m.style.display === 'block') {
+                    m.style.display = 'none';
+                } else {
+                    var r = t.getBoundingClientRect();
+                    showMenu(m, r.left, r.bottom);
+                }
+            });
+        });
+
+        // Sub-menus (open to the right of their trigger row)
+        document.querySelectorAll('.nav-horizontal .nav-dd-sub').forEach(function (sub) {
+            var t = sub.querySelector(':scope > .nav-dd-sub-trigger');
+            var m = sub.querySelector(':scope > .nav-dd-sub-menu');
+            if (!t || !m) return;
+            wire(t, m, true);
+        });
+
+        // Click outside closes everything
+        document.addEventListener('click', function () {
+            document.querySelectorAll('.nav-horizontal .nav-dd-menu, .nav-horizontal .nav-dd-sub-menu')
+                    .forEach(function (m) { m.style.display = 'none'; });
+        });
+    })();
+    </script>
+
+    <div class="page-content">
+        <h1>Customer Insights</h1>
+        <p class="subtitle">
+            <span class="tech-badge">Polars</span>
+            <span class="tech-badge">Arrow IPC</span>
+            <span class="tech-badge">Bokeh</span>
+            <span class="tech-badge">PyO3</span>
+            <span class="tech-badge">Jinja2</span>
+        </p>
         
-        <div class="filter-widget">
+        <div class="filter-bar">
+            <span class="filter-bar-label">Filters</span>
             
-            <div id="f81e8df3-8a5f-43f4-a95b-d3b9769ccdba" data-root-id="p2540" style="display: contents;"></div>
+            <div class="filter-widget">
+                
+                <div id="b37f678a-db4d-4a3a-a75c-67446399632a" data-root-id="p2540" style="display: contents;"></div>
+                
+            </div>
             
         </div>
         
-    </div>
-    
-    <div class="grid-layout">
-        
-        <div class="chart-container"
-             style="grid-row: 1; grid-column: 1 / span 2;">
+        <div class="grid-layout">
             
-            <h2 class="chart-title">Satisfaction Scores</h2>
+            <div class="chart-container"
+                 style="grid-row: 1; grid-column: 1 / span 2;">
+                
+                <h2 class="chart-title">Satisfaction Scores</h2>
+                
+                <div id="d0976ad7-19da-4167-a9bf-a0d857622c8e" data-root-id="p2547" style="display: contents;"></div>
+            </div>
             
-            <div id="b69eaef8-106f-4639-9f99-e5d87e41f1c0" data-root-id="p2547" style="display: contents;"></div>
+            <div class="chart-container"
+                 style="grid-row: 2; grid-column: 1 / span 1;">
+                
+                <h2 class="chart-title">Revenue vs Customer Satisfaction</h2>
+                
+                <div id="c41f9a0e-9c97-4370-894c-ff0bc8cb9a9f" data-root-id="p2602" style="display: contents;"></div>
+            </div>
+            
+            <div class="chart-container"
+                 style="grid-row: 2; grid-column: 2 / span 1;">
+                
+                <h2 class="chart-title">Profit vs Satisfaction</h2>
+                
+                <div id="d3628edd-40fa-4156-b964-83497000ec1b" data-root-id="p2656" style="display: contents;"></div>
+            </div>
+            
         </div>
-        
-        <div class="chart-container"
-             style="grid-row: 2; grid-column: 1 / span 1;">
-            
-            <h2 class="chart-title">Revenue vs Customer Satisfaction</h2>
-            
-            <div id="e0c4c11a-69b9-4ad6-bcb2-a4dd19524c13" data-root-id="p2602" style="display: contents;"></div>
-        </div>
-        
-        <div class="chart-container"
-             style="grid-row: 2; grid-column: 2 / span 1;">
-            
-            <h2 class="chart-title">Profit vs Satisfaction</h2>
-            
-            <div id="dde6c411-676a-4063-ae5b-91430f6d3936" data-root-id="p2656" style="display: contents;"></div>
-        </div>
-        
-    </div>
-        <script type="text/javascript">
+            <script type="text/javascript">
         (function() {
   const fn = function() {
     Bokeh.safely(function() {
       (function(root) {
         function embed_document(root) {
-        const docs_json = '{"c5914f9c-8566-4ea0-8772-e16cb4cfd4f6":{"version":"3.6.3","title":"Bokeh Application","roots":[{"type":"object","name":"Select","id":"p2540","attributes":{"js_property_callbacks":{"type":"map","entries":[["change:value",[{"type":"object","name":"CustomJS","id":"p2541","attributes":{"args":{"type":"map","entries":[["gf",{"type":"object","name":"GroupFilter","id":"p2539","attributes":{"column_name":"tier","group":"Small"}}],["source",{"type":"object","name":"ColumnDataSource","id":"p2536","attributes":{"selected":{"type":"object","name":"Selection","id":"p2537","attributes":{"indices":[],"line_indices":[]}},"selection_policy":{"type":"object","name":"UnionRenderers","id":"p2538"},"data":{"type":"map","entries":[["revenue",[50.0,75.0,120.0,95.0,200.0,180.0,60.0,140.0,310.0,88.0,155.0,220.0,45.0,170.0,280.0,110.0,190.0,65.0,240.0,135.0,300.0,85.0,160.0,210.0,70.0,250.0,100.0,180.0,130.0,270.0]],["profit",[8.0,15.0,30.0,18.0,52.0,42.0,10.0,35.0,85.0,16.0,38.0,55.0,5.0,40.0,72.0,22.0,48.0,12.0,60.0,32.0,78.0,14.0,39.0,53.0,11.0,65.0,20.0,44.0,28.0,70.0]],["employees",[5,8,15,10,25,22,6,18,40,9,19,28,4,21,35,12,24,7,30,16,38,8,20,26,7,32,11,23,14,34]],["satisfaction",[3.8,4.0,4.3,4.1,4.6,4.4,3.9,4.2,4.8,4.0,4.3,4.5,3.7,4.3,4.7,4.1,4.4,3.8,4.5,4.2,4.7,3.9,4.3,4.5,3.8,4.6,4.0,4.4,4.1,4.6]],["tier",["Small","Small","Medium","Small","Large","Medium","Small","Medium","Large","Small","Medium","Large","Small","Medium","Large","Medium","Medium","Small","Large","Medium","Large","Small","Medium","Large","Small","Large","Small","Medium","Medium","Large"]]]}}}]]},"code":"\\n                    gf.group = cb_obj.value;\\n                    source.change.emit();\\n                "}}]]]},"sizing_mode":"stretch_width","title":"Company Tier","options":["Small","Medium","Large"],"value":"Small"}},{"type":"object","name":"Figure","id":"p2547","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"DataRange1d","id":"p2549"},"y_range":{"type":"object","name":"FactorRange","id":"p2557","attributes":{"factors":["API Reliability","Mobile App","Onboarding","Documentation","Delivery Speed","Pricing","Customer Service","Product Quality"]}},"x_scale":{"type":"object","name":"LinearScale","id":"p2558"},"y_scale":{"type":"object","name":"CategoricalScale","id":"p2559"},"title":{"type":"object","name":"Title","id":"p2550","attributes":{"text":"Satisfaction Scores"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p2599","attributes":{"data_source":{"type":"object","name":"ColumnDataSource","id":"p2544","attributes":{"selected":{"type":"object","name":"Selection","id":"p2545","attributes":{"indices":[],"line_indices":[]}},"selection_policy":{"type":"object","name":"UnionRenderers","id":"p2546"},"data":{"type":"map","entries":[["category",["Product Quality","Customer Service","Pricing","Delivery Speed","Documentation","Onboarding","Mobile App","API Reliability"]],["score",[4.5,4.2,3.8,4.0,3.5,3.9,4.3,4.6]]]}}},"view":{"type":"object","name":"CDSView","id":"p2600","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p2601"}}},"glyph":{"type":"object","name":"HBar","id":"p2595","attributes":{"y":{"type":"field","field":"category"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"score"},"line_color":{"type":"value","value":"white"},"fill_color":{"type":"value","value":"#4C72B0"}}},"selection_glyph":{"type":"object","name":"HBar","id":"p2597","attributes":{"y":{"type":"field","field":"category"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"score"},"line_color":{"type":"value","value":"white"},"fill_color":{"type":"value","value":"firebrick"}}},"nonselection_glyph":{"type":"object","name":"HBar","id":"p2596","attributes":{"y":{"type":"field","field":"category"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"score"},"line_color":{"type":"value","value":"white"},"line_alpha":{"type":"value","value":0.1},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_alpha":{"type":"value","value":0.1}}},"muted_glyph":{"type":"object","name":"HBar","id":"p2598","attributes":{"y":{"type":"field","field":"category"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"score"},"line_color":{"type":"value","value":"white"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p2556","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p2570"},{"type":"object","name":"WheelZoomTool","id":"p2571","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p2572","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p2573","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p2579","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2578","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p2580"},{"type":"object","name":"SaveTool","id":"p2581"},{"type":"object","name":"HoverTool","id":"p2582","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxSelectTool","id":"p2583","attributes":{"renderers":"auto","overlay":{"type":"object","name":"BoxAnnotation","id":"p2584","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"editable":true,"handles":{"type":"object","name":"BoxInteractionHandles","id":"p2590","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2589","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"TapTool","id":"p2591","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"CategoricalAxis","id":"p2565","attributes":{"ticker":{"type":"object","name":"CategoricalTicker","id":"p2566"},"formatter":{"type":"object","name":"CategoricalTickFormatter","id":"p2567"},"major_label_policy":{"type":"object","name":"AllLabels","id":"p2568"}}}],"below":[{"type":"object","name":"LinearAxis","id":"p2560","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p2561","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p2562"},"axis_label":"Score (1-5)","major_label_policy":{"type":"object","name":"AllLabels","id":"p2563"}}}],"center":[{"type":"object","name":"Grid","id":"p2564","attributes":{"axis":{"id":"p2560"}}},{"type":"object","name":"Grid","id":"p2569","attributes":{"dimension":1,"axis":{"id":"p2565"},"grid_line_color":null}}]}},{"type":"object","name":"Figure","id":"p2602","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"DataRange1d","id":"p2603"},"y_range":{"type":"object","name":"DataRange1d","id":"p2604"},"x_scale":{"type":"object","name":"LinearScale","id":"p2612"},"y_scale":{"type":"object","name":"LinearScale","id":"p2613"},"title":{"type":"object","name":"Title","id":"p2605","attributes":{"text":"Revenue vs Customer Satisfaction"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p2653","attributes":{"data_source":{"id":"p2536"},"view":{"type":"object","name":"CDSView","id":"p2542","attributes":{"filter":{"id":"p2539"}}},"glyph":{"type":"object","name":"Scatter","id":"p2649","attributes":{"x":{"type":"field","field":"revenue"},"y":{"type":"field","field":"satisfaction"},"size":{"type":"value","value":10},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.7},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.7},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.7}}},"selection_glyph":{"type":"object","name":"Scatter","id":"p2651","attributes":{"x":{"type":"field","field":"revenue"},"y":{"type":"field","field":"satisfaction"},"size":{"type":"value","value":10},"line_color":{"type":"value","value":"firebrick"},"line_alpha":{"type":"value","value":0.7},"fill_color":{"type":"value","value":"firebrick"},"fill_alpha":{"type":"value","value":0.7},"hatch_color":{"type":"value","value":"firebrick"},"hatch_alpha":{"type":"value","value":0.7}}},"nonselection_glyph":{"type":"object","name":"Scatter","id":"p2650","attributes":{"x":{"type":"field","field":"revenue"},"y":{"type":"field","field":"satisfaction"},"size":{"type":"value","value":10},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.2}}},"muted_glyph":{"type":"object","name":"Scatter","id":"p2652","attributes":{"x":{"type":"field","field":"revenue"},"y":{"type":"field","field":"satisfaction"},"size":{"type":"value","value":10},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p2611","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p2624"},{"type":"object","name":"WheelZoomTool","id":"p2625","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p2626","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p2627","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p2633","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2632","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p2634"},{"type":"object","name":"SaveTool","id":"p2635"},{"type":"object","name":"HoverTool","id":"p2636","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxSelectTool","id":"p2637","attributes":{"renderers":"auto","overlay":{"type":"object","name":"BoxAnnotation","id":"p2638","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"editable":true,"handles":{"type":"object","name":"BoxInteractionHandles","id":"p2644","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2643","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"TapTool","id":"p2645","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"LinearAxis","id":"p2619","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p2620","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p2621"},"axis_label":"Rating","major_label_policy":{"type":"object","name":"AllLabels","id":"p2622"}}}],"below":[{"type":"object","name":"LinearAxis","id":"p2614","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p2615","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p2616"},"axis_label":"Revenue (k)","major_label_policy":{"type":"object","name":"AllLabels","id":"p2617"}}}],"center":[{"type":"object","name":"Grid","id":"p2618","attributes":{"axis":{"id":"p2614"}}},{"type":"object","name":"Grid","id":"p2623","attributes":{"dimension":1,"axis":{"id":"p2619"}}}]}},{"type":"object","name":"Figure","id":"p2656","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"DataRange1d","id":"p2657"},"y_range":{"type":"object","name":"DataRange1d","id":"p2658"},"x_scale":{"type":"object","name":"LinearScale","id":"p2666"},"y_scale":{"type":"object","name":"LinearScale","id":"p2667"},"title":{"type":"object","name":"Title","id":"p2659","attributes":{"text":"Profit vs Satisfaction"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p2707","attributes":{"data_source":{"id":"p2536"},"view":{"id":"p2542"},"glyph":{"type":"object","name":"Scatter","id":"p2703","attributes":{"x":{"type":"field","field":"profit"},"y":{"type":"field","field":"satisfaction"},"size":{"type":"value","value":10},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.7},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.7},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.7}}},"selection_glyph":{"type":"object","name":"Scatter","id":"p2705","attributes":{"x":{"type":"field","field":"profit"},"y":{"type":"field","field":"satisfaction"},"size":{"type":"value","value":10},"line_color":{"type":"value","value":"firebrick"},"line_alpha":{"type":"value","value":0.7},"fill_color":{"type":"value","value":"firebrick"},"fill_alpha":{"type":"value","value":0.7},"hatch_color":{"type":"value","value":"firebrick"},"hatch_alpha":{"type":"value","value":0.7}}},"nonselection_glyph":{"type":"object","name":"Scatter","id":"p2704","attributes":{"x":{"type":"field","field":"profit"},"y":{"type":"field","field":"satisfaction"},"size":{"type":"value","value":10},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.2}}},"muted_glyph":{"type":"object","name":"Scatter","id":"p2706","attributes":{"x":{"type":"field","field":"profit"},"y":{"type":"field","field":"satisfaction"},"size":{"type":"value","value":10},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p2665","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p2678"},{"type":"object","name":"WheelZoomTool","id":"p2679","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p2680","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p2681","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p2687","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2686","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p2688"},{"type":"object","name":"SaveTool","id":"p2689"},{"type":"object","name":"HoverTool","id":"p2690","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxSelectTool","id":"p2691","attributes":{"renderers":"auto","overlay":{"type":"object","name":"BoxAnnotation","id":"p2692","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"editable":true,"handles":{"type":"object","name":"BoxInteractionHandles","id":"p2698","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2697","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"TapTool","id":"p2699","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"LinearAxis","id":"p2673","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p2674","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p2675"},"axis_label":"Rating","major_label_policy":{"type":"object","name":"AllLabels","id":"p2676"}}}],"below":[{"type":"object","name":"LinearAxis","id":"p2668","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p2669","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p2670"},"axis_label":"Profit (k)","major_label_policy":{"type":"object","name":"AllLabels","id":"p2671"}}}],"center":[{"type":"object","name":"Grid","id":"p2672","attributes":{"axis":{"id":"p2668"}}},{"type":"object","name":"Grid","id":"p2677","attributes":{"dimension":1,"axis":{"id":"p2673"}}}]}}]}}';
-        const render_items = [{"docid":"c5914f9c-8566-4ea0-8772-e16cb4cfd4f6","roots":{"p2540":"f81e8df3-8a5f-43f4-a95b-d3b9769ccdba","p2547":"b69eaef8-106f-4639-9f99-e5d87e41f1c0","p2602":"e0c4c11a-69b9-4ad6-bcb2-a4dd19524c13","p2656":"dde6c411-676a-4063-ae5b-91430f6d3936"},"root_ids":["p2540","p2547","p2602","p2656"]}];
+        const docs_json = '{"3664c625-be20-42db-8bcb-b7ccbf65ff58":{"version":"3.6.3","title":"Bokeh Application","roots":[{"type":"object","name":"Select","id":"p2540","attributes":{"js_property_callbacks":{"type":"map","entries":[["change:value",[{"type":"object","name":"CustomJS","id":"p2541","attributes":{"args":{"type":"map","entries":[["gf",{"type":"object","name":"GroupFilter","id":"p2539","attributes":{"column_name":"tier","group":"Small"}}],["source",{"type":"object","name":"ColumnDataSource","id":"p2536","attributes":{"selected":{"type":"object","name":"Selection","id":"p2537","attributes":{"indices":[],"line_indices":[]}},"selection_policy":{"type":"object","name":"UnionRenderers","id":"p2538"},"data":{"type":"map","entries":[["revenue",[50.0,75.0,120.0,95.0,200.0,180.0,60.0,140.0,310.0,88.0,155.0,220.0,45.0,170.0,280.0,110.0,190.0,65.0,240.0,135.0,300.0,85.0,160.0,210.0,70.0,250.0,100.0,180.0,130.0,270.0]],["profit",[8.0,15.0,30.0,18.0,52.0,42.0,10.0,35.0,85.0,16.0,38.0,55.0,5.0,40.0,72.0,22.0,48.0,12.0,60.0,32.0,78.0,14.0,39.0,53.0,11.0,65.0,20.0,44.0,28.0,70.0]],["employees",[5,8,15,10,25,22,6,18,40,9,19,28,4,21,35,12,24,7,30,16,38,8,20,26,7,32,11,23,14,34]],["satisfaction",[3.8,4.0,4.3,4.1,4.6,4.4,3.9,4.2,4.8,4.0,4.3,4.5,3.7,4.3,4.7,4.1,4.4,3.8,4.5,4.2,4.7,3.9,4.3,4.5,3.8,4.6,4.0,4.4,4.1,4.6]],["tier",["Small","Small","Medium","Small","Large","Medium","Small","Medium","Large","Small","Medium","Large","Small","Medium","Large","Medium","Medium","Small","Large","Medium","Large","Small","Medium","Large","Small","Large","Small","Medium","Medium","Large"]]]}}}]]},"code":"\\n                    gf.group = cb_obj.value;\\n                    source.change.emit();\\n                "}}]]]},"sizing_mode":"stretch_width","title":"Company Tier","options":["Small","Medium","Large"],"value":"Small"}},{"type":"object","name":"Figure","id":"p2547","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"DataRange1d","id":"p2549"},"y_range":{"type":"object","name":"FactorRange","id":"p2557","attributes":{"factors":["API Reliability","Mobile App","Onboarding","Documentation","Delivery Speed","Pricing","Customer Service","Product Quality"]}},"x_scale":{"type":"object","name":"LinearScale","id":"p2558"},"y_scale":{"type":"object","name":"CategoricalScale","id":"p2559"},"title":{"type":"object","name":"Title","id":"p2550","attributes":{"text":"Satisfaction Scores"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p2599","attributes":{"data_source":{"type":"object","name":"ColumnDataSource","id":"p2544","attributes":{"selected":{"type":"object","name":"Selection","id":"p2545","attributes":{"indices":[],"line_indices":[]}},"selection_policy":{"type":"object","name":"UnionRenderers","id":"p2546"},"data":{"type":"map","entries":[["category",["Product Quality","Customer Service","Pricing","Delivery Speed","Documentation","Onboarding","Mobile App","API Reliability"]],["score",[4.5,4.2,3.8,4.0,3.5,3.9,4.3,4.6]]]}}},"view":{"type":"object","name":"CDSView","id":"p2600","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p2601"}}},"glyph":{"type":"object","name":"HBar","id":"p2595","attributes":{"y":{"type":"field","field":"category"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"score"},"line_color":{"type":"value","value":"white"},"fill_color":{"type":"value","value":"#4C72B0"}}},"selection_glyph":{"type":"object","name":"HBar","id":"p2597","attributes":{"y":{"type":"field","field":"category"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"score"},"line_color":{"type":"value","value":"white"},"fill_color":{"type":"value","value":"firebrick"}}},"nonselection_glyph":{"type":"object","name":"HBar","id":"p2596","attributes":{"y":{"type":"field","field":"category"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"score"},"line_color":{"type":"value","value":"white"},"line_alpha":{"type":"value","value":0.1},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_alpha":{"type":"value","value":0.1}}},"muted_glyph":{"type":"object","name":"HBar","id":"p2598","attributes":{"y":{"type":"field","field":"category"},"height":{"type":"value","value":0.7},"right":{"type":"field","field":"score"},"line_color":{"type":"value","value":"white"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p2556","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p2570"},{"type":"object","name":"WheelZoomTool","id":"p2571","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p2572","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p2573","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p2579","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2578","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p2580"},{"type":"object","name":"SaveTool","id":"p2581"},{"type":"object","name":"HoverTool","id":"p2582","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxSelectTool","id":"p2583","attributes":{"renderers":"auto","overlay":{"type":"object","name":"BoxAnnotation","id":"p2584","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"editable":true,"handles":{"type":"object","name":"BoxInteractionHandles","id":"p2590","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2589","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"TapTool","id":"p2591","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"CategoricalAxis","id":"p2565","attributes":{"ticker":{"type":"object","name":"CategoricalTicker","id":"p2566"},"formatter":{"type":"object","name":"CategoricalTickFormatter","id":"p2567"},"major_label_policy":{"type":"object","name":"AllLabels","id":"p2568"}}}],"below":[{"type":"object","name":"LinearAxis","id":"p2560","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p2561","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p2562"},"axis_label":"Score (1-5)","major_label_policy":{"type":"object","name":"AllLabels","id":"p2563"}}}],"center":[{"type":"object","name":"Grid","id":"p2564","attributes":{"axis":{"id":"p2560"}}},{"type":"object","name":"Grid","id":"p2569","attributes":{"dimension":1,"axis":{"id":"p2565"},"grid_line_color":null}}]}},{"type":"object","name":"Figure","id":"p2602","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"DataRange1d","id":"p2603"},"y_range":{"type":"object","name":"DataRange1d","id":"p2604"},"x_scale":{"type":"object","name":"LinearScale","id":"p2612"},"y_scale":{"type":"object","name":"LinearScale","id":"p2613"},"title":{"type":"object","name":"Title","id":"p2605","attributes":{"text":"Revenue vs Customer Satisfaction"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p2653","attributes":{"data_source":{"id":"p2536"},"view":{"type":"object","name":"CDSView","id":"p2542","attributes":{"filter":{"id":"p2539"}}},"glyph":{"type":"object","name":"Scatter","id":"p2649","attributes":{"x":{"type":"field","field":"revenue"},"y":{"type":"field","field":"satisfaction"},"size":{"type":"value","value":10},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.7},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.7},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.7}}},"selection_glyph":{"type":"object","name":"Scatter","id":"p2651","attributes":{"x":{"type":"field","field":"revenue"},"y":{"type":"field","field":"satisfaction"},"size":{"type":"value","value":10},"line_color":{"type":"value","value":"firebrick"},"line_alpha":{"type":"value","value":0.7},"fill_color":{"type":"value","value":"firebrick"},"fill_alpha":{"type":"value","value":0.7},"hatch_color":{"type":"value","value":"firebrick"},"hatch_alpha":{"type":"value","value":0.7}}},"nonselection_glyph":{"type":"object","name":"Scatter","id":"p2650","attributes":{"x":{"type":"field","field":"revenue"},"y":{"type":"field","field":"satisfaction"},"size":{"type":"value","value":10},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.2}}},"muted_glyph":{"type":"object","name":"Scatter","id":"p2652","attributes":{"x":{"type":"field","field":"revenue"},"y":{"type":"field","field":"satisfaction"},"size":{"type":"value","value":10},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p2611","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p2624"},{"type":"object","name":"WheelZoomTool","id":"p2625","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p2626","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p2627","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p2633","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2632","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p2634"},{"type":"object","name":"SaveTool","id":"p2635"},{"type":"object","name":"HoverTool","id":"p2636","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxSelectTool","id":"p2637","attributes":{"renderers":"auto","overlay":{"type":"object","name":"BoxAnnotation","id":"p2638","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"editable":true,"handles":{"type":"object","name":"BoxInteractionHandles","id":"p2644","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2643","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"TapTool","id":"p2645","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"LinearAxis","id":"p2619","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p2620","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p2621"},"axis_label":"Rating","major_label_policy":{"type":"object","name":"AllLabels","id":"p2622"}}}],"below":[{"type":"object","name":"LinearAxis","id":"p2614","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p2615","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p2616"},"axis_label":"Revenue (k)","major_label_policy":{"type":"object","name":"AllLabels","id":"p2617"}}}],"center":[{"type":"object","name":"Grid","id":"p2618","attributes":{"axis":{"id":"p2614"}}},{"type":"object","name":"Grid","id":"p2623","attributes":{"dimension":1,"axis":{"id":"p2619"}}}]}},{"type":"object","name":"Figure","id":"p2656","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"DataRange1d","id":"p2657"},"y_range":{"type":"object","name":"DataRange1d","id":"p2658"},"x_scale":{"type":"object","name":"LinearScale","id":"p2666"},"y_scale":{"type":"object","name":"LinearScale","id":"p2667"},"title":{"type":"object","name":"Title","id":"p2659","attributes":{"text":"Profit vs Satisfaction"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p2707","attributes":{"data_source":{"id":"p2536"},"view":{"id":"p2542"},"glyph":{"type":"object","name":"Scatter","id":"p2703","attributes":{"x":{"type":"field","field":"profit"},"y":{"type":"field","field":"satisfaction"},"size":{"type":"value","value":10},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.7},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.7},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.7}}},"selection_glyph":{"type":"object","name":"Scatter","id":"p2705","attributes":{"x":{"type":"field","field":"profit"},"y":{"type":"field","field":"satisfaction"},"size":{"type":"value","value":10},"line_color":{"type":"value","value":"firebrick"},"line_alpha":{"type":"value","value":0.7},"fill_color":{"type":"value","value":"firebrick"},"fill_alpha":{"type":"value","value":0.7},"hatch_color":{"type":"value","value":"firebrick"},"hatch_alpha":{"type":"value","value":0.7}}},"nonselection_glyph":{"type":"object","name":"Scatter","id":"p2704","attributes":{"x":{"type":"field","field":"profit"},"y":{"type":"field","field":"satisfaction"},"size":{"type":"value","value":10},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.2}}},"muted_glyph":{"type":"object","name":"Scatter","id":"p2706","attributes":{"x":{"type":"field","field":"profit"},"y":{"type":"field","field":"satisfaction"},"size":{"type":"value","value":10},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p2665","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p2678"},{"type":"object","name":"WheelZoomTool","id":"p2679","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p2680","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p2681","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p2687","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2686","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p2688"},{"type":"object","name":"SaveTool","id":"p2689"},{"type":"object","name":"HoverTool","id":"p2690","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxSelectTool","id":"p2691","attributes":{"renderers":"auto","overlay":{"type":"object","name":"BoxAnnotation","id":"p2692","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"editable":true,"handles":{"type":"object","name":"BoxInteractionHandles","id":"p2698","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2697","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"TapTool","id":"p2699","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"LinearAxis","id":"p2673","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p2674","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p2675"},"axis_label":"Rating","major_label_policy":{"type":"object","name":"AllLabels","id":"p2676"}}}],"below":[{"type":"object","name":"LinearAxis","id":"p2668","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p2669","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p2670"},"axis_label":"Profit (k)","major_label_policy":{"type":"object","name":"AllLabels","id":"p2671"}}}],"center":[{"type":"object","name":"Grid","id":"p2672","attributes":{"axis":{"id":"p2668"}}},{"type":"object","name":"Grid","id":"p2677","attributes":{"dimension":1,"axis":{"id":"p2673"}}}]}}]}}';
+        const render_items = [{"docid":"3664c625-be20-42db-8bcb-b7ccbf65ff58","roots":{"p2540":"b37f678a-db4d-4a3a-a75c-67446399632a","p2547":"d0976ad7-19da-4167-a9bf-a0d857622c8e","p2602":"c41f9a0e-9c97-4370-894c-ff0bc8cb9a9f","p2656":"d3628edd-40fa-4156-b964-83497000ec1b"},"root_ids":["p2540","p2547","p2602","p2656"]}];
         root.Bokeh.embed.embed_items(docs_json, render_items);
         }
         if (root.Bokeh !== undefined) {
@@ -369,6 +684,7 @@
 })();
     </script>
 
-    <footer>Generated by RustToBokeh</footer>
+        <footer>Generated by RustToBokeh</footer>
+    </div>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Website Analytics — RustToBokeh</title>
+    <title>Annual Business Dashboard — Website Analytics — RustToBokeh</title>
     
     
     <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.6.3.min.js"></script>
@@ -20,47 +20,280 @@
         * { box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #f8f9fa;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* ── Horizontal nav ────────────────────────────────────────────────── */
+        .nav-horizontal {
+            background: #fff;
+            border-bottom: 1px solid #dde2e8;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .nav-horizontal .nav-header {
+            display: flex;
+            align-items: stretch;
+            padding: 0 20px;
+        }
+        .nav-horizontal .nav-report-title {
+            font-size: 0.95em;
+            font-weight: 700;
+            color: #2c3e50;
+            white-space: nowrap;
+            padding: 0 16px 0 0;
+            margin-right: 4px;
+            border-right: 2px solid #dde2e8;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+        }
+        /* Scrollable row of top-level tabs + dropdown triggers */
+        .nav-horizontal .nav-tabs-scroll {
+            display: flex;
+            align-items: stretch;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            flex: 1;
+        }
+        .nav-horizontal .nav-tabs-scroll::-webkit-scrollbar { display: none; }
+
+        /* ── Shared tab link style ─────────────────────────────────────────── */
+        .nav-horizontal .nav-tab {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            padding: 0 14px;
+            height: 44px;
+            font-size: 0.83em;
+            font-weight: 500;
+            color: #555;
+            white-space: nowrap;
+            border-bottom: 3px solid transparent;
+            flex-shrink: 0;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+        }
+        .nav-horizontal .nav-tab:hover {
+            color: #4C72B0;
+            background: #f0f4fb;
+            border-bottom-color: #a0b8d8;
+        }
+        .nav-horizontal .nav-tab.active {
+            color: #4C72B0;
+            font-weight: 700;
+            border-bottom-color: #4C72B0;
+            background: #f0f4fb;
+        }
+
+        /* ── Dropdown (category with children or sub-items) ────────────────── */
+        .nav-horizontal .nav-dd {
+            position: relative;
+            display: flex;
+            align-items: stretch;
+            flex-shrink: 0;
+        }
+        .nav-horizontal .nav-dd-trigger {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 0 14px;
+            height: 44px;
+            border: none;
+            background: none;
+            font-family: inherit;
+            font-size: 0.83em;
+            font-weight: 500;
+            color: #555;
+            white-space: nowrap;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+        }
+        .nav-horizontal .nav-dd-trigger .caret {
+            font-size: 0.7em;
+            opacity: 0.55;
+        }
+        .nav-horizontal .nav-dd:hover > .nav-dd-trigger,
+        .nav-horizontal .nav-dd.open > .nav-dd-trigger {
+            color: #4C72B0;
+            background: #f0f4fb;
+            border-bottom-color: #a0b8d8;
+        }
+        .nav-horizontal .nav-dd.has-active > .nav-dd-trigger {
+            color: #4C72B0;
+            font-weight: 700;
+            border-bottom-color: #4C72B0;
+            background: #f0f4fb;
+        }
+        /* Top-level dropdown menu */
+        .nav-horizontal .nav-dd-menu {
+            display: none;
+            position: fixed; /* escape overflow-x:auto clipping on scroll container */
+            background: #fff;
+            border: 1px solid #dde2e8;
+            border-radius: 6px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+            min-width: 190px;
+            z-index: 1000;
+            padding: 4px 0;
+        }
+        /* Dropdown page link */
+        .nav-horizontal .nav-dd-item {
+            display: block;
+            padding: 8px 18px;
+            font-size: 0.83em;
+            font-weight: 500;
+            color: #444;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: background 0.1s, color 0.1s;
+        }
+        .nav-horizontal .nav-dd-item:hover { background: #f0f4fb; color: #4C72B0; }
+        .nav-horizontal .nav-dd-item.active { background: #f0f4fb; color: #4C72B0; font-weight: 700; }
+        /* Divider between pages and sub-groups */
+        .nav-horizontal .nav-dd-divider {
+            border: none;
+            border-top: 1px solid #eee;
+            margin: 4px 0;
+        }
+        /* Sub-dropdown (nested category) */
+        .nav-horizontal .nav-dd-sub {
+            position: relative;
+        }
+        .nav-horizontal .nav-dd-sub-trigger {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            padding: 8px 14px 8px 18px;
+            border: none;
+            background: none;
+            font-family: inherit;
+            font-size: 0.83em;
+            font-weight: 500;
+            color: #444;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: background 0.1s, color 0.1s;
+            text-align: left;
+        }
+        .nav-horizontal .nav-dd-sub-trigger .caret { font-size: 0.7em; opacity: 0.55; }
+        .nav-horizontal .nav-dd-sub:hover > .nav-dd-sub-trigger,
+        .nav-horizontal .nav-dd-sub.open > .nav-dd-sub-trigger {
+            background: #f0f4fb; color: #4C72B0;
+        }
+        .nav-horizontal .nav-dd-sub.has-active > .nav-dd-sub-trigger {
+            color: #4C72B0; font-weight: 700;
+        }
+        /* Sub-menu — position fixed, placed to the right by JS */
+        .nav-horizontal .nav-dd-sub-menu {
+            display: none;
+            position: fixed;
+            background: #fff;
+            border: 1px solid #dde2e8;
+            border-radius: 6px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+            min-width: 190px;
+            z-index: 1001;
+            padding: 4px 0;
+        }
+
+        /* ── Vertical nav ──────────────────────────────────────────────────── */
+        .nav-vertical {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 220px;
+            height: 100vh;
+            overflow-y: auto;
+            background: #2c3e50;
+            z-index: 100;
+            padding-bottom: 24px;
+        }
+        .nav-vertical .nav-report-title {
+            color: white;
+            font-size: 0.95em;
+            font-weight: 700;
+            padding: 18px 16px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.12);
+            line-height: 1.3;
+        }
+        /* Collapsible category group via <details>/<summary> */
+        .nav-vertical details { }
+        .nav-vertical details > summary {
+            list-style: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+            color: rgba(255,255,255,0.45);
+            font-size: 0.67em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.09em;
+            padding: 10px 14px 4px;
+        }
+        .nav-vertical details > summary::-webkit-details-marker { display: none; }
+        .nav-vertical details > summary::after {
+            content: "▸";
+            font-size: 0.9em;
+            opacity: 0.6;
+            transition: transform 0.15s;
+        }
+        .nav-vertical details[open] > summary::after { transform: rotate(90deg); }
+        /* Nested sub-group inside a vertical details block */
+        .nav-vertical details details > summary {
+            font-size: 0.65em;
+            padding-left: 0; /* indent comes from parent container */
+            color: rgba(255,255,255,0.35);
+        }
+        /* Indent containers */
+        .nav-vertical .nav-indent { padding-left: 10px; }
+        .nav-vertical a {
+            display: block;
+            text-decoration: none;
+            padding: 7px 14px 7px 22px;
+            font-size: 0.85em;
+            font-weight: 500;
+            color: rgba(255,255,255,0.72);
+            transition: background 0.12s, color 0.12s;
+        }
+        .nav-vertical a:hover { background: rgba(255,255,255,0.08); color: white; }
+        .nav-vertical a.active { background: #4C72B0; color: white; font-weight: 700; }
+        /* Uncategorized pages at the top of the sidebar */
+        .nav-vertical .nav-uncategorized { margin-top: 8px; }
+
+        /* ── Page layout ───────────────────────────────────────────────────── */
+        .layout-horizontal .page-content {
             max-width: 1600px;
             margin: 0 auto;
             padding: 0 20px 40px;
-            background: #f8f9fa;
-            color: #333;
         }
-        nav {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            padding: 14px 0;
-            margin-bottom: 8px;
-            border-bottom: 2px solid #e0e0e0;
-            position: sticky;
-            top: 0;
-            background: #f8f9fa;
-            z-index: 100;
+        .layout-vertical .page-content {
+            margin-left: 220px;
+            padding: 0 24px 40px;
         }
-        nav a {
-            text-decoration: none;
-            padding: 6px 14px;
-            border-radius: 6px;
-            font-size: 0.85em;
-            font-weight: 500;
-            color: #4C72B0;
-            background: #e8eef7;
-            transition: background 0.15s, color 0.15s;
-        }
-        nav a:hover { background: #4C72B0; color: white; }
-        nav a.active { background: #4C72B0; color: white; font-weight: 700; }
+
+        /* ── Page header ───────────────────────────────────────────────────── */
         h1 {
             color: #2c3e50;
             border-bottom: 3px solid #4C72B0;
             padding-bottom: 12px;
-            margin: 16px 0 8px;
+            margin: 20px 0 8px;
         }
         .subtitle {
             color: #666;
             margin-bottom: 20px;
             font-size: 0.9em;
         }
+
+        /* ── Grid layout ───────────────────────────────────────────────────── */
         .grid-layout {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -81,12 +314,16 @@
             padding-bottom: 8px;
             border-bottom: 1px solid #e8eef7;
         }
+
+        /* ── Footer ────────────────────────────────────────────────────────── */
         footer {
             margin-top: 20px;
             color: #999;
             font-size: 0.8em;
             text-align: center;
         }
+
+        /* ── Tech badges ───────────────────────────────────────────────────── */
         .tech-badge {
             display: inline-block;
             background: #e8eef7;
@@ -97,6 +334,8 @@
             font-weight: 600;
             font-size: 0.85em;
         }
+
+        /* ── Filter bar ────────────────────────────────────────────────────── */
         .filter-bar {
             display: flex;
             flex-wrap: wrap;
@@ -126,7 +365,8 @@
             color: #2c3e50;
             cursor: pointer;
         }
-        /* ── Paragraph module ── */
+
+        /* ── Paragraph module ──────────────────────────────────────────────── */
         .paragraph-module {
             height: 100%;
             box-sizing: border-box;
@@ -138,7 +378,8 @@
             font-size: 0.95em;
         }
         .paragraph-module p:last-child { margin-bottom: 0; }
-        /* ── Table module ── */
+
+        /* ── Table module ──────────────────────────────────────────────────── */
         .table-module { overflow: hidden; }
         .table-wrapper {
             overflow-x: auto;
@@ -167,7 +408,8 @@
             border-bottom: 1px solid #e9ecef;
             color: #2c3e50;
         }
-        /* ── Shared module heading (paragraph + table) ── */
+
+        /* ── Shared module heading (paragraph + table) ─────────────────────── */
         .module-title {
             color: #2c3e50;
             font-size: 1.0em;
@@ -178,159 +420,232 @@
         }
     </style>
 </head>
-<body>
-    <nav>
-        
-        <a href="executive-summary.html"
-           >
-            Executive
-        </a>
-        
-        <a href="revenue-overview.html"
-           >
-            Revenue
-        </a>
-        
-        <a href="expense-analysis.html"
-           >
-            Expenses
-        </a>
-        
-        <a href="quarterly-performance.html"
-           >
-            Quarterly
-        </a>
-        
-        <a href="product-analysis.html"
-           >
-            Products
-        </a>
-        
-        <a href="regional-breakdown.html"
-           >
-            Regions
-        </a>
-        
-        <a href="team-metrics.html"
-           >
-            Team
-        </a>
-        
-        <a href="customer-insights.html"
-           >
-            Customers
-        </a>
-        
-        <a href="web-analytics.html"
-           class="active">
-            Web
-        </a>
-        
-        <a href="market-position.html"
-           >
-            Market
-        </a>
-        
-        <a href="budget-management.html"
-           >
-            Budget
-        </a>
-        
-        <a href="project-portfolio.html"
-           >
-            Projects
-        </a>
-        
-        <a href="growth-indicators.html"
-           >
-            Growth
-        </a>
-        
-        <a href="cost-optimization.html"
-           >
-            Costs
-        </a>
-        
-        <a href="marketing-roi.html"
-           >
-            Marketing
-        </a>
-        
-        <a href="operations-dashboard.html"
-           >
-            Operations
-        </a>
-        
-        <a href="financial-health.html"
-           >
-            Finance
-        </a>
-        
-        <a href="workforce-planning.html"
-           >
-            Workforce
-        </a>
-        
-        <a href="forecast-targets.html"
-           >
-            Forecast
-        </a>
-        
-        <a href="annual-review.html"
-           >
-            Annual
-        </a>
-        
-        <a href="module-showcase.html"
-           >
-            Showcase
-        </a>
-        
-    </nav>
-    <h1>Website Analytics</h1>
-    <p class="subtitle">
-        <span class="tech-badge">Polars</span>
-        <span class="tech-badge">Arrow IPC</span>
-        <span class="tech-badge">Bokeh</span>
-        <span class="tech-badge">PyO3</span>
-        <span class="tech-badge">Jinja2</span>
-    </p>
+<body class="layout-vertical">
+
     
-    <div class="grid-layout">
+    
+
+    
+    
+
+    
+    
+
+    
+    <!-- ── Vertical sidebar nav ──────────────────────────────────────────── -->
+    <nav class="nav-vertical">
         
-        <div class="chart-container"
-             style="grid-row: 1; grid-column: 1 / span 2;">
+        <div class="nav-report-title">Annual Business Dashboard</div>
+        
+        <div class="nav-uncategorized">
             
-            <h2 class="chart-title">Visitor Traffic</h2>
+            <a href="executive-summary.html">Executive</a>
             
-            <div id="e8946178-1a67-40f4-afd7-c0cdb5aae876" data-root-id="p2713" style="display: contents;"></div>
         </div>
         
-        <div class="chart-container"
-             style="grid-row: 2; grid-column: 1 / span 1;">
+    <details>
+        <summary>Financial</summary>
+        <div class="nav-indent">
             
-            <h2 class="chart-title">Signups Over Time</h2>
+            <a href="revenue-overview.html">Revenue</a>
             
-            <div id="fc00060f-0484-41a5-996d-16db7d4c7123" data-root-id="p2779" style="display: contents;"></div>
+            <a href="expense-analysis.html">Expenses</a>
+            
+            <a href="quarterly-performance.html">Quarterly</a>
+            
+            <a href="budget-management.html">Budget</a>
+            
+            <a href="financial-health.html">Finance</a>
+            
+            <a href="annual-review.html">Annual</a>
+            
+            
         </div>
-        
-        <div class="chart-container"
-             style="grid-row: 2; grid-column: 2 / span 1;">
+    </details>
+    
+    <details>
+        <summary>Commercial</summary>
+        <div class="nav-indent">
             
-            <h2 class="chart-title">Conversions Over Time</h2>
+            <a href="product-analysis.html">Products</a>
             
-            <div id="ed43d651-fdf2-43b3-82cf-76b210e8b965" data-root-id="p2845" style="display: contents;"></div>
+            <a href="regional-breakdown.html">Regions</a>
+            
+            <a href="market-position.html">Market</a>
+            
+            
         </div>
+    </details>
+    
+    <details>
+        <summary>People</summary>
+        <div class="nav-indent">
+            
+            <a href="team-metrics.html">Team</a>
+            
+            <a href="customer-insights.html">Customers</a>
+            
+            <a href="workforce-planning.html">Workforce</a>
+            
+            
+        </div>
+    </details>
+    
+    <details open>
+        <summary>Digital</summary>
+        <div class="nav-indent">
+            
+            <a href="web-analytics.html" class="active">Web</a>
+            
+            <a href="growth-indicators.html">Growth</a>
+            
+            <a href="marketing-roi.html">Marketing</a>
+            
+            
+        </div>
+    </details>
+    
+    <details>
+        <summary>Operations</summary>
+        <div class="nav-indent">
+            
+            <a href="project-portfolio.html">Projects</a>
+            
+            <a href="cost-optimization.html">Costs</a>
+            
+            <a href="operations-dashboard.html">Operations</a>
+            
+            <a href="forecast-targets.html">Forecast</a>
+            
+            
+        </div>
+    </details>
+    
+    <details>
+        <summary>Reference</summary>
+        <div class="nav-indent">
+            
+            <a href="module-showcase.html">Showcase</a>
+            
+            <a href="chart-customisation.html">Customisation</a>
+            
+            
+        </div>
+    </details>
+    
+    </nav>
+
+    
+
+    <script>
+    // Nav dropdowns: menus use position:fixed (to escape overflow-x:auto clipping).
+    // JS handles both hover (mouseenter/leave with a short delay) and click-to-toggle.
+    (function () {
+        function showMenu(menu, x, y) {
+            clearTimeout(menu._ht);
+            // Clamp to viewport so menu never spawns off-screen
+            menu.style.left = x + 'px';
+            menu.style.top  = y + 'px';
+            menu.style.display = 'block';
+            // After paint, clamp right edge
+            var vw = window.innerWidth;
+            var mw = menu.offsetWidth;
+            if (x + mw > vw) menu.style.left = Math.max(0, vw - mw) + 'px';
+        }
+        function hideMenu(menu) {
+            menu._ht = setTimeout(function () { menu.style.display = 'none'; }, 150);
+        }
+        function keepOpen(menu) { clearTimeout(menu._ht); }
+
+        function wire(trigger, menu, openRight) {
+            trigger.addEventListener('mouseenter', function () {
+                var r = trigger.getBoundingClientRect();
+                showMenu(menu, openRight ? r.right : r.left, openRight ? r.top : r.bottom);
+            });
+            trigger.addEventListener('mouseleave', function () { hideMenu(menu); });
+            menu.addEventListener('mouseenter', function () { keepOpen(menu); });
+            menu.addEventListener('mouseleave', function () { hideMenu(menu); });
+        }
+
+        // Top-level dropdowns
+        document.querySelectorAll('.nav-horizontal .nav-dd').forEach(function (dd) {
+            var t = dd.querySelector(':scope > .nav-dd-trigger');
+            var m = dd.querySelector(':scope > .nav-dd-menu');
+            if (!t || !m) return;
+            wire(t, m, false);
+            // Toggle on click (touch / keyboard users)
+            t.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (m.style.display === 'block') {
+                    m.style.display = 'none';
+                } else {
+                    var r = t.getBoundingClientRect();
+                    showMenu(m, r.left, r.bottom);
+                }
+            });
+        });
+
+        // Sub-menus (open to the right of their trigger row)
+        document.querySelectorAll('.nav-horizontal .nav-dd-sub').forEach(function (sub) {
+            var t = sub.querySelector(':scope > .nav-dd-sub-trigger');
+            var m = sub.querySelector(':scope > .nav-dd-sub-menu');
+            if (!t || !m) return;
+            wire(t, m, true);
+        });
+
+        // Click outside closes everything
+        document.addEventListener('click', function () {
+            document.querySelectorAll('.nav-horizontal .nav-dd-menu, .nav-horizontal .nav-dd-sub-menu')
+                    .forEach(function (m) { m.style.display = 'none'; });
+        });
+    })();
+    </script>
+
+    <div class="page-content">
+        <h1>Website Analytics</h1>
+        <p class="subtitle">
+            <span class="tech-badge">Polars</span>
+            <span class="tech-badge">Arrow IPC</span>
+            <span class="tech-badge">Bokeh</span>
+            <span class="tech-badge">PyO3</span>
+            <span class="tech-badge">Jinja2</span>
+        </p>
         
-    </div>
-        <script type="text/javascript">
+        <div class="grid-layout">
+            
+            <div class="chart-container"
+                 style="grid-row: 1; grid-column: 1 / span 2;">
+                
+                <h2 class="chart-title">Visitor Traffic</h2>
+                
+                <div id="c8257757-c0dc-4971-be78-a895f77d4769" data-root-id="p2713" style="display: contents;"></div>
+            </div>
+            
+            <div class="chart-container"
+                 style="grid-row: 2; grid-column: 1 / span 1;">
+                
+                <h2 class="chart-title">Signups Over Time</h2>
+                
+                <div id="c7173632-b3de-406f-82a3-bd40b58b012e" data-root-id="p2779" style="display: contents;"></div>
+            </div>
+            
+            <div class="chart-container"
+                 style="grid-row: 2; grid-column: 2 / span 1;">
+                
+                <h2 class="chart-title">Conversions Over Time</h2>
+                
+                <div id="bf175fa0-fe04-4fbe-9765-02614ea8e766" data-root-id="p2845" style="display: contents;"></div>
+            </div>
+            
+        </div>
+            <script type="text/javascript">
         (function() {
   const fn = function() {
     Bokeh.safely(function() {
       (function(root) {
         function embed_document(root) {
-        const docs_json = '{"36364996-bf25-495c-ab07-33a7f5b05393":{"version":"3.6.3","title":"Bokeh Application","roots":[{"type":"object","name":"Figure","id":"p2713","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"FactorRange","id":"p2723","attributes":{"factors":["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]}},"y_range":{"type":"object","name":"DataRange1d","id":"p2715"},"x_scale":{"type":"object","name":"CategoricalScale","id":"p2724"},"y_scale":{"type":"object","name":"LinearScale","id":"p2725"},"title":{"type":"object","name":"Title","id":"p2716","attributes":{"text":"Visitor Traffic"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p2764","attributes":{"data_source":{"type":"object","name":"ColumnDataSource","id":"p2710","attributes":{"selected":{"type":"object","name":"Selection","id":"p2711","attributes":{"indices":[],"line_indices":[]}},"selection_policy":{"type":"object","name":"UnionRenderers","id":"p2712"},"data":{"type":"map","entries":[["month",["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]],["visitors",[45000,48500,52000,58000,62000,67000,71000,69000,73000,78000,85000,92000]],["signups",[1200,1350,1500,1800,2100,2400,2600,2450,2700,3000,3400,3800]],["conversions",[320,380,420,510,590,680,720,690,750,830,950,1050]]]}}},"view":{"type":"object","name":"CDSView","id":"p2765","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p2766"}}},"glyph":{"type":"object","name":"Line","id":"p2761","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"visitors"},"line_color":"#4C72B0","line_width":2.5}},"nonselection_glyph":{"type":"object","name":"Line","id":"p2762","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"visitors"},"line_color":"#4C72B0","line_alpha":0.1,"line_width":2.5}},"muted_glyph":{"type":"object","name":"Line","id":"p2763","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"visitors"},"line_color":"#4C72B0","line_alpha":0.2,"line_width":2.5}}}},{"type":"object","name":"GlyphRenderer","id":"p2776","attributes":{"data_source":{"id":"p2710"},"view":{"type":"object","name":"CDSView","id":"p2777","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p2778"}}},"glyph":{"type":"object","name":"Scatter","id":"p2772","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"visitors"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"fill_color":{"type":"value","value":"#4C72B0"},"hatch_color":{"type":"value","value":"#4C72B0"}}},"selection_glyph":{"type":"object","name":"Scatter","id":"p2774","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"visitors"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"firebrick"},"fill_color":{"type":"value","value":"firebrick"},"hatch_color":{"type":"value","value":"firebrick"}}},"nonselection_glyph":{"type":"object","name":"Scatter","id":"p2773","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"visitors"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.3},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.3},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.3}}},"muted_glyph":{"type":"object","name":"Scatter","id":"p2775","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"visitors"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p2722","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p2736"},{"type":"object","name":"WheelZoomTool","id":"p2737","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p2738","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p2739","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p2745","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2744","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p2746"},{"type":"object","name":"SaveTool","id":"p2747"},{"type":"object","name":"HoverTool","id":"p2748","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxSelectTool","id":"p2749","attributes":{"renderers":"auto","overlay":{"type":"object","name":"BoxAnnotation","id":"p2750","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"editable":true,"handles":{"type":"object","name":"BoxInteractionHandles","id":"p2756","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2755","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"TapTool","id":"p2757","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"LinearAxis","id":"p2731","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p2732","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p2733"},"axis_label":"Visitors","major_label_policy":{"type":"object","name":"AllLabels","id":"p2734"}}}],"below":[{"type":"object","name":"CategoricalAxis","id":"p2726","attributes":{"ticker":{"type":"object","name":"CategoricalTicker","id":"p2727"},"formatter":{"type":"object","name":"CategoricalTickFormatter","id":"p2728"},"major_label_policy":{"type":"object","name":"AllLabels","id":"p2729"}}}],"center":[{"type":"object","name":"Grid","id":"p2730","attributes":{"axis":{"id":"p2726"}}},{"type":"object","name":"Grid","id":"p2735","attributes":{"dimension":1,"axis":{"id":"p2731"}}},{"type":"object","name":"Legend","id":"p2767","attributes":{"location":"top_left","click_policy":"hide","items":[{"type":"object","name":"LegendItem","id":"p2768","attributes":{"label":{"type":"value","value":"visitors"},"renderers":[{"id":"p2764"},{"id":"p2776"}]}}]}}]}},{"type":"object","name":"Figure","id":"p2779","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"FactorRange","id":"p2789","attributes":{"factors":["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]}},"y_range":{"type":"object","name":"DataRange1d","id":"p2781"},"x_scale":{"type":"object","name":"CategoricalScale","id":"p2790"},"y_scale":{"type":"object","name":"LinearScale","id":"p2791"},"title":{"type":"object","name":"Title","id":"p2782","attributes":{"text":"Signups Over Time"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p2830","attributes":{"data_source":{"id":"p2710"},"view":{"type":"object","name":"CDSView","id":"p2831","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p2832"}}},"glyph":{"type":"object","name":"Line","id":"p2827","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"signups"},"line_color":"#4C72B0","line_width":2.5}},"nonselection_glyph":{"type":"object","name":"Line","id":"p2828","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"signups"},"line_color":"#4C72B0","line_alpha":0.1,"line_width":2.5}},"muted_glyph":{"type":"object","name":"Line","id":"p2829","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"signups"},"line_color":"#4C72B0","line_alpha":0.2,"line_width":2.5}}}},{"type":"object","name":"GlyphRenderer","id":"p2842","attributes":{"data_source":{"id":"p2710"},"view":{"type":"object","name":"CDSView","id":"p2843","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p2844"}}},"glyph":{"type":"object","name":"Scatter","id":"p2838","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"signups"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"fill_color":{"type":"value","value":"#4C72B0"},"hatch_color":{"type":"value","value":"#4C72B0"}}},"selection_glyph":{"type":"object","name":"Scatter","id":"p2840","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"signups"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"firebrick"},"fill_color":{"type":"value","value":"firebrick"},"hatch_color":{"type":"value","value":"firebrick"}}},"nonselection_glyph":{"type":"object","name":"Scatter","id":"p2839","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"signups"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.3},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.3},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.3}}},"muted_glyph":{"type":"object","name":"Scatter","id":"p2841","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"signups"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p2788","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p2802"},{"type":"object","name":"WheelZoomTool","id":"p2803","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p2804","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p2805","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p2811","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2810","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p2812"},{"type":"object","name":"SaveTool","id":"p2813"},{"type":"object","name":"HoverTool","id":"p2814","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxSelectTool","id":"p2815","attributes":{"renderers":"auto","overlay":{"type":"object","name":"BoxAnnotation","id":"p2816","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"editable":true,"handles":{"type":"object","name":"BoxInteractionHandles","id":"p2822","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2821","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"TapTool","id":"p2823","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"LinearAxis","id":"p2797","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p2798","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p2799"},"axis_label":"Signups","major_label_policy":{"type":"object","name":"AllLabels","id":"p2800"}}}],"below":[{"type":"object","name":"CategoricalAxis","id":"p2792","attributes":{"ticker":{"type":"object","name":"CategoricalTicker","id":"p2793"},"formatter":{"type":"object","name":"CategoricalTickFormatter","id":"p2794"},"major_label_policy":{"type":"object","name":"AllLabels","id":"p2795"}}}],"center":[{"type":"object","name":"Grid","id":"p2796","attributes":{"axis":{"id":"p2792"}}},{"type":"object","name":"Grid","id":"p2801","attributes":{"dimension":1,"axis":{"id":"p2797"}}},{"type":"object","name":"Legend","id":"p2833","attributes":{"location":"top_left","click_policy":"hide","items":[{"type":"object","name":"LegendItem","id":"p2834","attributes":{"label":{"type":"value","value":"signups"},"renderers":[{"id":"p2830"},{"id":"p2842"}]}}]}}]}},{"type":"object","name":"Figure","id":"p2845","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"FactorRange","id":"p2855","attributes":{"factors":["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]}},"y_range":{"type":"object","name":"DataRange1d","id":"p2847"},"x_scale":{"type":"object","name":"CategoricalScale","id":"p2856"},"y_scale":{"type":"object","name":"LinearScale","id":"p2857"},"title":{"type":"object","name":"Title","id":"p2848","attributes":{"text":"Conversions Over Time"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p2896","attributes":{"data_source":{"id":"p2710"},"view":{"type":"object","name":"CDSView","id":"p2897","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p2898"}}},"glyph":{"type":"object","name":"Line","id":"p2893","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"conversions"},"line_color":"#4C72B0","line_width":2.5}},"nonselection_glyph":{"type":"object","name":"Line","id":"p2894","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"conversions"},"line_color":"#4C72B0","line_alpha":0.1,"line_width":2.5}},"muted_glyph":{"type":"object","name":"Line","id":"p2895","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"conversions"},"line_color":"#4C72B0","line_alpha":0.2,"line_width":2.5}}}},{"type":"object","name":"GlyphRenderer","id":"p2908","attributes":{"data_source":{"id":"p2710"},"view":{"type":"object","name":"CDSView","id":"p2909","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p2910"}}},"glyph":{"type":"object","name":"Scatter","id":"p2904","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"conversions"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"fill_color":{"type":"value","value":"#4C72B0"},"hatch_color":{"type":"value","value":"#4C72B0"}}},"selection_glyph":{"type":"object","name":"Scatter","id":"p2906","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"conversions"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"firebrick"},"fill_color":{"type":"value","value":"firebrick"},"hatch_color":{"type":"value","value":"firebrick"}}},"nonselection_glyph":{"type":"object","name":"Scatter","id":"p2905","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"conversions"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.3},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.3},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.3}}},"muted_glyph":{"type":"object","name":"Scatter","id":"p2907","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"conversions"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p2854","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p2868"},{"type":"object","name":"WheelZoomTool","id":"p2869","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p2870","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p2871","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p2877","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2876","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p2878"},{"type":"object","name":"SaveTool","id":"p2879"},{"type":"object","name":"HoverTool","id":"p2880","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxSelectTool","id":"p2881","attributes":{"renderers":"auto","overlay":{"type":"object","name":"BoxAnnotation","id":"p2882","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"editable":true,"handles":{"type":"object","name":"BoxInteractionHandles","id":"p2888","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2887","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"TapTool","id":"p2889","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"LinearAxis","id":"p2863","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p2864","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p2865"},"axis_label":"Conversions","major_label_policy":{"type":"object","name":"AllLabels","id":"p2866"}}}],"below":[{"type":"object","name":"CategoricalAxis","id":"p2858","attributes":{"ticker":{"type":"object","name":"CategoricalTicker","id":"p2859"},"formatter":{"type":"object","name":"CategoricalTickFormatter","id":"p2860"},"major_label_policy":{"type":"object","name":"AllLabels","id":"p2861"}}}],"center":[{"type":"object","name":"Grid","id":"p2862","attributes":{"axis":{"id":"p2858"}}},{"type":"object","name":"Grid","id":"p2867","attributes":{"dimension":1,"axis":{"id":"p2863"}}},{"type":"object","name":"Legend","id":"p2899","attributes":{"location":"top_left","click_policy":"hide","items":[{"type":"object","name":"LegendItem","id":"p2900","attributes":{"label":{"type":"value","value":"conversions"},"renderers":[{"id":"p2896"},{"id":"p2908"}]}}]}}]}}]}}';
-        const render_items = [{"docid":"36364996-bf25-495c-ab07-33a7f5b05393","roots":{"p2713":"e8946178-1a67-40f4-afd7-c0cdb5aae876","p2779":"fc00060f-0484-41a5-996d-16db7d4c7123","p2845":"ed43d651-fdf2-43b3-82cf-76b210e8b965"},"root_ids":["p2713","p2779","p2845"]}];
+        const docs_json = '{"1a9eb5c3-063c-4146-b7f1-ce9fd9bcd826":{"version":"3.6.3","title":"Bokeh Application","roots":[{"type":"object","name":"Figure","id":"p2713","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"FactorRange","id":"p2723","attributes":{"factors":["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]}},"y_range":{"type":"object","name":"DataRange1d","id":"p2715"},"x_scale":{"type":"object","name":"CategoricalScale","id":"p2724"},"y_scale":{"type":"object","name":"LinearScale","id":"p2725"},"title":{"type":"object","name":"Title","id":"p2716","attributes":{"text":"Visitor Traffic"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p2764","attributes":{"data_source":{"type":"object","name":"ColumnDataSource","id":"p2710","attributes":{"selected":{"type":"object","name":"Selection","id":"p2711","attributes":{"indices":[],"line_indices":[]}},"selection_policy":{"type":"object","name":"UnionRenderers","id":"p2712"},"data":{"type":"map","entries":[["month",["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]],["visitors",[45000,48500,52000,58000,62000,67000,71000,69000,73000,78000,85000,92000]],["signups",[1200,1350,1500,1800,2100,2400,2600,2450,2700,3000,3400,3800]],["conversions",[320,380,420,510,590,680,720,690,750,830,950,1050]]]}}},"view":{"type":"object","name":"CDSView","id":"p2765","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p2766"}}},"glyph":{"type":"object","name":"Line","id":"p2761","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"visitors"},"line_color":"#4C72B0","line_width":2.5}},"nonselection_glyph":{"type":"object","name":"Line","id":"p2762","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"visitors"},"line_color":"#4C72B0","line_alpha":0.1,"line_width":2.5}},"muted_glyph":{"type":"object","name":"Line","id":"p2763","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"visitors"},"line_color":"#4C72B0","line_alpha":0.2,"line_width":2.5}}}},{"type":"object","name":"GlyphRenderer","id":"p2776","attributes":{"data_source":{"id":"p2710"},"view":{"type":"object","name":"CDSView","id":"p2777","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p2778"}}},"glyph":{"type":"object","name":"Scatter","id":"p2772","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"visitors"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"fill_color":{"type":"value","value":"#4C72B0"},"hatch_color":{"type":"value","value":"#4C72B0"}}},"selection_glyph":{"type":"object","name":"Scatter","id":"p2774","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"visitors"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"firebrick"},"fill_color":{"type":"value","value":"firebrick"},"hatch_color":{"type":"value","value":"firebrick"}}},"nonselection_glyph":{"type":"object","name":"Scatter","id":"p2773","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"visitors"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.3},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.3},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.3}}},"muted_glyph":{"type":"object","name":"Scatter","id":"p2775","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"visitors"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p2722","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p2736"},{"type":"object","name":"WheelZoomTool","id":"p2737","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p2738","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p2739","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p2745","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2744","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p2746"},{"type":"object","name":"SaveTool","id":"p2747"},{"type":"object","name":"HoverTool","id":"p2748","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxSelectTool","id":"p2749","attributes":{"renderers":"auto","overlay":{"type":"object","name":"BoxAnnotation","id":"p2750","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"editable":true,"handles":{"type":"object","name":"BoxInteractionHandles","id":"p2756","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2755","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"TapTool","id":"p2757","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"LinearAxis","id":"p2731","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p2732","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p2733"},"axis_label":"Visitors","major_label_policy":{"type":"object","name":"AllLabels","id":"p2734"}}}],"below":[{"type":"object","name":"CategoricalAxis","id":"p2726","attributes":{"ticker":{"type":"object","name":"CategoricalTicker","id":"p2727"},"formatter":{"type":"object","name":"CategoricalTickFormatter","id":"p2728"},"major_label_policy":{"type":"object","name":"AllLabels","id":"p2729"}}}],"center":[{"type":"object","name":"Grid","id":"p2730","attributes":{"axis":{"id":"p2726"}}},{"type":"object","name":"Grid","id":"p2735","attributes":{"dimension":1,"axis":{"id":"p2731"}}},{"type":"object","name":"Legend","id":"p2767","attributes":{"location":"top_left","click_policy":"hide","items":[{"type":"object","name":"LegendItem","id":"p2768","attributes":{"label":{"type":"value","value":"visitors"},"renderers":[{"id":"p2764"},{"id":"p2776"}]}}]}}]}},{"type":"object","name":"Figure","id":"p2779","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"FactorRange","id":"p2789","attributes":{"factors":["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]}},"y_range":{"type":"object","name":"DataRange1d","id":"p2781"},"x_scale":{"type":"object","name":"CategoricalScale","id":"p2790"},"y_scale":{"type":"object","name":"LinearScale","id":"p2791"},"title":{"type":"object","name":"Title","id":"p2782","attributes":{"text":"Signups Over Time"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p2830","attributes":{"data_source":{"id":"p2710"},"view":{"type":"object","name":"CDSView","id":"p2831","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p2832"}}},"glyph":{"type":"object","name":"Line","id":"p2827","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"signups"},"line_color":"#4C72B0","line_width":2.5}},"nonselection_glyph":{"type":"object","name":"Line","id":"p2828","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"signups"},"line_color":"#4C72B0","line_alpha":0.1,"line_width":2.5}},"muted_glyph":{"type":"object","name":"Line","id":"p2829","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"signups"},"line_color":"#4C72B0","line_alpha":0.2,"line_width":2.5}}}},{"type":"object","name":"GlyphRenderer","id":"p2842","attributes":{"data_source":{"id":"p2710"},"view":{"type":"object","name":"CDSView","id":"p2843","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p2844"}}},"glyph":{"type":"object","name":"Scatter","id":"p2838","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"signups"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"fill_color":{"type":"value","value":"#4C72B0"},"hatch_color":{"type":"value","value":"#4C72B0"}}},"selection_glyph":{"type":"object","name":"Scatter","id":"p2840","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"signups"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"firebrick"},"fill_color":{"type":"value","value":"firebrick"},"hatch_color":{"type":"value","value":"firebrick"}}},"nonselection_glyph":{"type":"object","name":"Scatter","id":"p2839","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"signups"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.3},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.3},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.3}}},"muted_glyph":{"type":"object","name":"Scatter","id":"p2841","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"signups"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p2788","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p2802"},{"type":"object","name":"WheelZoomTool","id":"p2803","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p2804","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p2805","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p2811","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2810","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p2812"},{"type":"object","name":"SaveTool","id":"p2813"},{"type":"object","name":"HoverTool","id":"p2814","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxSelectTool","id":"p2815","attributes":{"renderers":"auto","overlay":{"type":"object","name":"BoxAnnotation","id":"p2816","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"editable":true,"handles":{"type":"object","name":"BoxInteractionHandles","id":"p2822","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2821","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"TapTool","id":"p2823","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"LinearAxis","id":"p2797","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p2798","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p2799"},"axis_label":"Signups","major_label_policy":{"type":"object","name":"AllLabels","id":"p2800"}}}],"below":[{"type":"object","name":"CategoricalAxis","id":"p2792","attributes":{"ticker":{"type":"object","name":"CategoricalTicker","id":"p2793"},"formatter":{"type":"object","name":"CategoricalTickFormatter","id":"p2794"},"major_label_policy":{"type":"object","name":"AllLabels","id":"p2795"}}}],"center":[{"type":"object","name":"Grid","id":"p2796","attributes":{"axis":{"id":"p2792"}}},{"type":"object","name":"Grid","id":"p2801","attributes":{"dimension":1,"axis":{"id":"p2797"}}},{"type":"object","name":"Legend","id":"p2833","attributes":{"location":"top_left","click_policy":"hide","items":[{"type":"object","name":"LegendItem","id":"p2834","attributes":{"label":{"type":"value","value":"signups"},"renderers":[{"id":"p2830"},{"id":"p2842"}]}}]}}]}},{"type":"object","name":"Figure","id":"p2845","attributes":{"height":400,"sizing_mode":"stretch_width","x_range":{"type":"object","name":"FactorRange","id":"p2855","attributes":{"factors":["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]}},"y_range":{"type":"object","name":"DataRange1d","id":"p2847"},"x_scale":{"type":"object","name":"CategoricalScale","id":"p2856"},"y_scale":{"type":"object","name":"LinearScale","id":"p2857"},"title":{"type":"object","name":"Title","id":"p2848","attributes":{"text":"Conversions Over Time"}},"renderers":[{"type":"object","name":"GlyphRenderer","id":"p2896","attributes":{"data_source":{"id":"p2710"},"view":{"type":"object","name":"CDSView","id":"p2897","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p2898"}}},"glyph":{"type":"object","name":"Line","id":"p2893","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"conversions"},"line_color":"#4C72B0","line_width":2.5}},"nonselection_glyph":{"type":"object","name":"Line","id":"p2894","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"conversions"},"line_color":"#4C72B0","line_alpha":0.1,"line_width":2.5}},"muted_glyph":{"type":"object","name":"Line","id":"p2895","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"conversions"},"line_color":"#4C72B0","line_alpha":0.2,"line_width":2.5}}}},{"type":"object","name":"GlyphRenderer","id":"p2908","attributes":{"data_source":{"id":"p2710"},"view":{"type":"object","name":"CDSView","id":"p2909","attributes":{"filter":{"type":"object","name":"AllIndices","id":"p2910"}}},"glyph":{"type":"object","name":"Scatter","id":"p2904","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"conversions"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"fill_color":{"type":"value","value":"#4C72B0"},"hatch_color":{"type":"value","value":"#4C72B0"}}},"selection_glyph":{"type":"object","name":"Scatter","id":"p2906","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"conversions"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"firebrick"},"fill_color":{"type":"value","value":"firebrick"},"hatch_color":{"type":"value","value":"firebrick"}}},"nonselection_glyph":{"type":"object","name":"Scatter","id":"p2905","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"conversions"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.3},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.3},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.3}}},"muted_glyph":{"type":"object","name":"Scatter","id":"p2907","attributes":{"x":{"type":"field","field":"month"},"y":{"type":"field","field":"conversions"},"size":{"type":"value","value":7},"line_color":{"type":"value","value":"#4C72B0"},"line_alpha":{"type":"value","value":0.2},"fill_color":{"type":"value","value":"#4C72B0"},"fill_alpha":{"type":"value","value":0.2},"hatch_color":{"type":"value","value":"#4C72B0"},"hatch_alpha":{"type":"value","value":0.2}}}}}],"toolbar":{"type":"object","name":"Toolbar","id":"p2854","attributes":{"tools":[{"type":"object","name":"PanTool","id":"p2868"},{"type":"object","name":"WheelZoomTool","id":"p2869","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxZoomTool","id":"p2870","attributes":{"overlay":{"type":"object","name":"BoxAnnotation","id":"p2871","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"left_units":"canvas","right_units":"canvas","top_units":"canvas","bottom_units":"canvas","handles":{"type":"object","name":"BoxInteractionHandles","id":"p2877","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2876","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"ResetTool","id":"p2878"},{"type":"object","name":"SaveTool","id":"p2879"},{"type":"object","name":"HoverTool","id":"p2880","attributes":{"renderers":"auto"}},{"type":"object","name":"BoxSelectTool","id":"p2881","attributes":{"renderers":"auto","overlay":{"type":"object","name":"BoxAnnotation","id":"p2882","attributes":{"syncable":false,"line_color":"black","line_alpha":1.0,"line_width":2,"line_dash":[4,4],"fill_color":"lightgrey","fill_alpha":0.5,"level":"overlay","visible":false,"left":{"type":"number","value":"nan"},"right":{"type":"number","value":"nan"},"top":{"type":"number","value":"nan"},"bottom":{"type":"number","value":"nan"},"editable":true,"handles":{"type":"object","name":"BoxInteractionHandles","id":"p2888","attributes":{"all":{"type":"object","name":"AreaVisuals","id":"p2887","attributes":{"fill_color":"white","hover_fill_color":"lightgray"}}}}}}}},{"type":"object","name":"TapTool","id":"p2889","attributes":{"renderers":"auto"}}]}},"toolbar_location":"above","left":[{"type":"object","name":"LinearAxis","id":"p2863","attributes":{"ticker":{"type":"object","name":"BasicTicker","id":"p2864","attributes":{"mantissas":[1,2,5]}},"formatter":{"type":"object","name":"BasicTickFormatter","id":"p2865"},"axis_label":"Conversions","major_label_policy":{"type":"object","name":"AllLabels","id":"p2866"}}}],"below":[{"type":"object","name":"CategoricalAxis","id":"p2858","attributes":{"ticker":{"type":"object","name":"CategoricalTicker","id":"p2859"},"formatter":{"type":"object","name":"CategoricalTickFormatter","id":"p2860"},"major_label_policy":{"type":"object","name":"AllLabels","id":"p2861"}}}],"center":[{"type":"object","name":"Grid","id":"p2862","attributes":{"axis":{"id":"p2858"}}},{"type":"object","name":"Grid","id":"p2867","attributes":{"dimension":1,"axis":{"id":"p2863"}}},{"type":"object","name":"Legend","id":"p2899","attributes":{"location":"top_left","click_policy":"hide","items":[{"type":"object","name":"LegendItem","id":"p2900","attributes":{"label":{"type":"value","value":"conversions"},"renderers":[{"id":"p2896"},{"id":"p2908"}]}}]}}]}}]}}';
+        const render_items = [{"docid":"1a9eb5c3-063c-4146-b7f1-ce9fd9bcd826","roots":{"p2713":"c8257757-c0dc-4971-be78-a895f77d4769","p2779":"c7173632-b3de-406f-82a3-bd40b58b012e","p2845":"bf175fa0-fe04-4fbe-9765-02614ea8e766"},"root_ids":["p2713","p2779","p2845"]}];
         root.Bokeh.embed.embed_items(docs_json, render_items);
         }
         if (root.Bokeh !== undefined) {
@@ -358,6 +673,7 @@
 })();
     </script>
 
-    <footer>Generated by RustToBokeh</footer>
+        <footer>Generated by RustToBokeh</footer>
+    </div>
 </body>
 </html>

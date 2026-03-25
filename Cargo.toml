@@ -9,7 +9,7 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "example-dashboard"
-path = "src/bin/example_dashboard.rs"
+path = "src/bin/example_dashboard/main.rs"
 
 [dependencies]
 pyo3 = { version = "0.23", features = ["auto-initialize"] }
