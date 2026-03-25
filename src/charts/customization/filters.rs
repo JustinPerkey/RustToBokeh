@@ -1,4 +1,4 @@
-use super::time_scale::TimeScale;
+use super::time_scale::{DateStep, TimeScale};
 
 /// Configuration for a single interactive filter widget.
 ///
@@ -35,17 +35,18 @@ pub enum FilterConfig {
     TopN { max_n: usize, descending: bool },
     /// A date-range slider that filters rows where a datetime column (stored
     /// as milliseconds since the Unix epoch) falls within the selected
-    /// `[min_ms, max_ms]` interval. The slider step is also in milliseconds.
+    /// `[min_ms, max_ms]` interval.
     ///
-    /// The [`TimeScale`] controls how the date labels on the slider handles
-    /// are formatted.
+    /// The [`DateStep`] controls how far the slider jumps per tick; use
+    /// [`DateStep::Custom`] for a non-standard interval.  The [`TimeScale`]
+    /// controls how the date labels on the slider handles are formatted.
     DateRange {
         /// Lower bound in milliseconds since Unix epoch.
         min_ms: f64,
         /// Upper bound in milliseconds since Unix epoch.
         max_ms: f64,
-        /// Step size in milliseconds (e.g. `86_400_000.0` for one day).
-        step_ms: f64,
+        /// Step size for the slider (e.g. `DateStep::Day`).
+        step: DateStep,
         /// Display resolution for the slider handle labels.
         scale: TimeScale,
     },
@@ -184,8 +185,8 @@ impl FilterSpec {
     /// `SystemTime::UNIX_EPOCH.elapsed()?.as_millis()` in Rust).
     ///
     /// * `min_ms` / `max_ms` — slider bounds in milliseconds.
-    /// * `step_ms` — slider step in milliseconds (e.g. `86_400_000.0` for
-    ///   one day).
+    /// * `step` — how far the slider moves per tick (e.g. `DateStep::Day`);
+    ///   use `DateStep::Custom(ms)` for a non-standard interval.
     /// * `scale` — controls how handle labels are formatted on the widget.
     #[must_use]
     pub fn date_range(
@@ -194,14 +195,14 @@ impl FilterSpec {
         label: &str,
         min_ms: f64,
         max_ms: f64,
-        step_ms: f64,
+        step: DateStep,
         scale: TimeScale,
     ) -> Self {
         Self {
             source_key: source_key.into(),
             column: column.into(),
             label: label.into(),
-            config: FilterConfig::DateRange { min_ms, max_ms, step_ms, scale },
+            config: FilterConfig::DateRange { min_ms, max_ms, step, scale },
         }
     }
 }

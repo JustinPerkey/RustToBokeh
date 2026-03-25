@@ -44,6 +44,7 @@ pub use charts::{
 };
 pub use customization::{
     AxisConfig, AxisConfigBuilder,
+    DateStep,
     FilterConfig, FilterSpec,
     PaletteSpec, TimeScale,
     TooltipField, TooltipFormat, TooltipSpec, TooltipSpecBuilder,

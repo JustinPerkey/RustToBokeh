@@ -3,7 +3,7 @@
 //! This module is intentionally private — use [`Dashboard::render`](crate::Dashboard::render)
 //! for the high-level API or [`render_dashboard`] for direct control.
 
-use crate::charts::{AxisConfig, ChartConfig, FilterConfig, FilterSpec, PaletteSpec, TimeScale, TooltipFormat, TooltipSpec};
+use crate::charts::{AxisConfig, ChartConfig, FilterConfig, FilterSpec, PaletteSpec, TooltipFormat, TooltipSpec};
 use crate::error::ChartError;
 use crate::modules::{ColumnFormat, PageModule};
 use crate::pages::Page;
@@ -280,11 +280,11 @@ fn build_py_filter_config<'py>(
             f.set_item("max_n", *max_n)?;
             f.set_item("descending", *descending)?;
         }
-        FilterConfig::DateRange { min_ms, max_ms, step_ms, scale } => {
+        FilterConfig::DateRange { min_ms, max_ms, step, scale } => {
             f.set_item("kind", "date_range")?;
             f.set_item("min_ms", *min_ms)?;
             f.set_item("max_ms", *max_ms)?;
-            f.set_item("step_ms", *step_ms)?;
+            f.set_item("step_ms", step.as_ms())?;
             f.set_item("time_scale", scale.as_str())?;
         }
     }

@@ -13,7 +13,6 @@ type TC = TableColumn;
 const JAN_1_2024_MS: f64 = 1_704_067_200_000.0;
 // Jan 30 2024 00:00:00 UTC in milliseconds
 const JAN_30_2024_MS: f64 = 1_706_572_800_000.0;
-const ONE_DAY_MS: f64 = 86_400_000.0;
 
 pub fn page_module_showcase() -> Result<Page, ChartError> {
     PageBuilder::new("module-showcase", "Module Showcase", "Showcase", 2)
@@ -299,7 +298,7 @@ pub fn page_time_series_events() -> Result<Page, ChartError> {
             "Date Range",
             JAN_1_2024_MS,
             JAN_30_2024_MS,
-            ONE_DAY_MS,
+            DateStep::Day,
             TimeScale::Days,
         ))
         .filter(FilterSpec::select(

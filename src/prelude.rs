@@ -14,8 +14,8 @@
 //! [`ChartError`] for error handling.
 
 pub use crate::charts::{
-    AxisConfig, AxisConfigBuilder, ChartConfig, ChartSpec, ChartSpecBuilder, FilterConfig,
-    FilterSpec, GridCell, GroupedBarConfig, GroupedBarConfigBuilder, HBarConfig,
+    AxisConfig, AxisConfigBuilder, ChartConfig, ChartSpec, ChartSpecBuilder, DateStep,
+    FilterConfig, FilterSpec, GridCell, GroupedBarConfig, GroupedBarConfigBuilder, HBarConfig,
     HBarConfigBuilder, LineConfig, LineConfigBuilder, PaletteSpec, ScatterConfig,
     ScatterConfigBuilder, TimeScale, TooltipField, TooltipFormat, TooltipSpec, TooltipSpecBuilder,
     MAX_GRID_COLS,
