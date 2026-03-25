@@ -151,8 +151,8 @@ To use as a library in your own binary, add `rust-to-bokeh` as a dependency and 
 |----------|--------------|---------|---------|
 | Rust | `pyo3` | 0.23 | Rust ↔ Python FFI, GIL management |
 | Rust | `polars` | 0.53 | DataFrame creation, Arrow IPC serialization |
-| Python | `bokeh` | 3.6.3 | Interactive chart generation |
-| Python | `polars` | 1.24.0 | Arrow IPC deserialization |
+| Python | `bokeh` | 3.9.0 | Interactive chart generation |
+| Python | `polars` | 1.39.3 | Arrow IPC deserialization |
 | Python | `jinja2` | 3.1.6 | HTML template rendering |
 
 Polars features enabled in `Cargo.toml`: `lazy`, `ipc`, `parquet`.

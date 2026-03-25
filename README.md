@@ -409,8 +409,8 @@ RustToBokeh/
 |---|---|---|---|
 | Rust | [pyo3](https://crates.io/crates/pyo3) | 0.23 | Rust-Python FFI and GIL management |
 | Rust | [polars](https://crates.io/crates/polars) | 0.53 | DataFrame construction and Arrow IPC serialization |
-| Python | [bokeh](https://pypi.org/project/bokeh/) | 3.6.3 | Interactive chart rendering |
-| Python | [polars](https://pypi.org/project/polars/) | 1.24.0 | Arrow IPC deserialization |
+| Python | [bokeh](https://pypi.org/project/bokeh/) | 3.9.0 | Interactive chart rendering |
+| Python | [polars](https://pypi.org/project/polars/) | 1.39.3 | Arrow IPC deserialization |
 | Python | [jinja2](https://pypi.org/project/Jinja2/) | 3.1.6 | HTML template rendering |
 
 ## Troubleshooting
