@@ -11,9 +11,15 @@ use super::time_scale::{DateStep, TimeScale};
 /// | [`Group`](FilterConfig::Group) | `Select` (dropdown) | `GroupFilter` |
 /// | [`Threshold`](FilterConfig::Threshold) | `Switch` (toggle) | `BooleanFilter` |
 /// | [`TopN`](FilterConfig::TopN) | `Slider` | `IndexFilter` |
+/// | [`RangeTool`](FilterConfig::RangeTool) | Auto-generated overview chart | x-axis `Range1d` sync |
 ///
 /// Multiple filters targeting the same `source_key` are combined
 /// automatically via Bokeh's `IntersectionFilter`.
+///
+/// `RangeTool` is special: it does **not** use `CDSView`/row filtering.
+/// Instead it synchronises the visible x-axis range of all line and scatter
+/// charts on the page that share the same `source_key`, via a compact
+/// navigator chart placed automatically below the grid.
 pub enum FilterConfig {
     /// A range slider that filters rows where the column value falls within
     /// `[min, max]`. The slider moves in increments of `step`.
@@ -49,6 +55,34 @@ pub enum FilterConfig {
         step: DateStep,
         /// Display resolution for the slider handle labels.
         scale: TimeScale,
+    },
+    /// A Bokeh `RangeTool` navigator that synchronises the visible x-axis
+    /// range of all line and scatter charts sharing the same `source_key`.
+    ///
+    /// A compact overview chart (height 130 px, no toolbar) is automatically
+    /// generated and placed below the page grid. It renders `y_column` over
+    /// the full x extent and attaches a draggable `RangeTool` overlay that
+    /// updates the shared [`Range1d`] used by the detail charts.
+    ///
+    /// Unlike the other filter variants, `RangeTool` does not produce a
+    /// `CDSView` — it only adjusts the visible x-axis window. Charts do not
+    /// need to be marked with `.filtered()` to participate.
+    ///
+    /// The `source_key`'s x column is stored in `FilterSpec.column`.
+    /// `start` / `end` set the initial visible window in the same units as
+    /// the x column (milliseconds since epoch for datetime columns).
+    /// Supply `time_scale` if the x column is a datetime so the overview
+    /// chart uses a datetime axis.
+    RangeTool {
+        /// Column to plot on the y-axis of the auto-generated overview chart.
+        y_column: String,
+        /// Initial visible range start (same units as the x column).
+        start: f64,
+        /// Initial visible range end.
+        end: f64,
+        /// If `Some`, the overview chart uses a datetime x axis formatted at
+        /// this resolution.
+        time_scale: Option<TimeScale>,
     },
 }
 
@@ -205,6 +239,49 @@ impl FilterSpec {
             config: FilterConfig::DateRange { min_ms, max_ms, step, scale },
         }
     }
+
+    /// Create a `RangeTool` navigator.
+    ///
+    /// Produces a compact overview chart (height 130 px) placed automatically
+    /// below the page grid.  The overview renders `y_column` over the full
+    /// x extent and shows a draggable `RangeTool` overlay that synchronises
+    /// the visible x-axis window of all line and scatter charts on the same
+    /// page that share `source_key`.
+    ///
+    /// * `x_column` — the x-axis column in the data source (stored in
+    ///   `FilterSpec.column`).
+    /// * `y_column` — the column to draw in the overview mini-chart.
+    /// * `label` — title shown on the overview chart.
+    /// * `start` / `end` — initial visible x-axis window (same units as
+    ///   `x_column`; use milliseconds since epoch for datetime data).
+    /// * `time_scale` — pass `Some(TimeScale::Days)` (or another variant)
+    ///   if `x_column` contains datetime values so the overview axis is
+    ///   formatted correctly.  Pass `None` for numeric x axes.
+    ///
+    /// Charts do **not** need `.filtered()` to participate — the range tool
+    /// zooms the axis, it does not hide rows via `CDSView`.
+    #[must_use]
+    pub fn range_tool(
+        source_key: &str,
+        x_column: &str,
+        y_column: &str,
+        label: &str,
+        start: f64,
+        end: f64,
+        time_scale: Option<TimeScale>,
+    ) -> Self {
+        Self {
+            source_key: source_key.into(),
+            column: x_column.into(),
+            label: label.into(),
+            config: FilterConfig::RangeTool {
+                y_column: y_column.into(),
+                start,
+                end,
+                time_scale,
+            },
+        }
+    }
 }
 
 #[cfg(test)]
@@ -272,6 +349,31 @@ mod tests {
                 assert!(!descending);
             }
             _ => panic!("expected TopN config"),
+        }
+    }
+
+    #[test]
+    fn filter_spec_range_tool_stores_config() {
+        let f = FilterSpec::range_tool(
+            "sensor_events",
+            "timestamp_ms",
+            "temperature",
+            "Navigator",
+            1_000.0,
+            9_000.0,
+            Some(TimeScale::Days),
+        );
+        assert_eq!(f.source_key, "sensor_events");
+        assert_eq!(f.column, "timestamp_ms");
+        assert_eq!(f.label, "Navigator");
+        match f.config {
+            FilterConfig::RangeTool { y_column, start, end, time_scale } => {
+                assert_eq!(y_column, "temperature");
+                assert_eq!(start, 1_000.0);
+                assert_eq!(end, 9_000.0);
+                assert!(matches!(time_scale, Some(TimeScale::Days)));
+            }
+            _ => panic!("expected RangeTool config"),
         }
     }
 }

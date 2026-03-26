@@ -287,6 +287,16 @@ fn build_py_filter_config<'py>(
             f.set_item("step_ms", step.as_ms())?;
             f.set_item("time_scale", scale.as_str())?;
         }
+        FilterConfig::RangeTool { y_column, start, end, time_scale } => {
+            f.set_item("kind", "range_tool")?;
+            f.set_item("y_column", y_column)?;
+            f.set_item("start", *start)?;
+            f.set_item("end", *end)?;
+            match time_scale {
+                Some(s) => f.set_item("time_scale", s.as_str())?,
+                None => f.set_item("time_scale", py.None())?,
+            }
+        }
     }
     Ok(())
 }
