@@ -821,6 +821,48 @@ for page in pages:
     # a CDSView filter).
     views, filter_widgets = build_filter_objects(cds_filters, source_cache)
 
+    # For each RangeTool spec, add a BooleanFilter driven by the shared Range1d
+    # so that charts marked .filtered() only show rows within the current date
+    # window.  The callback fires whenever the Range1d start or end changes
+    # (i.e. when the user drags the navigator overlay).
+    for rt in range_tool_specs:
+        sk = rt["source_key"]
+        x_col = rt["column"]
+        shared_x_range = range_tool_x_ranges[sk]
+
+        source = source_cache.get(sk)
+        if source is None:
+            continue
+
+        n = len(list(source.data.values())[0])
+        bf = BooleanFilter(booleans=[True] * n)
+
+        callback = CustomJS(
+            args=dict(bf=bf, source=source, col=x_col),
+            code="""
+                const lo = cb_obj.start;
+                const hi = cb_obj.end;
+                const data = source.data[col];
+                bf.booleans = data.map(v => v >= lo && v <= hi);
+                source.change.emit();
+            """,
+        )
+        shared_x_range.js_on_change("start", callback)
+        shared_x_range.js_on_change("end", callback)
+
+        # Merge the new BooleanFilter into any existing CDSView for this source
+        # so that it combines with other filters (e.g. a Select dropdown).
+        if sk in views:
+            existing = views[sk].filter
+            if isinstance(existing, AllIndices):
+                views[sk] = CDSView(filter=bf)
+            elif isinstance(existing, IntersectionFilter):
+                existing.operands.append(bf)
+            else:
+                views[sk] = CDSView(filter=IntersectionFilter(operands=[existing, bf]))
+        else:
+            views[sk] = CDSView(filter=bf)
+
     # Index range_tool specs by source_key for O(1) lookup.
     range_tool_by_source = {rt["source_key"]: rt for rt in range_tool_specs}
 
