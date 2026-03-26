@@ -19,7 +19,7 @@ from bokeh.models import (
     CDSView,
     ColumnDataSource,
     CustomJS,
-    DateRangeSlider,
+    DatetimeRangeSlider,
     DatetimeTickFormatter,
     FactorRange,
     GroupFilter,
@@ -676,13 +676,15 @@ def build_filter_objects(page_filters, source_cache):
             widgets.append(slider)
 
         elif kind == "date_range":
-            # BooleanFilter driven by a DateRangeSlider.
+            # BooleanFilter driven by a DatetimeRangeSlider.
             # Column values must be milliseconds since the Unix epoch.
+            # DatetimeRangeSlider.step is in milliseconds (unlike DateRangeSlider
+            # whose step is in days), so step_ms can be passed directly.
             min_ms = filt["min_ms"]
             max_ms = filt["max_ms"]
             step_ms = filt["step_ms"]
             bf = BooleanFilter(booleans=[True] * n)
-            dr_slider = DateRangeSlider(
+            dr_slider = DatetimeRangeSlider(
                 start=int(min_ms), end=int(max_ms),
                 value=(int(min_ms), int(max_ms)),
                 step=int(step_ms),
