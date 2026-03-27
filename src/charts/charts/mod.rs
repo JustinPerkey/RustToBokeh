@@ -1,12 +1,14 @@
 pub mod grouped_bar;
 pub mod hbar;
 pub mod line;
+pub mod pie;
 pub mod scatter;
 pub mod spec;
 
 pub use grouped_bar::{GroupedBarConfig, GroupedBarConfigBuilder};
 pub use hbar::{HBarConfig, HBarConfigBuilder};
 pub use line::{LineConfig, LineConfigBuilder};
+pub use pie::{PieConfig, PieConfigBuilder};
 pub use scatter::{ScatterConfig, ScatterConfigBuilder};
 pub use spec::ChartSpecBuilder;
 
@@ -36,6 +38,8 @@ pub enum ChartConfig {
     HBar(HBarConfig),
     /// A scatter plot. See [`ScatterConfig`].
     Scatter(ScatterConfig),
+    /// A pie or donut chart. See [`PieConfig`].
+    Pie(PieConfig),
 }
 
 impl ChartConfig {
@@ -48,6 +52,7 @@ impl ChartConfig {
             ChartConfig::Line(_) => "line_multi",
             ChartConfig::HBar(_) => "hbar",
             ChartConfig::Scatter(_) => "scatter",
+            ChartConfig::Pie(_) => "pie",
         }
     }
 }

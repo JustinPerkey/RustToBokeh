@@ -1,7 +1,8 @@
 use super::{ChartConfig, GridCell, ChartSpec};
 use super::grouped_bar::GroupedBarConfig;
-use super::line::LineConfig;
 use super::hbar::HBarConfig;
+use super::line::LineConfig;
+use super::pie::PieConfig;
 use super::scatter::ScatterConfig;
 
 /// Fluent builder for constructing [`ChartSpec`] instances.
@@ -83,6 +84,14 @@ impl ChartSpecBuilder {
         Self::new(title, key, ChartConfig::Scatter(config))
     }
 
+    /// Create a pie or donut chart spec.
+    ///
+    /// Set [`PieConfig::inner_radius`] to render a donut instead of a solid pie.
+    #[must_use]
+    pub fn pie(title: &str, key: &str, config: PieConfig) -> Self {
+        Self::new(title, key, ChartConfig::Pie(config))
+    }
+
     /// Set the grid position and column span.
     ///
     /// `row` and `col` are zero-based indices into the page grid. `span`
@@ -141,8 +150,9 @@ impl ChartSpecBuilder {
 mod tests {
     use super::*;
     use crate::charts::charts::grouped_bar::GroupedBarConfig;
-    use crate::charts::charts::line::LineConfig;
     use crate::charts::charts::hbar::HBarConfig;
+    use crate::charts::charts::line::LineConfig;
+    use crate::charts::charts::pie::PieConfig;
     use crate::charts::charts::scatter::ScatterConfig;
 
     // ── ChartConfig::chart_type_str ───────────────────────────────────────────
@@ -199,6 +209,31 @@ mod tests {
                 .unwrap(),
         );
         assert_eq!(cfg.chart_type_str(), "scatter");
+    }
+
+    #[test]
+    fn chart_type_str_pie() {
+        let cfg = ChartConfig::Pie(
+            PieConfig::builder()
+                .label("category")
+                .value("amount")
+                .build()
+                .unwrap(),
+        );
+        assert_eq!(cfg.chart_type_str(), "pie");
+    }
+
+    #[test]
+    fn chart_spec_builder_pie_constructor() {
+        let cfg = PieConfig::builder()
+            .label("category")
+            .value("amount")
+            .build()
+            .unwrap();
+        let spec = ChartSpecBuilder::pie("Market Share", "market_share", cfg).build();
+        assert_eq!(spec.config.chart_type_str(), "pie");
+        assert_eq!(spec.title, "Market Share");
+        assert_eq!(spec.source_key, "market_share");
     }
 
     // ── ChartSpecBuilder ──────────────────────────────────────────────────────
