@@ -26,6 +26,8 @@ from bokeh.models import (
     HoverTool,
     IndexFilter,
     IntersectionFilter,
+    Legend,
+    LegendItem,
     NumeralTickFormatter,
     Range1d,
     RangeSlider,
@@ -413,7 +415,6 @@ def build_pie(spec, source_cache, view=None):
     is silently ignored.
     """
     from math import pi as _PI
-    from bokeh.transform import cumsum
 
     key = spec["source_key"]
     df = dataframes[key]
@@ -440,7 +441,7 @@ def build_pie(spec, source_cache, view=None):
         "title": spec["title"],
         "toolbar_location": "above",
         "height": spec["height"] if spec.get("height") else 400,
-        "x_range": (-1.8, 1.2) if legend_side == "left" else (-1.2, 1.8),
+        "x_range": (-1.2, 1.2),
         "y_range": (-1.2, 1.2),
     }
     if spec.get("width"):
@@ -463,37 +464,48 @@ def build_pie(spec, source_cache, view=None):
     fig.axis.visible = False
     fig.grid.grid_line_color = None
 
+    # Render one glyph per slice so each has its own renderer.
+    # This allows click_policy="hide" to toggle individual slices rather
+    # than hiding the entire chart.
     inner_radius = spec.get("inner_radius")
-    if inner_radius:
-        fig.annular_wedge(
-            x=0, y=0,
-            inner_radius=inner_radius,
-            outer_radius=0.9,
-            start_angle=cumsum("angle", include_zero=True),
-            end_angle=cumsum("angle"),
-            line_color="white",
-            fill_color="color",
-            legend_field="labels",
-            source=source,
-        )
-    else:
-        fig.wedge(
-            x=0, y=0,
-            radius=0.9,
-            start_angle=cumsum("angle", include_zero=True),
-            end_angle=cumsum("angle"),
-            line_color="white",
-            fill_color="color",
-            legend_field="labels",
-            source=source,
-        )
+    legend_items = []
+    start_angle = 0.0
+    for i, (label, angle, color) in enumerate(zip(labels, angles, palette)):
+        end_angle = start_angle + angle
+        slice_view = CDSView(filter=IndexFilter(indices=[i]))
+        if inner_radius:
+            r = fig.annular_wedge(
+                x=0, y=0,
+                inner_radius=inner_radius,
+                outer_radius=0.9,
+                start_angle=start_angle,
+                end_angle=end_angle,
+                line_color="white",
+                fill_color=color,
+                source=source,
+                view=slice_view,
+            )
+        else:
+            r = fig.wedge(
+                x=0, y=0,
+                radius=0.9,
+                start_angle=start_angle,
+                end_angle=end_angle,
+                line_color="white",
+                fill_color=color,
+                source=source,
+                view=slice_view,
+            )
+        legend_items.append(LegendItem(label=label, renderers=[r]))
+        start_angle = end_angle
 
-    if spec.get("show_legend", True) is False:
-        fig.legend.visible = False
-    else:
-        fig.legend.location = "center_left" if legend_side == "left" else "center_right"
-        fig.legend.label_text_font_size = "10pt"
-        fig.legend.click_policy = "hide"
+    if spec.get("show_legend", True) is not False:
+        legend = Legend(
+            items=legend_items,
+            label_text_font_size="10pt",
+            click_policy="hide",
+        )
+        fig.add_layout(legend, legend_side)
 
     return fig
 
