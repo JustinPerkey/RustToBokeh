@@ -240,6 +240,31 @@ fn build_py_chart_config<'py>(
                 m.set_item("show_legend", show)?;
             }
         }
+        ChartConfig::Histogram(c) => {
+            m.set_item("x_label", &c.x_label)?;
+            m.set_item("display", c.display.as_ref().map_or("count", |d| d.as_str()))?;
+            if let Some(s) = &c.y_label {
+                m.set_item("y_label", s)?;
+            }
+            if let Some(s) = &c.color {
+                m.set_item("color", s)?;
+            }
+            if let Some(s) = &c.line_color {
+                m.set_item("line_color", s)?;
+            }
+            if let Some(a) = c.alpha {
+                m.set_item("alpha", a)?;
+            }
+            if let Some(tt) = &c.tooltips {
+                m.set_item("tooltips", build_py_tooltip_spec(py, tt)?)?;
+            }
+            if let Some(ax) = &c.x_axis {
+                m.set_item("x_axis", build_py_axis_config(py, ax)?)?;
+            }
+            if let Some(ax) = &c.y_axis {
+                m.set_item("y_axis", build_py_axis_config(py, ax)?)?;
+            }
+        }
     }
     Ok(())
 }

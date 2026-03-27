@@ -16,9 +16,10 @@
 pub use crate::charts::{
     AxisConfig, AxisConfigBuilder, ChartConfig, ChartSpec, ChartSpecBuilder, DateStep,
     FilterConfig, FilterSpec, GridCell, GroupedBarConfig, GroupedBarConfigBuilder, HBarConfig,
-    HBarConfigBuilder, LineConfig, LineConfigBuilder, PaletteSpec, PieConfig, PieConfigBuilder,
-    ScatterConfig, ScatterConfigBuilder, TimeScale, TooltipField, TooltipFormat, TooltipSpec,
-    TooltipSpecBuilder, MAX_GRID_COLS,
+    HBarConfigBuilder, HistogramConfig, HistogramConfigBuilder, HistogramDisplay, LineConfig,
+    LineConfigBuilder,
+    PaletteSpec, PieConfig, PieConfigBuilder, ScatterConfig, ScatterConfigBuilder, TimeScale,
+    TooltipField, TooltipFormat, TooltipSpec, TooltipSpecBuilder, MAX_GRID_COLS,
 };
 pub use crate::error::ChartError;
 pub use crate::modules::{
@@ -26,4 +27,4 @@ pub use crate::modules::{
     TableSpecBuilder,
 };
 pub use crate::pages::{Page, PageBuilder};
-pub use crate::{render_dashboard, serialize_df, Dashboard, NavStyle};
+pub use crate::{compute_histogram, render_dashboard, serialize_df, Dashboard, NavStyle};

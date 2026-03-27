@@ -1,6 +1,7 @@
 use super::{ChartConfig, GridCell, ChartSpec};
 use super::grouped_bar::GroupedBarConfig;
 use super::hbar::HBarConfig;
+use super::histogram::HistogramConfig;
 use super::line::LineConfig;
 use super::pie::PieConfig;
 use super::scatter::ScatterConfig;
@@ -90,6 +91,16 @@ impl ChartSpecBuilder {
     #[must_use]
     pub fn pie(title: &str, key: &str, config: PieConfig) -> Self {
         Self::new(title, key, ChartConfig::Pie(config))
+    }
+
+    /// Create a histogram spec.
+    ///
+    /// The DataFrame referenced by `key` must contain the raw numeric values
+    /// in the column specified by [`HistogramConfig::value_col`]. Bin edges
+    /// and counts are computed by the Python renderer.
+    #[must_use]
+    pub fn histogram(title: &str, key: &str, config: HistogramConfig) -> Self {
+        Self::new(title, key, ChartConfig::Histogram(config))
     }
 
     /// Set the grid position and column span.

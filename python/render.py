@@ -535,12 +535,103 @@ def build_range_tool_overview(rt_spec, source_cache, shared_x_range):
     return fig
 
 
+def build_histogram(spec, source_cache, view=None):
+    """Render a histogram from a pre-computed histogram DataFrame.
+
+    Expects a DataFrame produced by compute_histogram() (Rust side) with
+    columns: left, right, count, pdf, cdf.  The 'display' field in the spec
+    selects which statistic to render:
+      - 'count' / 'pdf' : bar chart (quad glyph)
+      - 'cdf'           : step line chart (line glyph on step coordinates)
+    """
+    key = spec["source_key"]
+    df = dataframes[key]
+    display = spec.get("display", "count")
+
+    left = df["left"].to_list()
+    right = df["right"].to_list()
+    fill_color = spec.get("color", "#4C72B0")
+    line_color = spec.get("line_color", "white")
+    alpha = spec.get("alpha", 0.7)
+
+    hover = _build_hover_tool(spec)
+    tools = "pan,wheel_zoom,box_zoom,reset,save,box_select,tap"
+    kw = _figure_kw(spec)
+    kw["tools"] = tools
+
+    if display == "cdf":
+        # Build step-line coordinates: prepend (left[0], 0.0) so the curve
+        # starts from the baseline, then step up at each bin's right edge.
+        cdf_vals = df["cdf"].to_list()
+        step_x = [left[0]] + right
+        step_y = [0.0] + cdf_vals
+        source = ColumnDataSource(dict(x=step_x, y=step_y))
+
+        if hover is None:
+            kw["tooltips"] = [("Value", "@x{0.00}"), ("Cumulative", "@y{0.000}")]
+        fig = figure(**kw)
+        if hover:
+            fig.add_tools(hover)
+
+        fig.line(
+            x="x", y="y", source=source,
+            line_width=2.5, line_color=fill_color, line_alpha=min(alpha + 0.3, 1.0),
+        )
+        fig.yaxis.axis_label = spec.get("y_label", "Cumulative Fraction")
+
+    elif display == "pdf":
+        pdf_vals = df["pdf"].to_list()
+        source = ColumnDataSource(dict(left=left, right=right, pdf=pdf_vals))
+
+        if hover is None:
+            kw["tooltips"] = [
+                ("Range", "@left{0.00} – @right{0.00}"),
+                ("Density", "@pdf{0.0000}"),
+            ]
+        fig = figure(**kw)
+        if hover:
+            fig.add_tools(hover)
+
+        fig.quad(
+            top="pdf", bottom=0, left="left", right="right", source=source,
+            fill_color=fill_color, line_color=line_color, fill_alpha=alpha,
+            selection_fill_color="firebrick", nonselection_fill_alpha=0.2,
+        )
+        fig.yaxis.axis_label = spec.get("y_label", "Density")
+
+    else:  # count (default)
+        count_vals = df["count"].to_list()
+        source = ColumnDataSource(dict(left=left, right=right, count=count_vals))
+
+        if hover is None:
+            kw["tooltips"] = [
+                ("Range", "@left{0.00} – @right{0.00}"),
+                ("Count", "@count"),
+            ]
+        fig = figure(**kw)
+        if hover:
+            fig.add_tools(hover)
+
+        fig.quad(
+            top="count", bottom=0, left="left", right="right", source=source,
+            fill_color=fill_color, line_color=line_color, fill_alpha=alpha,
+            selection_fill_color="firebrick", nonselection_fill_alpha=0.2,
+        )
+        fig.yaxis.axis_label = spec.get("y_label", "Count")
+
+    fig.xaxis.axis_label = spec.get("x_label", "")
+    _apply_axis_config(spec.get("x_axis"), fig.xaxis[0], fig.x_range, fig.xgrid[0])
+    _apply_axis_config(spec.get("y_axis"), fig.yaxis[0], fig.y_range, fig.ygrid[0])
+    return fig
+
+
 _BUILDERS = {
     "grouped_bar": build_grouped_bar,
     "line_multi": build_line_multi,
     "hbar": build_hbar,
     "scatter": build_scatter,
     "pie": build_pie,
+    "histogram": build_histogram,
 }
 
 # ── Non-chart module builders ────────────────────────────────────────────────
