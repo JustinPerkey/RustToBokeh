@@ -40,6 +40,7 @@ pub use charts::{
     GroupedBarConfig, GroupedBarConfigBuilder,
     HBarConfig, HBarConfigBuilder,
     LineConfig, LineConfigBuilder,
+    PieConfig, PieConfigBuilder,
     ScatterConfig, ScatterConfigBuilder,
 };
 pub use customization::{

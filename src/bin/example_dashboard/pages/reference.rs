@@ -6,6 +6,7 @@ type Scat = ScatterConfig;
 type Bar = GroupedBarConfig;
 type HB = HBarConfig;
 type Para = ParagraphSpec;
+type Pie = PieConfig;
 type Tbl = TableSpec;
 type TC = TableColumn;
 
@@ -422,5 +423,33 @@ pub fn page_time_series_events() -> Result<Page, ChartError> {
             "Sensor",
             vec!["Alpha", "Beta", "Gamma"],
         ))
+        .build()
+}
+
+pub fn page_pie_donut_charts() -> Result<Page, ChartError> {
+    PageBuilder::new("pie-donut-charts", "Pie & Donut Charts", "Charts", 2)
+        .category("Reference")
+        .chart(
+            C::pie(
+                "Market Share",
+                "market_share",
+                Pie::builder().label("company").value("share").build()?,
+            )
+            .at(0, 0, 1)
+            .build(),
+        )
+        .chart(
+            C::pie(
+                "Cost Breakdown",
+                "cost_breakdown",
+                Pie::builder()
+                    .label("category")
+                    .value("amount")
+                    .inner_radius(0.45)
+                    .build()?,
+            )
+            .at(0, 1, 1)
+            .build(),
+        )
         .build()
 }

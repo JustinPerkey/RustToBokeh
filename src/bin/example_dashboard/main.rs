@@ -57,6 +57,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     dash.add_page(pages::page_chart_customization()?);
     dash.add_page(pages::page_time_series_events()?);
     dash.add_page(pages::page_range_tool_demo()?);
+    dash.add_page(pages::page_pie_donut_charts()?);
 
     dash.render()?;
     Ok(())

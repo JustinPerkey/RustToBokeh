@@ -224,6 +224,22 @@ fn build_py_chart_config<'py>(
                 m.set_item("y_axis", build_py_axis_config(py, ax)?)?;
             }
         }
+        ChartConfig::Pie(c) => {
+            m.set_item("label_col", &c.label_col)?;
+            m.set_item("value_col", &c.value_col)?;
+            if let Some(r) = c.inner_radius {
+                m.set_item("inner_radius", r)?;
+            }
+            if let Some(p) = &c.palette {
+                m.set_item("palette", build_py_palette(py, p)?)?;
+            }
+            if let Some(tt) = &c.tooltips {
+                m.set_item("tooltips", build_py_tooltip_spec(py, tt)?)?;
+            }
+            if let Some(show) = c.show_legend {
+                m.set_item("show_legend", show)?;
+            }
+        }
     }
     Ok(())
 }

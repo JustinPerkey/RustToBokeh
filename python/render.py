@@ -400,6 +400,101 @@ def build_scatter(spec, source_cache, view=None, x_range=None):
     return fig
 
 
+def build_pie(spec, source_cache, view=None):
+    """Build a pie or donut chart.
+
+    When ``inner_radius`` is present in the spec the chart is rendered as a
+    donut (annular_wedge); otherwise it is a solid pie (wedge).
+
+    Pie charts compute their own ColumnDataSource (start/end angles derived
+    from the raw values) so they do not share the flat source cache used by
+    line and scatter charts.  CDSView-based filtering is therefore not
+    supported — the ``view`` parameter is accepted for API compatibility but
+    is silently ignored.
+    """
+    from math import pi as _PI
+    from bokeh.transform import cumsum
+
+    key = spec["source_key"]
+    df = dataframes[key]
+    label_col = spec["label_col"]
+    value_col = spec["value_col"]
+
+    values = df[value_col].cast(float).to_list()
+    labels = df[label_col].to_list()
+    total = sum(values)
+    n = len(values)
+    palette = _resolve_palette(spec.get("palette"), n)
+    angles = [v / total * 2 * _PI for v in values]
+
+    source = ColumnDataSource({
+        "labels": labels,
+        "values": values,
+        "angle": angles,
+        "color": palette,
+    })
+
+    kw = {
+        "title": spec["title"],
+        "toolbar_location": "above",
+        "height": spec["height"] if spec.get("height") else 400,
+        "x_range": (-1.2, 1.2),
+        "y_range": (-1.2, 1.2),
+    }
+    if spec.get("width"):
+        kw["width"] = spec["width"]
+        kw["sizing_mode"] = "fixed"
+    else:
+        kw["sizing_mode"] = "stretch_width"
+
+    hover = _build_hover_tool(spec)
+    if hover is None:
+        kw["tools"] = "hover,save,reset"
+        kw["tooltips"] = [("", "@labels"), ("Value", "@values")]
+    else:
+        kw["tools"] = "save,reset"
+
+    fig = figure(**kw)
+    if hover:
+        fig.add_tools(hover)
+
+    fig.axis.visible = False
+    fig.grid.grid_line_color = None
+
+    inner_radius = spec.get("inner_radius")
+    if inner_radius:
+        fig.annular_wedge(
+            x=0, y=0,
+            inner_radius=inner_radius,
+            outer_radius=0.9,
+            start_angle=cumsum("angle", include_zero=True),
+            end_angle=cumsum("angle"),
+            line_color="white",
+            fill_color="color",
+            legend_field="labels",
+            source=source,
+        )
+    else:
+        fig.wedge(
+            x=0, y=0,
+            radius=0.9,
+            start_angle=cumsum("angle", include_zero=True),
+            end_angle=cumsum("angle"),
+            line_color="white",
+            fill_color="color",
+            legend_field="labels",
+            source=source,
+        )
+
+    if spec.get("show_legend", True) is False:
+        fig.legend.visible = False
+    else:
+        fig.legend.location = "top_right"
+        fig.legend.label_text_font_size = "10pt"
+
+    return fig
+
+
 def build_range_tool_overview(rt_spec, source_cache, shared_x_range):
     """Build a compact navigator chart with a RangeTool attached.
 
@@ -445,6 +540,7 @@ _BUILDERS = {
     "line_multi": build_line_multi,
     "hbar": build_hbar,
     "scatter": build_scatter,
+    "pie": build_pie,
 }
 
 # ── Non-chart module builders ────────────────────────────────────────────────
