@@ -427,7 +427,7 @@ pub fn page_time_series_events() -> Result<Page, ChartError> {
 }
 
 pub fn page_pie_donut_charts() -> Result<Page, ChartError> {
-    PageBuilder::new("pie-donut-charts", "Pie & Donut Charts", "Charts", 2)
+    PageBuilder::new("pie-donut-charts", "Pie & Donut Charts", "Pie & Donut", 2)
         .category("Reference")
         .chart(
             C::pie(
@@ -436,6 +436,7 @@ pub fn page_pie_donut_charts() -> Result<Page, ChartError> {
                 Pie::builder().label("company").value("share").build()?,
             )
             .at(0, 0, 1)
+            .dimensions(380, 380)
             .build(),
         )
         .chart(
@@ -449,6 +450,7 @@ pub fn page_pie_donut_charts() -> Result<Page, ChartError> {
                     .build()?,
             )
             .at(0, 1, 1)
+            .dimensions(380, 380)
             .build(),
         )
         .build()
