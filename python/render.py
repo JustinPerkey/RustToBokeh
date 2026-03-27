@@ -522,13 +522,15 @@ def _build_table_html(mod, dfs):
 def build_filter_objects(page_filters, source_cache):
     """Build Bokeh filter objects, CDSViews, and widgets from filter specs.
 
-    Returns (views, widgets) where:
-      views:   dict[source_key → CDSView]
-      widgets: list[Bokeh model]  (for embedding via components())
+    Returns (views, widgets, date_range_sliders) where:
+      views:              dict[source_key → CDSView]
+      widgets:            list[Bokeh model]  (for embedding via components())
+      date_range_sliders: list of (source_key, col_name, DatetimeRangeSlider)
     """
     # Collect individual filter objects per source_key
     filters_by_source = {}  # source_key → list[Filter]
     widgets = []
+    date_range_sliders = []
 
     for filt in page_filters:
         source_key = filt["source_key"]
@@ -703,6 +705,7 @@ def build_filter_objects(page_filters, source_cache):
             dr_slider.js_on_change("value", callback)
             filters_by_source[source_key].append(bf)
             widgets.append(dr_slider)
+            date_range_sliders.append((source_key, col_name, dr_slider))
 
     # Build CDSView per source_key
     views = {}
@@ -716,7 +719,7 @@ def build_filter_objects(page_filters, source_cache):
                 filter=IntersectionFilter(operands=filter_list)
             )
 
-    return views, widgets
+    return views, widgets, date_range_sliders
 
 
 # ── Nav tree builder ────────────────────────────────────────────────────────
@@ -821,7 +824,8 @@ for page in pages:
 
     # Build filter objects and CDSViews (range_tool is excluded — it is not
     # a CDSView filter).
-    views, filter_widgets = build_filter_objects(cds_filters, source_cache)
+    views, filter_widgets, date_range_sliders = build_filter_objects(cds_filters, source_cache)
+    dt_line_x_ranges = {}  # source_key → list of Range1d for datetime line charts
 
     # For each RangeTool spec, add a BooleanFilter driven by the shared Range1d
     # so that charts marked .filtered() only show rows within the current date
@@ -895,6 +899,9 @@ for page in pages:
                 if rt_x_range is not None \
                 else builder(mod, source_cache, view=view)
             bokeh_figs.append(fig)
+            # Track datetime line chart x_ranges so date_range sliders can zoom them
+            if mod["chart_type"] == "line_multi" and isinstance(fig.x_range, Range1d):
+                dt_line_x_ranges.setdefault(mod["source_key"], []).append(fig.x_range)
             renderables.append({
                 "type": "bokeh",
                 "figure": fig,
@@ -920,6 +927,20 @@ for page in pages:
             })
         else:
             raise ValueError(f"Unknown module_type: {mtype!r}")
+
+    # Wire date_range sliders to datetime line chart x_ranges so the line chart
+    # zooms to the selected date window (CDSView filtering doesn't apply to line
+    # renderers — updating the Range1d is the correct Bokeh pattern).
+    for sk, _col, slider in date_range_sliders:
+        for x_range in dt_line_x_ranges.get(sk, []):
+            callback = CustomJS(
+                args=dict(x_range=x_range),
+                code="""
+                    x_range.start = cb_obj.value[0];
+                    x_range.end = cb_obj.value[1];
+                """,
+            )
+            slider.js_on_change("value", callback)
 
     # Append auto-generated RangeTool overview charts below the grid.
     if range_tool_specs:

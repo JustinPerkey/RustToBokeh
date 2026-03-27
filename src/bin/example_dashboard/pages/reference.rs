@@ -360,7 +360,6 @@ pub fn page_time_series_events() -> Result<Page, ChartError> {
                     .build()?,
             )
             .at(1, 0, 2)
-            .filtered()
             .build(),
         )
         .chart(
