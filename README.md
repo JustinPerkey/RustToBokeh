@@ -318,7 +318,10 @@ let density = ChartSpecBuilder::density("Score Distribution", "density_scores",
 ```
 
 The renderer automatically selects **sina** (jittered scatter) for sparsely
-populated categories (≤ 30 points) and **violin** (KDE polygon) for denser ones.
+populated categories (≤ 50 points) and **violin** (KDE polygon) for denser ones.
+In sina mode each point is jittered uniformly within the local KDE density
+envelope so that points fill the interior of the distribution rather than
+clustering on the boundary.
 Override the threshold with `.point_threshold(n)` on `DensityConfig`.
 
 **Chart dimensions:** override the default responsive width by calling `.dimensions(width, height)` on `ChartSpecBuilder`:

@@ -114,22 +114,21 @@ pub fn page_density_demo() -> Result<Page, ChartError> {
                  This page demonstrates the automatic sina/violin selection:\n\n\
                  The top chart uses the raw salary dataset (≈10 data points per department). \
                  Because each category is sparsely populated the renderer chooses a \
-                 sina plot — each observation is drawn as a scatter marker whose \
-                 horizontal jitter is proportional to the local kernel-density estimate, \
-                 so you can see every individual data point while still reading the \
-                 distribution envelope.\n\n\
-                 The bottom chart uses a denser performance-score dataset (50 observations \
+                 sina plot — each observation is drawn as a scatter marker jittered \
+                 uniformly within the local KDE density envelope, so points fill the \
+                 interior of the distribution and every individual observation is visible.\n\n\
+                 The bottom chart uses a denser performance-score dataset (51 observations \
                  per department). The higher point count triggers the violin variant — a \
-                 mirrored KDE polygon is drawn for each category with a white median line \
+                 mirrored KDE polygon is drawn for each category with a median line \
                  overlaid, giving a smooth picture of the overall distribution shape. \
-                 The threshold between modes defaults to 30 points per category and is \
+                 The threshold between modes defaults to 50 points per category and is \
                  configurable via DensityConfig::point_threshold().",
             )
             .title("Sina vs Violin — Automatic Mode Selection")
             .at(0, 0, 2)
             .build(),
         )
-        // Sina mode: salary_raw has ~10 pts per department → below default threshold of 30
+        // Sina mode: salary_raw has ~10 pts per department → below default threshold of 50
         .chart(
             C::density(
                 "Salary by Department",
@@ -144,7 +143,7 @@ pub fn page_density_demo() -> Result<Page, ChartError> {
             .at(1, 0, 2)
             .build(),
         )
-        // Violin mode: density_scores has 50 pts per department → above default threshold of 30
+        // Violin mode: density_scores has 51 pts per department → above default threshold of 50
         .chart(
             C::density(
                 "Performance Score by Department",
