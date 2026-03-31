@@ -57,6 +57,8 @@
 //!
 //! - [`charts`] — Chart config types, builders, layout primitives, and filter definitions.
 //! - [`pages`] — Page layout types for multi-page dashboards.
+//! - [`modules`] — Content modules: paragraphs and data tables.
+//! - [`stats`] — Statistical helpers for histograms and box plots.
 //! - [`error`] — The [`ChartError`] type used throughout the library.
 //! - [`prelude`] — Convenience re-exports for common usage.
 
@@ -65,14 +67,17 @@ pub mod error;
 pub mod modules;
 pub mod pages;
 pub mod prelude;
+pub mod stats;
+mod python_config;
 mod render;
 
 pub use charts::{
     AxisConfig, AxisConfigBuilder, BoxPlotConfig, BoxPlotConfigBuilder, ChartConfig, ChartSpec,
-    ChartSpecBuilder, FilterConfig, FilterSpec, GridCell, GroupedBarConfig, GroupedBarConfigBuilder,
-    HBarConfig, HBarConfigBuilder, LineConfig, LineConfigBuilder, PaletteSpec, ScatterConfig,
-    ScatterConfigBuilder, TimeScale, TooltipField, TooltipFormat, TooltipSpec, TooltipSpecBuilder,
-    MAX_GRID_COLS,
+    ChartSpecBuilder, DateStep, DensityConfig, DensityConfigBuilder, FilterConfig, FilterSpec,
+    GridCell, GroupedBarConfig, GroupedBarConfigBuilder, HBarConfig, HBarConfigBuilder,
+    HistogramConfig, HistogramConfigBuilder, HistogramDisplay, LineConfig, LineConfigBuilder,
+    PaletteSpec, PieConfig, PieConfigBuilder, ScatterConfig, ScatterConfigBuilder, TimeScale,
+    TooltipField, TooltipFormat, TooltipSpec, TooltipSpecBuilder, MAX_GRID_COLS,
 };
 pub use error::ChartError;
 pub use modules::{
@@ -81,8 +86,8 @@ pub use modules::{
 };
 pub use pages::{Page, PageBuilder};
 pub use render::render_dashboard;
-// compute_histogram is defined above; NavStyle is defined below.
-// Both are re-exported via prelude.
+pub use stats::{compute_box_outliers, compute_box_stats, compute_histogram};
+pub use python_config::configure_vendored_python;
 
 /// Navigation bar orientation for the rendered dashboard.
 ///
@@ -111,328 +116,6 @@ use polars::io::ipc::IpcWriter;
 use polars::io::SerWriter;
 use polars::prelude::DataFrame;
 use std::io::Cursor;
-
-/// Compute equal-width histogram statistics from a numeric DataFrame column.
-///
-/// Given a `DataFrame`, a column name, and the desired number of bins, this
-/// function computes bin edges and returns a new `DataFrame` with five columns:
-///
-/// | Column  | Type | Description |
-/// |---------|------|-------------|
-/// | `left`  | f64  | Left edge of each bin |
-/// | `right` | f64  | Right edge of each bin |
-/// | `count` | f64  | Number of values that fall in each bin |
-/// | `pdf`   | f64  | Probability density: `count / (n × bin_width)` |
-/// | `cdf`   | f64  | Cumulative fraction of values up to each bin's right edge |
-///
-/// The result is intended to be registered with [`Dashboard::add_df`] and
-/// referenced by a [`ChartSpecBuilder::histogram`](charts::ChartSpecBuilder::histogram)
-/// spec. Use [`HistogramConfig`](charts::HistogramConfig) with
-/// [`HistogramDisplay`](charts::HistogramDisplay) to choose which statistic
-/// to render.
-///
-/// # Example
-///
-/// ```ignore
-/// use rust_to_bokeh::prelude::*;
-/// use polars::prelude::*;
-///
-/// let raw = df!["salary" => [42.0f64, 65.0, 80.0, 95.0]].unwrap();
-/// let mut hist = compute_histogram(&raw, "salary", 12)?;
-/// dash.add_df("salary_hist", &mut hist)?;
-/// ```
-///
-/// # Errors
-///
-/// Returns [`ChartError::Serialization`] if the column does not exist or
-/// cannot be cast to `f64`.
-pub fn compute_histogram(
-    df: &DataFrame,
-    column: &str,
-    num_bins: usize,
-) -> Result<DataFrame, ChartError> {
-    use polars::prelude::*;
-
-    let num_bins = num_bins.max(1);
-    let series = df.column(column)?;
-    let cast = series.cast(&DataType::Float64)?;
-    let ca = cast.f64()?;
-    let values: Vec<f64> = ca.iter().filter_map(|v| v).collect();
-
-    if values.is_empty() {
-        return Ok(df![
-            "left"  => Vec::<f64>::new(),
-            "right" => Vec::<f64>::new(),
-            "count" => Vec::<f64>::new(),
-            "pdf"   => Vec::<f64>::new(),
-            "cdf"   => Vec::<f64>::new(),
-        ]?);
-    }
-
-    let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
-    let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-
-    // Guard against all-identical values to avoid zero-width bins.
-    let (bin_min, bin_max) = if (max - min).abs() < f64::EPSILON {
-        (min - 0.5, max + 0.5)
-    } else {
-        (min, max)
-    };
-
-    let bin_width = (bin_max - bin_min) / num_bins as f64;
-    let mut counts = vec![0u64; num_bins];
-    for &v in &values {
-        let idx = ((v - bin_min) / bin_width).floor() as usize;
-        counts[idx.min(num_bins - 1)] += 1;
-    }
-
-    let total = values.len() as f64;
-    let left: Vec<f64> = (0..num_bins).map(|i| bin_min + i as f64 * bin_width).collect();
-    let right: Vec<f64> = (0..num_bins).map(|i| bin_min + (i + 1) as f64 * bin_width).collect();
-    let count_vals: Vec<f64> = counts.iter().map(|&c| c as f64).collect();
-    let pdf: Vec<f64> = counts.iter().map(|&c| c as f64 / (total * bin_width)).collect();
-    let mut cum = 0.0_f64;
-    let cdf: Vec<f64> = counts
-        .iter()
-        .map(|&c| {
-            cum += c as f64 / total;
-            cum
-        })
-        .collect();
-
-    Ok(df![
-        "left"  => left,
-        "right" => right,
-        "count" => count_vals,
-        "pdf"   => pdf,
-        "cdf"   => cdf,
-    ]?)
-}
-
-/// Compute per-category box plot statistics from a raw category + value DataFrame.
-///
-/// Given a `DataFrame` with a categorical column and a numeric value column,
-/// this function groups by category (preserving first-appearance order) and
-/// returns a new `DataFrame` with six columns:
-///
-/// | Column     | Type | Description |
-/// |------------|------|-------------|
-/// | `category` | Utf8 | Category label (same values as `category_col`) |
-/// | `q1`       | f64  | 25th percentile |
-/// | `q2`       | f64  | 50th percentile (median) |
-/// | `q3`       | f64  | 75th percentile |
-/// | `lower`    | f64  | Lower whisker: min observed value ≥ Q1 − 1.5 × IQR |
-/// | `upper`    | f64  | Upper whisker: max observed value ≤ Q3 + 1.5 × IQR |
-///
-/// The result is intended to be registered with [`Dashboard::add_df`] and
-/// referenced by a [`ChartSpecBuilder::box_plot`](charts::ChartSpecBuilder::box_plot)
-/// spec using [`BoxPlotConfig`](charts::BoxPlotConfig).
-///
-/// # Example
-///
-/// ```ignore
-/// use rust_to_bokeh::prelude::*;
-/// use polars::prelude::*;
-///
-/// let raw = df![
-///     "department" => ["Eng", "Sales", "Eng", "Sales"],
-///     "salary"     => [95.0f64, 70.0, 105.0, 80.0],
-/// ].unwrap();
-/// let mut stats = compute_box_stats(&raw, "department", "salary")?;
-/// dash.add_df("salary_box", &mut stats)?;
-/// ```
-///
-/// # Errors
-///
-/// Returns [`ChartError::Serialization`] if the columns do not exist or the
-/// value column cannot be cast to `f64`.
-pub fn compute_box_stats(
-    df: &DataFrame,
-    category_col: &str,
-    value_col: &str,
-) -> Result<DataFrame, ChartError> {
-    use polars::prelude::*;
-
-    fn quantile_linear(sorted: &[f64], q: f64) -> f64 {
-        if sorted.len() == 1 {
-            return sorted[0];
-        }
-        let idx = q * (sorted.len() - 1) as f64;
-        let lo = idx.floor() as usize;
-        let hi = idx.ceil() as usize;
-        if lo == hi {
-            sorted[lo]
-        } else {
-            let frac = idx - lo as f64;
-            sorted[lo] * (1.0 - frac) + sorted[hi] * frac
-        }
-    }
-
-    let cat_series = df.column(category_col)?;
-    let val_series = df.column(value_col)?;
-    let val_f64 = val_series.cast(&DataType::Float64)?;
-    let cat_str_ca = cat_series.str()?;
-
-    // Collect unique categories in first-appearance order.
-    let mut seen = std::collections::HashSet::new();
-    let mut unique_cats: Vec<String> = Vec::new();
-    for opt_s in cat_str_ca.iter() {
-        if let Some(s) = opt_s {
-            if seen.insert(s.to_string()) {
-                unique_cats.push(s.to_string());
-            }
-        }
-    }
-
-    let mut out_cats:  Vec<String> = Vec::new();
-    let mut out_q1:    Vec<f64>    = Vec::new();
-    let mut out_q2:    Vec<f64>    = Vec::new();
-    let mut out_q3:    Vec<f64>    = Vec::new();
-    let mut out_lower: Vec<f64>    = Vec::new();
-    let mut out_upper: Vec<f64>    = Vec::new();
-
-    for cat in &unique_cats {
-        let mask = cat_str_ca.equal(cat.as_str());
-        let filtered = val_f64.filter(&mask)?;
-        let filtered_ca = filtered.f64()?;
-        let mut vals: Vec<f64> = filtered_ca.into_no_null_iter().collect();
-
-        if vals.is_empty() {
-            continue;
-        }
-
-        vals.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-
-        let q1  = quantile_linear(&vals, 0.25);
-        let q2  = quantile_linear(&vals, 0.50);
-        let q3  = quantile_linear(&vals, 0.75);
-        let iqr = q3 - q1;
-        let lo_fence = q1 - 1.5 * iqr;
-        let hi_fence = q3 + 1.5 * iqr;
-
-        // Whisker endpoints: most extreme observed values within the fences.
-        let lower = vals
-            .iter()
-            .cloned()
-            .filter(|&v| v >= lo_fence)
-            .fold(f64::INFINITY, f64::min);
-        let upper = vals
-            .iter()
-            .cloned()
-            .filter(|&v| v <= hi_fence)
-            .fold(f64::NEG_INFINITY, f64::max);
-
-        out_cats.push(cat.clone());
-        out_q1.push(q1);
-        out_q2.push(q2);
-        out_q3.push(q3);
-        out_lower.push(lower);
-        out_upper.push(upper);
-    }
-
-    Ok(df![
-        "category" => out_cats,
-        "q1"       => out_q1,
-        "q2"       => out_q2,
-        "q3"       => out_q3,
-        "lower"    => out_lower,
-        "upper"    => out_upper,
-    ]?)
-}
-
-/// Extract outlier rows from a raw DataFrame for use with box plots.
-///
-/// Returns a new `DataFrame` containing only the rows whose `value_col` value
-/// falls **outside** the Tukey IQR fences (Q1 − 1.5·IQR or Q3 + 1.5·IQR) for
-/// their respective category. The output columns are `category_col` and
-/// `value_col` (with the same names passed in), so the resulting DataFrame can
-/// be registered directly with [`Dashboard::add_df`] and referenced by
-/// [`BoxPlotConfig::outlier_source`](crate::BoxPlotConfig).
-///
-/// # Example
-///
-/// ```ignore
-/// let raw = data::build_salary_raw();
-/// let mut outliers = compute_box_outliers(&raw, "department", "salary_k")?;
-/// dash.add_df("salary_outliers", &mut outliers)?;
-/// ```
-///
-/// # Errors
-///
-/// Returns [`ChartError::Serialization`] if the columns do not exist or the
-/// value column cannot be cast to `f64`.
-pub fn compute_box_outliers(
-    df: &DataFrame,
-    category_col: &str,
-    value_col: &str,
-) -> Result<DataFrame, ChartError> {
-    use polars::prelude::*;
-
-    fn quantile_linear(sorted: &[f64], q: f64) -> f64 {
-        if sorted.len() == 1 {
-            return sorted[0];
-        }
-        let idx = q * (sorted.len() - 1) as f64;
-        let lo = idx.floor() as usize;
-        let hi = idx.ceil() as usize;
-        if lo == hi {
-            sorted[lo]
-        } else {
-            let frac = idx - lo as f64;
-            sorted[lo] * (1.0 - frac) + sorted[hi] * frac
-        }
-    }
-
-    let cat_series = df.column(category_col)?;
-    let val_series = df.column(value_col)?;
-    let val_f64 = val_series.cast(&DataType::Float64)?;
-    let cat_str_ca = cat_series.str()?;
-
-    // Collect unique categories in first-appearance order.
-    let mut seen = std::collections::HashSet::new();
-    let mut unique_cats: Vec<String> = Vec::new();
-    for opt_s in cat_str_ca.iter() {
-        if let Some(s) = opt_s {
-            if seen.insert(s.to_string()) {
-                unique_cats.push(s.to_string());
-            }
-        }
-    }
-
-    let mut out_cats: Vec<String> = Vec::new();
-    let mut out_vals: Vec<f64>    = Vec::new();
-
-    for cat in &unique_cats {
-        let mask = cat_str_ca.equal(cat.as_str());
-        let filtered = val_f64.filter(&mask)?;
-        let filtered_ca = filtered.f64()?;
-        let mut vals: Vec<f64> = filtered_ca.into_no_null_iter().collect();
-
-        if vals.is_empty() {
-            continue;
-        }
-
-        vals.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-
-        let q1  = quantile_linear(&vals, 0.25);
-        let q3  = quantile_linear(&vals, 0.75);
-        let iqr = q3 - q1;
-        let lo_fence = q1 - 1.5 * iqr;
-        let hi_fence = q3 + 1.5 * iqr;
-
-        for v in vals {
-            if v < lo_fence || v > hi_fence {
-                out_cats.push(cat.clone());
-                out_vals.push(v);
-            }
-        }
-    }
-
-    Ok(df![
-        "category" => out_cats,
-        value_col  => out_vals,
-    ]?)
-}
 
 /// Serialize a Polars `DataFrame` to Arrow IPC bytes.
 ///
@@ -495,7 +178,7 @@ pub struct Dashboard {
 
 impl Dashboard {
     /// Create an empty dashboard with the default output directory (`"output"`).
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             frames: Vec::new(),
@@ -511,7 +194,7 @@ impl Dashboard {
     /// When set, the title appears as a prominent label at the leading edge of
     /// the navigation (horizontal mode) or at the top of the sidebar (vertical
     /// mode). Defaults to empty (no title shown).
-    #[must_use] 
+    #[must_use]
     pub fn title(mut self, title: &str) -> Self {
         self.title = title.into();
         self
@@ -521,7 +204,7 @@ impl Dashboard {
     ///
     /// Defaults to [`NavStyle::Horizontal`]. Use [`NavStyle::Vertical`] to
     /// render a fixed left sidebar instead of a sticky top bar.
-    #[must_use] 
+    #[must_use]
     pub fn nav_style(mut self, style: NavStyle) -> Self {
         self.nav_style = style;
         self
@@ -531,7 +214,7 @@ impl Dashboard {
     ///
     /// Defaults to `"output"`. The directory is created automatically by the
     /// Python renderer if it does not exist.
-    #[must_use] 
+    #[must_use]
     pub fn output_dir(mut self, dir: &str) -> Self {
         self.output_dir = dir.into();
         self
@@ -800,63 +483,5 @@ mod tests {
         assert_eq!(dash.output_dir, "/custom/path");
         assert_eq!(dash.title, "Test");
         assert_eq!(dash.nav_style, NavStyle::Vertical);
-    }
-}
-
-/// Configure the vendored Python so `PyO3` can find the interpreter, standard
-/// library, and installed packages.
-///
-/// This is called automatically by [`render_dashboard`] and
-/// [`Dashboard::render`]. It searches for a vendored Python installation in
-/// several candidate directories relative to the current executable, and if
-/// found, sets `PYTHONHOME`, `PYTHONPATH`, and `PATH` accordingly.
-pub fn configure_vendored_python() {
-    let exe_dir = std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(std::path::Path::to_path_buf));
-
-    let candidates = [
-        exe_dir.as_ref().map(|d| d.join("../../vendor/python")),
-        exe_dir.as_ref().map(|d| d.join("vendor/python")),
-        Some(std::path::PathBuf::from("vendor/python")),
-    ];
-
-    for candidate in candidates.iter().flatten() {
-        if let Ok(mut canon) = candidate.canonicalize() {
-            if cfg!(windows) {
-                let s = canon.to_string_lossy().to_string();
-                if let Some(stripped) = s.strip_prefix(r"\\?\") {
-                    canon = std::path::PathBuf::from(stripped);
-                }
-            }
-            if canon.join("python.exe").exists() || canon.join("bin/python3").exists() {
-                std::env::set_var("PYTHONHOME", &canon);
-
-                let site_packages = if cfg!(windows) {
-                    canon.join("Lib").join("site-packages")
-                } else {
-                    let lib = canon.join("lib");
-                    std::fs::read_dir(&lib)
-                        .ok()
-                        .and_then(|mut entries| {
-                            entries.find_map(|e| {
-                                let name = e.ok()?.file_name().to_string_lossy().to_string();
-                                name.starts_with("python3")
-                                    .then(|| lib.join(name).join("site-packages"))
-                            })
-                        })
-                        .unwrap_or_else(|| lib.join("python3").join("site-packages"))
-                };
-                std::env::set_var("PYTHONPATH", &site_packages);
-
-                let path_var = std::env::var_os("PATH").unwrap_or_default();
-                let mut paths = std::env::split_paths(&path_var).collect::<Vec<_>>();
-                paths.insert(0, canon);
-                if let Ok(new_path) = std::env::join_paths(&paths) {
-                    std::env::set_var("PATH", &new_path);
-                }
-                return;
-            }
-        }
     }
 }

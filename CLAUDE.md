@@ -13,7 +13,14 @@ RustToBokeh is a demonstration of seamless Rust ↔ Python interoperability for 
 ```
 RustToBokeh/
 ├── src/
-│   ├── lib.rs               # Library root: re-exports, Dashboard builder, serialize_df()
+│   ├── lib.rs               # Library root: Dashboard builder, serialize_df(), NavStyle
+│   ├── stats.rs             # compute_histogram(), compute_box_stats(), compute_box_outliers()
+│   ├── python_config.rs     # configure_vendored_python() — vendored interpreter discovery
+│   ├── render.rs            # PyO3 bridge: render_dashboard() (private module)
+│   ├── error.rs             # ChartError enum
+│   ├── prelude.rs           # Convenience re-exports (use rust_to_bokeh::prelude::*)
+│   ├── pages.rs             # Page, PageBuilder
+│   ├── modules.rs           # PageModule, ParagraphSpec, TableSpec, TableColumn
 │   ├── charts/              # Chart configuration types, layout primitives, filter definitions
 │   │   ├── mod.rs           # Re-exports everything from sub-modules
 │   │   ├── charts/          # Chart types and their builders
@@ -22,24 +29,23 @@ RustToBokeh/
 │   │   │   ├── grouped_bar.rs  # GroupedBarConfig + builder
 │   │   │   ├── line.rs      # LineConfig + builder
 │   │   │   ├── hbar.rs      # HBarConfig + builder
-│   │   │   └── scatter.rs   # ScatterConfig + builder
+│   │   │   ├── scatter.rs   # ScatterConfig + builder
+│   │   │   ├── pie.rs       # PieConfig + builder
+│   │   │   ├── histogram.rs # HistogramConfig + HistogramDisplay + builder
+│   │   │   ├── box_plot.rs  # BoxPlotConfig + builder
+│   │   │   └── density.rs   # DensityConfig + builder
 │   │   └── customization/   # Visual styling and interactive filter definitions
 │   │       ├── mod.rs       # Re-exports all customization types
 │   │       ├── palette.rs   # PaletteSpec enum
-│   │       ├── time_scale.rs  # TimeScale enum
+│   │       ├── time_scale.rs  # TimeScale enum, DateStep enum
 │   │       ├── tooltip.rs   # TooltipFormat, TooltipField, TooltipSpec + builder
 │   │       ├── axis.rs      # AxisConfig + builder
-│   │       └── filters.rs   # FilterConfig enum (6 variants), FilterSpec + factory methods
-│   ├── pages.rs             # Page, PageBuilder
-│   ├── modules.rs           # PageModule, ParagraphSpec, TableSpec, TableColumn
-│   ├── render.rs            # PyO3 bridge: render_dashboard() function
-│   ├── error.rs             # ChartError enum
-│   ├── prelude.rs           # Convenience re-exports (use rust_to_bokeh::prelude::*)
+│   │       └── filters.rs   # FilterConfig enum (7 variants), FilterSpec + factory methods
 │   └── bin/
 │       └── example_dashboard/
 │           ├── main.rs      # Dashboard setup: register DataFrames, add pages, render
-│           ├── data.rs      # 15 DataFrame builders for demo data
-│           └── pages/       # 23-page demo dashboard, organized by category
+│           ├── data.rs      # DataFrame builders for demo data
+│           └── pages/       # 28-page demo dashboard, organized by category
 │               ├── mod.rs       # Re-exports all page functions
 │               ├── executive.rs # Executive summary page (no category)
 │               ├── financial.rs # 6 Financial pages
@@ -47,7 +53,11 @@ RustToBokeh/
 │               ├── digital.rs   # 3 Digital pages
 │               ├── people.rs    # 3 People pages
 │               ├── operations.rs  # 4 Operations pages
-│               └── reference.rs # Reference pages incl. time-series DateRange demo
+│               └── reference/   # Reference pages grouped by type
+│                   ├── mod.rs
+│                   ├── showcase.rs    # Module Showcase + Chart Customization
+│                   ├── time_series.rs # RangeTool Navigator + Sensor Time Series
+│                   └── statistical.rs # Pie & Donut, Histogram, Box Plot, Density
 ├── python/
 │   └── render.py            # Python script; deserializes data, renders multi-page Bokeh dashboards
 ├── templates/
@@ -77,6 +87,7 @@ RustToBokeh/
   │
 [User Binary - e.g. src/bin/example_dashboard/main.rs]
   │  Build Polars DataFrames (wide format: one row per category, one column per series)
+  │  Call compute_histogram() / compute_box_stats() / compute_box_outliers() from src/stats.rs
   │  Define Pages and ChartSpecs using builder API
   │  Call Dashboard::render() or render_dashboard()
   ↓
@@ -88,20 +99,23 @@ RustToBokeh/
   ↓
 [Python - python/render.py]
   │  Deserialize Arrow IPC bytes → Polars DataFrames
-  │  Build charts from ChartSpec dicts (grouped bar, line, hbar, scatter)
+  │  Build charts from ChartSpec dicts (grouped_bar, line_multi, hbar, scatter, pie, histogram, box_plot, density)
   │  Line/scatter charts sharing the same source_key share one ColumnDataSource (linked selection)
   │  Build Bokeh filter objects (BooleanFilter, GroupFilter, IndexFilter) from FilterSpecs
   │  Combine filters via IntersectionFilter → CDSView on filtered chart renderers
   │  Create widgets (RangeSlider, Select, Switch, Slider, DateRangeSlider) with CustomJS callbacks
+  │  RangeTool: attaches a Bokeh RangeTool to an auto-generated overview chart, syncing x-axis Range1d
   │  Render each Page to its own HTML file via Jinja2
   │  Write output/<slug>.html files with inter-page navigation
 ```
 
 Key architectural concepts:
 - `include_str!()` embeds `render.py` and `chart.html` as string literals at **compile time** — no file I/O needed at runtime for these resources.
+- **`stats.rs`**: pure-Rust functions (`compute_histogram`, `compute_box_stats`, `compute_box_outliers`) that pre-compute statistical summaries before data is passed to Python.
+- **`python_config.rs`**: searches for a vendored Python interpreter at startup and sets `PYTHONHOME`, `PYTHONPATH`, and `PATH` accordingly. Called automatically by `render_dashboard()`.
 - **ChartSpec**: declarative chart definition (type, data source key, columns, dimensions, `filtered` flag). Defined in Rust, consumed by Python.
 - **FilterSpec**: declarative filter definition (source_key, column, label, `FilterConfig` variant). Defined in Rust per-page, consumed by Python to build Bokeh filter objects and widgets.
-- **FilterConfig** enum: `Range` (RangeSlider → BooleanFilter), `Select` (dropdown with "All" → BooleanFilter), `Group` (dropdown → GroupFilter), `Threshold` (Switch toggle → BooleanFilter), `TopN` (Slider → IndexFilter), `DateRange` (DateRangeSlider → BooleanFilter on epoch-ms column).
+- **FilterConfig** enum: `Range` (RangeSlider → BooleanFilter), `Select` (dropdown with "All" → BooleanFilter), `Group` (dropdown → GroupFilter), `Threshold` (Switch toggle → BooleanFilter), `TopN` (Slider → IndexFilter), `DateRange` (DateRangeSlider → BooleanFilter on epoch-ms column), `RangeTool` (overview chart with draggable range selector → x-axis Range1d sync).
 - **Page**: groups ChartSpecs + FilterSpecs into a single HTML file. Each page embeds only the data it needs.
 - **Shared ColumnDataSource**: all charts on the same page that reference the same `source_key` share one flat CDS, enabling linked hover/selection across all chart types.
 - **CDSView filtering**: filtered charts receive a `CDSView` with combined Bokeh filter objects (via `IntersectionFilter` when multiple filters target the same source). Widgets update filter properties via `CustomJS` callbacks.
@@ -163,17 +177,18 @@ Python versions are pinned in `requirements.txt`.
 
 ## Code Conventions
 
-### Rust Library (`src/lib.rs`, `src/charts/`, `src/pages.rs`, `src/render.rs`)
+### Rust Library (`src/lib.rs`, `src/stats.rs`, `src/charts/`, `src/pages.rs`, `src/render.rs`)
 
 - **`Dashboard`** builder: high-level API that collects DataFrames via `add_df()` and pages via `add_page()`, then calls `render()`.
 - **`serialize_df()`**: standalone function to serialize a Polars DataFrame to Arrow IPC bytes.
 - **`render_dashboard()`**: lower-level function taking pre-serialized frame data and page definitions.
-- **`ChartSpecBuilder`**: fluent builder with `bar()`, `line()`, `hbar()`, `scatter()` constructors, chained with `.at(row, col, span)`, `.filtered()`, and `.dimensions(width, height)`.
+- **`compute_histogram()`**, **`compute_box_stats()`**, **`compute_box_outliers()`**: pure-Rust statistics helpers in `src/stats.rs`. Always call these before `add_df()` when using histogram or box plot charts.
+- **`ChartSpecBuilder`**: fluent builder with `bar()`, `line()`, `hbar()`, `scatter()`, `pie()`, `histogram()`, `box_plot()`, `density()` constructors, chained with `.at(row, col, span)`, `.filtered()`, and `.dimensions(width, height)`.
 - **`PageBuilder`**: fluent builder with `.chart()`, `.paragraph()`, `.table()`, and `.filter()` methods.
-- **`FilterSpec`** factory methods: `range()`, `select()`, `group()`, `threshold()`, `top_n()`, `date_range()`.
+- **`FilterSpec`** factory methods: `range()`, `select()`, `group()`, `threshold()`, `top_n()`, `date_range()`, `range_tool()`.
 - Use `.expect()` for error handling (acceptable for this demo; update to `?` propagation if error handling is needed in production extensions).
 
-**Supported chart types** (`ChartConfig` enum in `src/charts/charts/mod.rs`): `GroupedBar`, `Line`, `HBar`, `Scatter`.
+**Supported chart types** (`ChartConfig` enum in `src/charts/charts/mod.rs`): `GroupedBar`, `Line`, `HBar`, `Scatter`, `Pie`, `Histogram`, `BoxPlot`, `Density`.
 
 **Chart module layout** (`src/charts/`):
 - `charts/` — chart type definitions and config builders (one file per chart type)
@@ -198,6 +213,7 @@ Python versions are pinned in `requirements.txt`.
 - Chart rendering is driven by ChartSpec dicts — the Python code is generic, not per-chart.
 - Uses Bokeh's `ColumnDataSource`, `CDSView`, `FactorRange`, `factor_cmap()`, and `CustomJS` for interactivity.
 - Filtering uses Bokeh native filter models: `BooleanFilter`, `GroupFilter`, `IndexFilter`, combined via `IntersectionFilter`.
+- `RangeTool`: attaches a Bokeh `RangeTool` to an overview chart; syncs the `Range1d` shared by all detail charts on the page.
 - Use `bokeh.embed.components()` for embedding and Bokeh CDN for JS/CSS resources.
 
 ### HTML Template (`templates/chart.html`)
@@ -211,25 +227,33 @@ Python versions are pinned in `requirements.txt`.
 
 ## Example Dashboard Feature Coverage
 
-The 23-page example dashboard in `src/bin/example_dashboard/` demonstrates every available feature:
+The 28-page example dashboard in `src/bin/example_dashboard/` demonstrates every available feature:
 
 | Feature | Where demonstrated |
 |---------|-------------------|
-| All 4 chart types (bar, line, hbar, scatter) | Multiple pages |
+| Grouped bar chart | Revenue Overview, Quarterly Performance, and others |
+| Multi-line chart | Module Showcase, Chart Customization, Time Series |
+| Horizontal bar chart | Market Position, Chart Customization |
+| Scatter plot | Chart Customization, RangeTool Navigator, Time Series |
+| Pie and donut charts | Pie & Donut Charts (`reference/statistical.rs`) |
+| Histogram (count/PDF/CDF) | Histogram Demo (`reference/statistical.rs`) |
+| Box plot with outliers | Box Plot Demo (`reference/statistical.rs`) |
+| Density plot (sina/violin) | Density Plots (`reference/statistical.rs`) |
 | `FilterConfig::Range` — RangeSlider | Executive Summary, Product Analysis |
 | `FilterConfig::Select` — dropdown with "All" | Product Analysis, Financial Health, Time Series |
 | `FilterConfig::Group` — Bokeh GroupFilter | Customer Insights |
 | `FilterConfig::Threshold` — toggle switch | Team Metrics, Cost Optimization, Workforce Planning |
 | `FilterConfig::TopN` — slider for top-N rows | Project Portfolio, Workforce Planning |
-| `FilterConfig::DateRange` — DateRangeSlider | Sensor Time Series (Reference) |
+| `FilterConfig::DateRange` — DateRangeSlider | Sensor Time Series (`reference/time_series.rs`) |
+| `FilterConfig::RangeTool` — overview navigator | RangeTool Navigator (`reference/time_series.rs`) |
 | Multiple filters on one source (IntersectionFilter) | Product Analysis, Workforce Planning, Time Series |
-| `ParagraphSpec` — text content module | Module Showcase, Time Series |
+| `ParagraphSpec` — text content module | Module Showcase, Time Series, Density Plots |
 | `TableSpec` — data table with column formats | Module Showcase |
 | `NavStyle::Vertical` — fixed left sidebar | Whole example dashboard |
 | `NavStyle::Horizontal` — sticky top bar | Default; tested in `tests/dashboard_output.rs` |
 | Page categories (grouped nav) | Financial, Commercial, Digital, People, Operations |
 | Hierarchical nav categories (`"A/B"` syntax) | Reference/Time Series |
-| `ChartSpec::dimensions(w, h)` — fixed-size chart | Chart Customisation (scatter) |
+| `ChartSpec::dimensions(w, h)` — fixed-size chart | Chart Customisation (scatter), Pie & Donut |
 | Custom colors, markers, palettes, line widths | Chart Customisation |
 | `TooltipSpec` — multi-field custom tooltips | Chart Customisation, Time Series |
 | `AxisConfig` — ranges, bounds, tick format, grid | Chart Customisation |
@@ -256,8 +280,8 @@ The 23-page example dashboard in `src/bin/example_dashboard/` demonstrates every
 ### Add a Filter to a Page
 
 1. Add a `FilterSpec` via its factory method (e.g. `FilterSpec::range(...)`) to the `PageBuilder` chain.
-2. Mark charts with `.filtered()` to opt them into CDSView-based filtering (must share the same `source_key`).
-3. Available filter types: `Range` (RangeSlider), `Select` (dropdown with "All"), `Group` (dropdown, single group — uses `GroupFilter`), `Threshold` (toggle switch), `TopN` (slider for top N rows — uses `IndexFilter`), `DateRange` (DateRangeSlider for epoch-ms columns).
+2. Mark charts with `.filtered()` to opt them into CDSView-based filtering (must share the same `source_key`). Charts using `RangeTool` do **not** need `.filtered()`.
+3. Available filter types: `Range` (RangeSlider), `Select` (dropdown with "All"), `Group` (dropdown, single group — uses `GroupFilter`), `Threshold` (toggle switch), `TopN` (slider for top N rows — uses `IndexFilter`), `DateRange` (DateRangeSlider for epoch-ms columns), `RangeTool` (overview chart with draggable range selector, syncs x-axis).
 4. Multiple filters on the same `source_key` combine via `IntersectionFilter` automatically.
 5. Python handles widget creation and `CustomJS` callbacks generically — no Python changes needed for existing filter types.
 
@@ -266,6 +290,22 @@ The 23-page example dashboard in `src/bin/example_dashboard/` demonstrates every
 1. **In `src/charts/customization/filters.rs`**: Add a variant to `FilterConfig` with its parameters. Add a factory method to `FilterSpec`.
 2. **In `src/render.rs`**: Add serialization for the new variant in the PyO3 bridge `match` block.
 3. **In `python/render.py`**: Add a handler in `build_filter_objects()` that creates the Bokeh filter model, widget, and `CustomJS` callback.
+
+### Add Statistical Charts (Histogram / Box Plot)
+
+Histogram and box plot charts require pre-computed DataFrames. In `main.rs`:
+
+```rust
+let raw = data::build_salary_distribution();
+let mut hist = compute_histogram(&raw, "salary", 12)?;
+dash.add_df("salary_hist", &mut hist)?;
+
+let raw2 = data::build_salary_raw();
+let mut box_stats = compute_box_stats(&raw2, "department", "salary_k")?;
+dash.add_df("salary_box", &mut box_stats)?;
+let mut outliers = compute_box_outliers(&raw2, "department", "salary_k")?;
+dash.add_df("salary_outliers", &mut outliers)?;
+```
 
 ---
 
@@ -277,12 +317,13 @@ The 23-page example dashboard in `src/bin/example_dashboard/` demonstrates every
 - **Do not** bypass PyO3's GIL (`Python::with_gil`) — always acquire it before running Python code.
 - **Do not** use `polars` lazy operations without calling `.collect()` before serialization.
 - **Do not** edit the `vendor/` directory manually — it is managed by `scripts/setup_vendor.sh` and gitignored.
+- **Do not** use histogram or box plot charts without first calling `compute_histogram()` / `compute_box_stats()` and registering the result via `add_df()`.
 
 ---
 
 ## Testing
 
-The library has 123 unit tests across the `src/charts/` sub-modules, `src/pages.rs`, `src/modules.rs`, and `src/lib.rs`. Run them with:
+The library has unit tests across all `src/charts/` sub-modules, `src/pages.rs`, `src/modules.rs`, `src/lib.rs`, and `src/stats.rs`. Run them with:
 
 ```bash
 cargo test --lib
@@ -314,3 +355,4 @@ Integration tests are in `tests/dashboard_output.rs`. They require a Python inte
 | Blank/empty chart | Frames dict key mismatch | Match `source_key` in ChartSpec with key in `frame_data` |
 | Template not updating | `include_str!()` uses compile-time copy | Recompile after editing `templates/chart.html` |
 | Python DLLs not found (Windows) | `build.rs` didn't copy DLLs | Run `bash scripts/setup_vendor.sh`, then rebuild |
+| Histogram/box plot shows nothing | Missing pre-computation step | Call `compute_histogram()` / `compute_box_stats()` before `add_df()` |

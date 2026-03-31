@@ -509,7 +509,7 @@ pub fn render_dashboard(
     report_title: &str,
     nav_style: &str,
 ) -> Result<(), ChartError> {
-    crate::configure_vendored_python();
+    crate::python_config::configure_vendored_python();
 
     let python_script = include_str!("../python/render.py");
     let html_template = include_str!("../templates/chart.html");

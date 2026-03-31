@@ -10,9 +10,19 @@ use super::scatter::ScatterConfig;
 
 /// Fluent builder for constructing [`ChartSpec`] instances.
 ///
-/// Provides convenience constructors for each chart type ([`bar`](Self::bar),
-/// [`line`](Self::line), [`hbar`](Self::hbar), [`scatter`](Self::scatter))
-/// and chainable methods for grid positioning and filter opt-in.
+/// Provides a constructor for each of the eight supported chart types and
+/// chainable methods for grid positioning, filter opt-in, and explicit sizing.
+///
+/// | Constructor | Chart type |
+/// |---|---|
+/// | [`bar`](Self::bar) | Grouped vertical bars |
+/// | [`line`](Self::line) | Multi-series line chart |
+/// | [`hbar`](Self::hbar) | Horizontal bar chart |
+/// | [`scatter`](Self::scatter) | Scatter plot |
+/// | [`pie`](Self::pie) | Pie or donut chart |
+/// | [`histogram`](Self::histogram) | Histogram (count / PDF / CDF) |
+/// | [`box_plot`](Self::box_plot) | Box-and-whisker plot |
+/// | [`density`](Self::density) | Density plot (sina or violin, auto-selected) |
 ///
 /// # Example
 ///
@@ -63,25 +73,40 @@ impl ChartSpecBuilder {
         }
     }
 
-    /// Create a grouped bar chart spec.
+    /// Create a grouped vertical bar chart spec.
+    ///
+    /// Bars are grouped by an X-axis category column, with sub-groups
+    /// distinguished by a second grouping column and coloured by palette.
+    /// See [`GroupedBarConfig`] for all configuration options.
     #[must_use]
     pub fn bar(title: &str, key: &str, config: GroupedBarConfig) -> Self {
         Self::new(title, key, ChartConfig::GroupedBar(config))
     }
 
-    /// Create a multi-line chart spec.
+    /// Create a multi-series line chart spec.
+    ///
+    /// Each column listed in [`LineConfig::y_cols`] becomes a separate line.
+    /// Line and scatter charts that share the same `key` on a page share one
+    /// `ColumnDataSource`, enabling linked hover and selection.
     #[must_use]
     pub fn line(title: &str, key: &str, config: LineConfig) -> Self {
         Self::new(title, key, ChartConfig::Line(config))
     }
 
     /// Create a horizontal bar chart spec.
+    ///
+    /// Useful for ranked or labelled categorical data where category names
+    /// are long strings. See [`HBarConfig`] for all configuration options.
     #[must_use]
     pub fn hbar(title: &str, key: &str, config: HBarConfig) -> Self {
         Self::new(title, key, ChartConfig::HBar(config))
     }
 
     /// Create a scatter plot spec.
+    ///
+    /// Scatter charts that share the same `key` with line charts on the same
+    /// page share a `ColumnDataSource`, so selecting points in one chart
+    /// highlights the corresponding points in all others.
     #[must_use]
     pub fn scatter(title: &str, key: &str, config: ScatterConfig) -> Self {
         Self::new(title, key, ChartConfig::Scatter(config))
@@ -97,9 +122,10 @@ impl ChartSpecBuilder {
 
     /// Create a histogram spec.
     ///
-    /// The DataFrame referenced by `key` must contain the raw numeric values
-    /// in the column specified by [`HistogramConfig::value_col`]. Bin edges
-    /// and counts are computed by the Python renderer.
+    /// The DataFrame referenced by `key` must be a pre-computed histogram
+    /// produced by [`compute_histogram`](crate::compute_histogram), which
+    /// provides `left`, `right`, `count`, `pdf`, and `cdf` columns.
+    /// [`HistogramConfig`] selects which statistic to render (count, PDF, CDF).
     #[must_use]
     pub fn histogram(title: &str, key: &str, config: HistogramConfig) -> Self {
         Self::new(title, key, ChartConfig::Histogram(config))

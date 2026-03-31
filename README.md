@@ -165,7 +165,7 @@ dash.render()?;
 
 ### Grid Layout
 
-Every page has a CSS grid with a configurable number of columns (1–12). Modules (charts, paragraphs, tables) are placed in the grid using `.at(row, col, span)` where `row` and `col` are zero-based and `span` is the number of columns the module occupies.
+Every page has a CSS grid with a configurable number of columns (1–6). Modules (charts, paragraphs, tables) are placed in the grid using `.at(row, col, span)` where `row` and `col` are zero-based and `span` is the number of columns the module occupies.
 
 ```
 grid_cols = 3
@@ -208,10 +208,14 @@ Pages without a category are shown ungrouped at the top of the navigation.
 
 | Type | Constructor | Key config fields |
 |---|---|---|
-| Grouped bar | `ChartSpecBuilder::bar(title, source_key, config)` | `x`, `group`, `value`, `y_label` |
-| Multi-line | `ChartSpecBuilder::line(title, source_key, config)` | `x`, `y_cols`, `y_label` |
-| Horizontal bar | `ChartSpecBuilder::hbar(title, source_key, config)` | `category`, `value`, `x_label` |
-| Scatter plot | `ChartSpecBuilder::scatter(title, source_key, config)` | `x`, `y`, `x_label`, `y_label` |
+| Grouped bar | `ChartSpecBuilder::bar(title, key, config)` | `x`, `group`, `value`, `y_label` |
+| Multi-line | `ChartSpecBuilder::line(title, key, config)` | `x`, `y_cols`, `y_label` |
+| Horizontal bar | `ChartSpecBuilder::hbar(title, key, config)` | `category`, `value`, `x_label` |
+| Scatter plot | `ChartSpecBuilder::scatter(title, key, config)` | `x`, `y`, `x_label`, `y_label` |
+| Pie / donut | `ChartSpecBuilder::pie(title, key, config)` | `label`, `value` |
+| Histogram | `ChartSpecBuilder::histogram(title, key, config)` | `x_label` |
+| Box plot | `ChartSpecBuilder::box_plot(title, key, config)` | `category`, `q1`–`q3`, `lower`, `upper`, `y_label` |
+| Density | `ChartSpecBuilder::density(title, key, config)` | `category`, `value`, `y_label` |
 
 Each chart config type has its own fluent builder accessed via `::builder()`:
 
@@ -253,7 +257,69 @@ let scatter = ChartSpecBuilder::scatter("Price vs Volume", "trades",
         .y_label("Volume")
         .build()?
 ).at(0, 1, 1).build();
+
+// Pie chart (set inner_radius for a donut)
+let pie = ChartSpecBuilder::pie("Market Share", "market_share",
+    PieConfig::builder()
+        .label("company")
+        .value("share")
+        .inner_radius(0.45)   // omit for a solid pie
+        .build()?
+).at(0, 0, 1).dimensions(380, 380).build();
 ```
+
+**Histogram and box plot** require pre-computed DataFrames. Use the helpers from
+`rust_to_bokeh::stats` (re-exported via the prelude):
+
+```rust
+// Histogram: call compute_histogram() before registering data
+let raw = df!["salary" => [42.0f64, 65.0, 80.0, 95.0]]?;
+let mut hist = compute_histogram(&raw, "salary", 12)?;
+dash.add_df("salary_hist", &mut hist)?;
+
+let histogram = ChartSpecBuilder::histogram("Salary Distribution", "salary_hist",
+    HistogramConfig::builder()
+        .x_label("Salary (k)")
+        .display(HistogramDisplay::Pdf)
+        .build()?
+).at(0, 0, 2).build();
+
+// Box plot: call compute_box_stats() and optionally compute_box_outliers()
+let mut stats = compute_box_stats(&raw, "department", "salary")?;
+dash.add_df("salary_box", &mut stats)?;
+let mut outliers = compute_box_outliers(&raw, "department", "salary")?;
+dash.add_df("salary_outliers", &mut outliers)?;
+
+let box_plot = ChartSpecBuilder::box_plot("Salary by Dept", "salary_box",
+    BoxPlotConfig::builder()
+        .category("category").q1("q1").q2("q2").q3("q3")
+        .lower("lower").upper("upper")
+        .y_label("Salary (k)")
+        .outlier_source("salary_outliers")
+        .outlier_value_col("salary")
+        .build()?
+).at(1, 0, 2).build();
+```
+
+**Density plots** use the raw long-format DataFrame directly (one row per observation):
+
+```rust
+// density_scores has columns "dept" (category) and "score" (numeric)
+dash.add_df("density_scores", &mut density_scores_df)?;
+
+let density = ChartSpecBuilder::density("Score Distribution", "density_scores",
+    DensityConfig::builder()
+        .category("dept")
+        .value("score")
+        .y_label("Performance Score")
+        .palette(PaletteSpec::Named("Set2".into()))
+        .build()?
+).at(0, 0, 2).build();
+```
+
+The renderer automatically selects **sina** (jittered scatter) for sparsely
+populated categories (≤ 30 points) and **violin** (KDE polygon) for denser ones.
+Override the threshold with `.point_threshold(n)` on `DensityConfig`.
 
 **Chart dimensions:** override the default responsive width by calling `.dimensions(width, height)` on `ChartSpecBuilder`:
 
@@ -280,7 +346,7 @@ PageBuilder::new("analysis", "Product Analysis", "Products", 2)
     )
     .filter(FilterSpec::range("products", "sales", "Sales Range", 0.0, 500.0, 10.0))
     .filter(FilterSpec::select("products", "category", "Category",
-        &["Electronics", "Clothing", "Food"]))
+        vec!["Electronics", "Clothing", "Food"]))
     .build()?
 ```
 
@@ -289,13 +355,16 @@ Multiple filters on the same `source_key` combine automatically via Bokeh's `Int
 | Filter | Factory method | Widget | Behavior |
 |---|---|---|---|
 | Range | `FilterSpec::range(src, col, label, min, max, step)` | `RangeSlider` | Keeps rows where `col` is within `[min, max]` |
-| Select | `FilterSpec::select(src, col, label, &[options])` | Dropdown | Exact value match; "All" shows everything |
-| Group | `FilterSpec::group(src, col, label, &[options])` | Dropdown | Bokeh `GroupFilter`; no "All" option |
+| Select | `FilterSpec::select(src, col, label, options)` | Dropdown | Exact value match; "All" shows everything |
+| Group | `FilterSpec::group(src, col, label, options)` | Dropdown | Bokeh `GroupFilter`; no "All" option |
 | Threshold | `FilterSpec::threshold(src, col, label, value, above)` | Toggle switch | Keeps rows above (or below) `value` |
 | Top N | `FilterSpec::top_n(src, col, label, max_n, descending)` | Slider | Limits to top/bottom N rows sorted by `col` |
-| Date range | `FilterSpec::date_range(src, col, label, min_ms, max_ms, step_ms, scale)` | `DateRangeSlider` | Keeps rows where `col` (epoch-ms) is within the selected window |
+| Date range | `FilterSpec::date_range(src, col, label, min_ms, max_ms, step, scale)` | `DateRangeSlider` | Keeps rows where `col` (epoch-ms) is within the selected window |
+| Range tool | `FilterSpec::range_tool(src, x_col, y_col, label, start, end, time_scale)` | Overview chart | Zooms the x-axis window of all line/scatter charts sharing `src` |
 
-**Date range filter note:** the column must contain datetime values stored as milliseconds since the Unix epoch. When building the DataFrame, cast a Polars `Date` column to `Int64` and multiply by 86 400 000, or use a `Datetime(Milliseconds, None)` column directly.
+**Date range filter note:** the column must contain datetime values stored as milliseconds since the Unix epoch.
+
+**Range tool note:** unlike the other filters, `RangeTool` does not hide rows via `CDSView`. It synchronises the visible x-axis window across charts sharing the same `source_key`. Charts do **not** need `.filtered()` to participate.
 
 ### Content Modules: Paragraphs and Tables
 
@@ -365,6 +434,13 @@ All fallible operations return `Result<T, ChartError>`. The error type covers:
 RustToBokeh/
 ├── src/
 │   ├── lib.rs                # Library root: Dashboard, NavStyle, serialize_df()
+│   ├── stats.rs              # Statistical helpers: compute_histogram(), compute_box_stats(), compute_box_outliers()
+│   ├── python_config.rs      # Vendored Python interpreter discovery
+│   ├── render.rs             # PyO3 bridge to Python (private)
+│   ├── error.rs              # ChartError enum
+│   ├── prelude.rs            # Convenience re-exports
+│   ├── pages.rs              # Page and PageBuilder
+│   ├── modules.rs            # ParagraphSpec, TableSpec, TableColumn
 │   ├── charts/               # Chart types and visual customisation
 │   │   ├── mod.rs            # Re-exports all chart types
 │   │   ├── charts/           # Per-chart config structs and builders
@@ -373,7 +449,11 @@ RustToBokeh/
 │   │   │   ├── grouped_bar.rs
 │   │   │   ├── line.rs
 │   │   │   ├── hbar.rs
-│   │   │   └── scatter.rs
+│   │   │   ├── scatter.rs
+│   │   │   ├── pie.rs
+│   │   │   ├── histogram.rs
+│   │   │   ├── box_plot.rs
+│   │   │   └── density.rs
 │   │   └── customization/    # Palette, tooltip, axis, filters
 │   │       ├── mod.rs
 │   │       ├── palette.rs
@@ -381,16 +461,21 @@ RustToBokeh/
 │   │       ├── tooltip.rs
 │   │       ├── axis.rs
 │   │       └── filters.rs
-│   ├── pages.rs              # Page and PageBuilder
-│   ├── modules.rs            # ParagraphSpec, TableSpec, TableColumn
-│   ├── error.rs              # ChartError enum
-│   ├── render.rs             # PyO3 bridge to Python
-│   ├── prelude.rs            # Convenience re-exports
 │   └── bin/
 │       └── example_dashboard/
 │           ├── main.rs       # Dashboard setup (register data, add pages, render)
 │           ├── data.rs       # DataFrame builders for demo data
-│           └── pages/        # 23-page demo, one file per category
+│           └── pages/        # 28-page demo, split by category
+│               ├── executive.rs
+│               ├── financial.rs
+│               ├── commercial.rs
+│               ├── digital.rs
+│               ├── people.rs
+│               ├── operations.rs
+│               └── reference/
+│                   ├── showcase.rs    # Module showcase, chart customisation
+│                   ├── time_series.rs # RangeTool and DateRange demos
+│                   └── statistical.rs # Pie, histogram, box plot, density demos
 ├── python/
 │   └── render.py             # Python renderer (embedded at compile time)
 ├── templates/
@@ -425,6 +510,8 @@ RustToBokeh/
 | Python DLLs not found on Windows | `build.rs` copy step failed | Run `bash scripts/setup_vendor.sh`, then do a clean rebuild |
 | `GridValidation` error | Module overflows grid or modules overlap | Check `.at(row, col, span)` — `col + span` must not exceed `grid_cols`, and no two modules in the same row may overlap |
 | Charts not responding to filters | Chart not marked `.filtered()` | Call `.filtered()` on `ChartSpecBuilder` for every chart that should respond |
+| Histogram chart shows no data | Pre-computation not done | Call `compute_histogram()` before `add_df()` and pass the result |
+| Box plot chart shows no data | Pre-computation not done | Call `compute_box_stats()` before `add_df()` and pass the result |
 
 ## License
 
