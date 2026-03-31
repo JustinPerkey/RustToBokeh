@@ -9,14 +9,14 @@ use crate::error::ChartError;
 /// the number of data points per category:
 ///
 /// - **Sina plot** (few points, ≤ `point_threshold`): each raw data point is
-///   drawn as a scatter marker whose horizontal jitter is proportional to the
-///   local Gaussian KDE density at that value. You can see every individual
-///   observation while still conveying the distribution shape.
+///   drawn as a scatter marker whose horizontal jitter is sampled uniformly
+///   within the local KDE density envelope at that value, so points fill the
+///   interior of the distribution rather than clustering on the boundary.
 /// - **Violin plot** (many points, > `point_threshold`): a mirrored KDE
 ///   polygon is drawn per category, showing the full probability density
 ///   shape. A median line is overlaid at the 50th percentile.
 ///
-/// The default threshold is **30 points per category** (configurable via
+/// The default threshold is **50 points per category** (configurable via
 /// [`point_threshold`](DensityConfigBuilder::point_threshold)).
 ///
 /// # Data format
@@ -64,7 +64,7 @@ pub struct DensityConfig {
     ///
     /// If the most-populated category has more than this many data points the
     /// renderer draws KDE violin polygons; otherwise it draws sina scatter.
-    /// Defaults to `30` when `None`.
+    /// Defaults to `50` when `None`.
     pub point_threshold: Option<u32>,
 }
 
@@ -159,7 +159,7 @@ impl DensityConfigBuilder {
     ///
     /// When the most-populated category has more than `n` data points the
     /// renderer uses a **violin plot**; otherwise it uses a **sina plot**.
-    /// Defaults to `30` when not set.
+    /// Defaults to `50` when not set.
     #[must_use]
     pub fn point_threshold(mut self, n: u32) -> Self {
         self.point_threshold = Some(n);

@@ -873,7 +873,7 @@ def build_density(spec, source_cache, view=None):
         counts[c] += 1
     max_count = max(counts.values()) if counts else 0
 
-    threshold  = spec.get("point_threshold", 30)
+    threshold  = spec.get("point_threshold", 50)
     use_violin = max_count > threshold
 
     # Resolve colors — one per category.
@@ -1013,9 +1013,10 @@ def build_density(spec, source_cache, view=None):
 
             jitter_widths = (dens_at_pts / global_max_density) * max_half_width
 
-            # Alternate left/right so points spread symmetrically.
-            signs = np.array([1.0 if i % 2 == 0 else -1.0 for i in range(len(vals))])
-            offsets = jitter_widths * signs
+            # Jitter each point uniformly within its local density envelope so
+            # that points fill the interior rather than clustering on the edge.
+            rng = np.random.default_rng(seed=abs(hash(cat)) % (2 ** 31))
+            offsets = rng.uniform(-1.0, 1.0, size=len(vals)) * jitter_widths
 
             xs = [(cat, float(off)) for off in offsets]
             ys = vals.tolist()
