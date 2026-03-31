@@ -987,10 +987,29 @@ def build_density(spec, source_cache, view=None):
         if global_max_density == 0.0:
             global_max_density = 1.0
 
+        # Evaluate KDE on a fine grid per category for the density outline.
+        y_grid = np.linspace(y_lo, y_hi, 200)
+
         for cat in cats:
             vals, dens_at_pts = cat_data[cat]
             if len(vals) == 0:
                 continue
+
+            # --- Density outline (drawn first, behind the points) ---
+            dens_grid = _gaussian_kde(vals, y_grid)
+            norm_grid = dens_grid / global_max_density * max_half_width
+            outline_xs = [(cat, float(d))  for d in norm_grid] + \
+                         [(cat, float(-d)) for d in reversed(norm_grid)]
+            outline_ys = list(y_grid) + list(reversed(y_grid))
+            color = cat_color[cat]
+            fig.patch(
+                outline_xs, outline_ys,
+                fill_color=None,
+                fill_alpha=0.0,
+                line_color=color,
+                line_alpha=max(alpha * 0.45, 0.15),
+                line_width=1.5,
+            )
 
             jitter_widths = (dens_at_pts / global_max_density) * max_half_width
 
@@ -1001,7 +1020,6 @@ def build_density(spec, source_cache, view=None):
             xs = [(cat, float(off)) for off in offsets]
             ys = vals.tolist()
 
-            color = cat_color[cat]
             fig.scatter(
                 x=xs,
                 y=ys,
