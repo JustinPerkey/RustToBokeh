@@ -4,12 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% if report_title %}{{ report_title }} — {% endif %}{{ title }} — RustToBokeh</title>
-    {% if bokeh_css_url %}
-    <link rel="stylesheet" href="{{ bokeh_css_url }}">
-    {% endif %}
-    {% for js_url in bokeh_js_urls %}
-    <script src="{{ js_url }}"></script>
-    {% endfor %}
+    {{ bokeh_inline_css | safe }}
+    {{ bokeh_inline_js | safe }}
     <style>
         * { box-sizing: border-box; }
         body {

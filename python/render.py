@@ -38,7 +38,7 @@ from bokeh.models import (
     Switch,
 )
 from bokeh.plotting import figure
-from bokeh.resources import CDN
+from bokeh.resources import INLINE
 from bokeh.transform import factor_cmap
 from jinja2 import Template
 
@@ -1393,8 +1393,8 @@ def build_nav_tree(nav_links, current_slug):
 
 os.makedirs(output_dir, exist_ok=True)
 template = Template(html_template)
-bokeh_js_urls = CDN.js_files
-bokeh_css_url = CDN.css_files[0] if CDN.css_files else ""
+bokeh_inline_js = INLINE.render_js()
+bokeh_inline_css = INLINE.render_css()
 
 for page in pages:
     source_cache = {}  # per-page CDS cache for linking
@@ -1606,8 +1606,8 @@ for page in pages:
         title=page["title"],
         report_title=report_title,
         nav_style=nav_style,
-        bokeh_js_urls=bokeh_js_urls,
-        bokeh_css_url=bokeh_css_url,
+        bokeh_inline_js=bokeh_inline_js,
+        bokeh_inline_css=bokeh_inline_css,
         plot_script=script,
         plots=plots,
         filter_items=filter_items,
