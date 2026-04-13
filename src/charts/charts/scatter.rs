@@ -1,6 +1,7 @@
 use crate::error::ChartError;
-use crate::charts::customization::tooltip::TooltipSpec;
 use crate::charts::customization::axis::AxisConfig;
+use crate::charts::customization::marker::MarkerType;
+use crate::charts::customization::tooltip::TooltipSpec;
 
 /// Configuration for a scatter plot.
 ///
@@ -32,10 +33,8 @@ pub struct ScatterConfig {
     pub y_label: String,
     /// Fill color for the markers as a hex string.  Defaults to `"#4C72B0"`.
     pub color: Option<String>,
-    /// Bokeh marker type (e.g. `"circle"`, `"square"`, `"diamond"`,
-    /// `"triangle"`, `"inverted_triangle"`, `"hex"`, `"star"`).
-    /// Defaults to `"circle"` when `None`.
-    pub marker: Option<String>,
+    /// Marker shape.  Defaults to [`MarkerType::Circle`] when `None`.
+    pub marker: Option<MarkerType>,
     /// Marker size in screen units.  Defaults to `10` when `None`.
     pub marker_size: Option<f64>,
     /// Fill alpha (0.0 = transparent, 1.0 = opaque).  Defaults to `0.7`.
@@ -58,7 +57,7 @@ pub struct ScatterConfigBuilder {
     x_label: Option<String>,
     y_label: Option<String>,
     color: Option<String>,
-    marker: Option<String>,
+    marker: Option<MarkerType>,
     marker_size: Option<f64>,
     alpha: Option<f64>,
     tooltips: Option<TooltipSpec>,
@@ -117,10 +116,10 @@ impl ScatterConfigBuilder {
         self.color = Some(color.into());
         self
     }
-    /// Set the Bokeh marker type (e.g. `"circle"`, `"square"`, `"diamond"`).
+    /// Set the marker shape.
     #[must_use]
-    pub fn marker(mut self, marker: &str) -> Self {
-        self.marker = Some(marker.into());
+    pub fn marker(mut self, marker: MarkerType) -> Self {
+        self.marker = Some(marker);
         self
     }
     /// Set the marker size in screen units.
@@ -179,8 +178,9 @@ impl ScatterConfigBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::charts::customization::tooltip::{TooltipSpec, TooltipFormat};
     use crate::charts::customization::axis::AxisConfig;
+    use crate::charts::customization::marker::MarkerType;
+    use crate::charts::customization::tooltip::{TooltipSpec, TooltipFormat};
 
     // ── ScatterConfig builder ─────────────────────────────────────────────────
 
@@ -268,9 +268,9 @@ mod tests {
     fn scatter_with_marker() {
         let cfg = ScatterConfig::builder()
             .x("x").y("y").x_label("X").y_label("Y")
-            .marker("diamond")
+            .marker(MarkerType::Diamond)
             .build().unwrap();
-        assert_eq!(cfg.marker.as_deref(), Some("diamond"));
+        assert_eq!(cfg.marker, Some(MarkerType::Diamond));
     }
 
     #[test]

@@ -54,7 +54,7 @@ pub fn build_scatter(
     );
 
     let color = cfg.color.as_deref().unwrap_or("#4C72B0");
-    let marker = cfg.marker.as_deref().unwrap_or("circle");
+    let marker = cfg.marker.as_ref().map(|m| m.as_str()).unwrap_or("circle");
     let size = cfg.marker_size.unwrap_or(10.0);
     let alpha = cfg.alpha.unwrap_or(0.7);
 
