@@ -7,7 +7,7 @@ use crate::charts::charts::grouped_bar::GroupedBarConfig;
 use crate::charts::ChartSpec;
 use crate::error::ChartError;
 
-use super::super::figure::{build_figure, build_glyph_renderer, FigureOutput, XRangeKind, YRangeKind};
+use super::super::figure::{build_figure, build_glyph_renderer, AxisBuilder, AxisType, FigureOutput, XRangeKind, YRangeKind};
 use super::super::id_gen::IdGen;
 use super::super::model::{BokehObject, BokehValue};
 use super::super::palette::resolve_palette;
@@ -90,11 +90,9 @@ pub fn build_grouped_bar(
         spec.width,
         XRangeKind::Factor(range_factors),
         YRangeKind::DataRange,
-        "categorical",
-        "linear",
+        AxisBuilder::x(AxisType::Categorical).config(cfg.x_axis.as_ref()),
+        AxisBuilder::y(AxisType::Linear).config(cfg.y_axis.as_ref()),
         Some(ht),
-        cfg.x_axis.as_ref(),
-        cfg.y_axis.as_ref(),
     );
 
     let bar_width = cfg.bar_width.unwrap_or(0.9);

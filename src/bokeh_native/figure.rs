@@ -1,7 +1,8 @@
 //! Figure builder — creates Bokeh Figure models with axes, grids, and toolbar.
 
-use crate::charts::{AxisConfig, TimeScale};
+use crate::charts::AxisConfig;
 
+pub use super::axis::{AxisBuilder, AxisType};
 use super::id_gen::IdGen;
 use super::model::{BokehObject, BokehValue};
 
@@ -50,7 +51,6 @@ pub struct FigureOutput {
 /// Build a Bokeh `Figure` model.
 ///
 /// Returns the Figure and IDs of key sub-objects for later configuration.
-#[allow(clippy::too_many_arguments)]
 pub fn build_figure(
     id_gen: &mut IdGen,
     title: &str,
@@ -58,23 +58,19 @@ pub fn build_figure(
     width: Option<u32>,
     x_range: XRangeKind,
     y_range: YRangeKind,
-    x_axis_type: &str,   // "categorical" | "linear" | "datetime"
-    y_axis_type: &str,   // "linear"
+    x_axis: AxisBuilder<'_>,
+    y_axis: AxisBuilder<'_>,
     hover_tool: Option<BokehObject>,
-    x_axis_cfg: Option<&AxisConfig>,
-    y_axis_cfg: Option<&AxisConfig>,
 ) -> FigureOutput {
     // ── Ranges ───────────────────────────────────────────────────────────────
-    let (x_range_obj, x_range_id) = build_x_range(id_gen, x_range, x_axis_cfg);
-    let (y_range_obj, y_range_id) = build_y_range(id_gen, y_range, y_axis_cfg);
+    let (x_range_obj, x_range_id) = build_x_range(id_gen, x_range, x_axis.cfg());
+    let (y_range_obj, y_range_id) = build_y_range(id_gen, y_range, y_axis.cfg());
 
     // ── Scales ───────────────────────────────────────────────────────────────
     let x_scale_id = id_gen.next();
     let y_scale_id = id_gen.next();
-    let x_scale_name = if x_axis_type == "categorical" { "CategoricalScale" } else { "LinearScale" };
-    let y_scale_name = if y_axis_type == "categorical" { "CategoricalScale" } else { "LinearScale" };
-    let x_scale = BokehObject::new(x_scale_name, x_scale_id.clone());
-    let y_scale = BokehObject::new(y_scale_name, y_scale_id.clone());
+    let x_scale = BokehObject::new(x_axis.scale_name(), x_scale_id.clone());
+    let y_scale = BokehObject::new(y_axis.scale_name(), y_scale_id.clone());
 
     // ── Title ────────────────────────────────────────────────────────────────
     let title_id = id_gen.next();
@@ -82,10 +78,8 @@ pub fn build_figure(
         .attr("text", BokehValue::Str(title.to_string()));
 
     // ── Axes ─────────────────────────────────────────────────────────────────
-    let (x_axis_obj, x_axis_id, x_grid_obj, x_grid_id) =
-        build_x_axis(id_gen, x_axis_type, &x_range_id, x_axis_cfg);
-    let (y_axis_obj, y_axis_id, y_grid_obj, y_grid_id) =
-        build_y_axis(id_gen, y_axis_type, &y_range_id, y_axis_cfg);
+    let (x_axis_obj, x_axis_id, x_grid_obj, x_grid_id) = x_axis.build(id_gen);
+    let (y_axis_obj, y_axis_id, y_grid_obj, y_grid_id) = y_axis.build(id_gen);
 
     // ── Toolbar ──────────────────────────────────────────────────────────────
     let toolbar_id = id_gen.next();
@@ -244,161 +238,6 @@ fn apply_range_config(
         );
     }
     obj
-}
-
-// ── Axis builders ─────────────────────────────────────────────────────────────
-
-fn build_x_axis(
-    id_gen: &mut IdGen,
-    axis_type: &str,
-    _range_id: &str,
-    cfg: Option<&AxisConfig>,
-) -> (BokehObject, String, BokehObject, String) {
-    let (axis_name, ticker_name, formatter_name): (&str, &str, &str) = match axis_type {
-        "categorical" => ("CategoricalAxis", "CategoricalTicker", "CategoricalTickFormatter"),
-        "datetime" => ("DatetimeAxis", "DatetimeTicker", "DatetimeTickFormatter"),
-        _ => ("LinearAxis", "BasicTicker", "BasicTickFormatter"),
-    };
-
-    let ticker_id = id_gen.next();
-    let fmt_id = id_gen.next();
-    let axis_id = id_gen.next();
-    let grid_id = id_gen.next();
-
-    let ticker = if axis_type == "linear" {
-        BokehObject::new(ticker_name, ticker_id.clone())
-            .attr("mantissas", BokehValue::Array(vec![
-                BokehValue::Int(1), BokehValue::Int(2), BokehValue::Int(5),
-            ]))
-    } else {
-        BokehObject::new(ticker_name, ticker_id.clone())
-    };
-
-    let mut formatter = BokehObject::new(formatter_name, fmt_id.clone());
-    if let Some(cfg) = cfg {
-        formatter = apply_formatter_config(id_gen, formatter, cfg, axis_type);
-    }
-
-    let mut axis = BokehObject::new(axis_name, axis_id.clone())
-        .attr("ticker", ticker.into_value())
-        .attr("formatter", formatter.into_value());
-
-    if let Some(cfg) = cfg {
-        axis = apply_axis_visual_config(axis, cfg);
-    }
-
-    let grid = BokehObject::new("Grid", grid_id.clone())
-        .attr("axis", BokehValue::ref_of(&axis_id))
-        .attr("dimension", BokehValue::Int(0));
-
-    (axis, axis_id, grid, grid_id)
-}
-
-fn build_y_axis(
-    id_gen: &mut IdGen,
-    axis_type: &str,
-    _range_id: &str,
-    cfg: Option<&AxisConfig>,
-) -> (BokehObject, String, BokehObject, String) {
-    if axis_type == "categorical" {
-        // Use CategoricalAxis (no mantissas ticker, uses CategoricalTicker)
-        let ticker_id = id_gen.next();
-        let fmt_id = id_gen.next();
-        let axis_id = id_gen.next();
-        let grid_id = id_gen.next();
-        let ticker = BokehObject::new("CategoricalTicker", ticker_id.clone());
-        let formatter = BokehObject::new("CategoricalTickFormatter", fmt_id);
-        let mut axis = BokehObject::new("CategoricalAxis", axis_id.clone())
-            .attr("ticker", ticker.into_value())
-            .attr("formatter", formatter.into_value());
-        if let Some(cfg) = cfg {
-            axis = apply_axis_visual_config(axis, cfg);
-        }
-        let grid = BokehObject::new("Grid", grid_id.clone())
-            .attr("axis", BokehValue::ref_of(&axis_id))
-            .attr("dimension", BokehValue::Int(1));
-        return (axis, axis_id, grid, grid_id);
-    }
-
-    let (axis_name, ticker_name, formatter_name): (&str, &str, &str) = match axis_type {
-        "datetime" => ("DatetimeAxis", "DatetimeTicker", "DatetimeTickFormatter"),
-        _ => ("LinearAxis", "BasicTicker", "BasicTickFormatter"),
-    };
-
-    let ticker_id = id_gen.next();
-    let fmt_id = id_gen.next();
-    let axis_id = id_gen.next();
-    let grid_id = id_gen.next();
-
-    let ticker = BokehObject::new(ticker_name, ticker_id.clone())
-        .attr("mantissas", BokehValue::Array(vec![
-            BokehValue::Int(1), BokehValue::Int(2), BokehValue::Int(5),
-        ]));
-
-    let mut formatter = BokehObject::new(formatter_name, fmt_id.clone());
-    if let Some(cfg) = cfg {
-        formatter = apply_formatter_config(id_gen, formatter, cfg, axis_type);
-    }
-
-    let mut axis = BokehObject::new(axis_name, axis_id.clone())
-        .attr("ticker", ticker.into_value())
-        .attr("formatter", formatter.into_value());
-
-    if let Some(cfg) = cfg {
-        axis = apply_axis_visual_config(axis, cfg);
-    }
-
-    let grid = BokehObject::new("Grid", grid_id.clone())
-        .attr("axis", BokehValue::ref_of(&axis_id))
-        .attr("dimension", BokehValue::Int(1));
-
-    (axis, axis_id, grid, grid_id)
-}
-
-fn apply_formatter_config(
-    id_gen: &mut IdGen,
-    formatter: BokehObject,
-    cfg: &AxisConfig,
-    _axis_type: &str,
-) -> BokehObject {
-    if let Some(ts) = &cfg.time_scale {
-        let fmt_str = time_scale_to_fmt(ts);
-        return BokehObject::new("DatetimeTickFormatter", id_gen.next())
-            .attr("milliseconds", BokehValue::Str(fmt_str.clone()))
-            .attr("seconds",      BokehValue::Str(fmt_str.clone()))
-            .attr("minsec",       BokehValue::Str(fmt_str.clone()))
-            .attr("minutes",      BokehValue::Str(fmt_str.clone()))
-            .attr("hourmin",      BokehValue::Str(fmt_str.clone()))
-            .attr("hours",        BokehValue::Str(fmt_str.clone()))
-            .attr("days",         BokehValue::Str(fmt_str.clone()))
-            .attr("months",       BokehValue::Str(fmt_str.clone()))
-            .attr("years",        BokehValue::Str(fmt_str));
-    }
-    if let Some(fmt) = &cfg.tick_format {
-        return BokehObject::new("NumeralTickFormatter", id_gen.next())
-            .attr("format", BokehValue::Str(fmt.clone()));
-    }
-    formatter
-}
-
-fn apply_axis_visual_config(mut axis: BokehObject, cfg: &AxisConfig) -> BokehObject {
-    if let Some(rot) = cfg.label_rotation {
-        let radians = rot * std::f64::consts::PI / 180.0;
-        axis = axis.attr("major_label_orientation", BokehValue::Float(radians));
-    }
-    axis
-}
-
-fn time_scale_to_fmt(ts: &TimeScale) -> String {
-    match ts {
-        TimeScale::Milliseconds => "%H:%M:%S.%3N".into(),
-        TimeScale::Seconds      => "%H:%M:%S".into(),
-        TimeScale::Minutes      => "%H:%M".into(),
-        TimeScale::Hours        => "%m/%d %H:%M".into(),
-        TimeScale::Days         => "%Y-%m-%d".into(),
-        TimeScale::Months       => "%b %Y".into(),
-        TimeScale::Years        => "%Y".into(),
-    }
 }
 
 // ── Tool builders ─────────────────────────────────────────────────────────────

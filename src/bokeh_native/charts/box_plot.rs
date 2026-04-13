@@ -6,7 +6,7 @@ use crate::charts::charts::box_plot::BoxPlotConfig;
 use crate::charts::ChartSpec;
 use crate::error::ChartError;
 
-use super::super::figure::{build_figure, build_glyph_renderer, FigureOutput, XRangeKind, YRangeKind};
+use super::super::figure::{build_figure, build_glyph_renderer, AxisBuilder, AxisType, FigureOutput, XRangeKind, YRangeKind};
 use super::super::id_gen::IdGen;
 use super::super::model::{BokehObject, BokehValue};
 use super::super::palette::resolve_palette;
@@ -54,11 +54,9 @@ pub fn build_box_plot(
         spec.width,
         XRangeKind::Factor(factors),
         YRangeKind::DataRange,
-        "categorical",
-        "linear",
+        AxisBuilder::x(AxisType::Categorical),
+        AxisBuilder::y(AxisType::Linear).config(cfg.y_axis.as_ref()),
         Some(ht),
-        None,
-        cfg.y_axis.as_ref(),
     );
 
     const CAP_HW: f64 = 0.3;

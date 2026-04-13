@@ -6,7 +6,7 @@ use crate::charts::charts::histogram::{HistogramConfig, HistogramDisplay};
 use crate::charts::ChartSpec;
 use crate::error::ChartError;
 
-use super::super::figure::{build_figure, build_glyph_renderer, FigureOutput, XRangeKind, YRangeKind};
+use super::super::figure::{build_figure, build_glyph_renderer, AxisBuilder, AxisType, FigureOutput, XRangeKind, YRangeKind};
 use super::super::id_gen::IdGen;
 use super::super::model::{BokehObject, BokehValue};
 use super::super::source::{build_column_data_source, get_f64_column};
@@ -45,11 +45,9 @@ pub fn build_histogram(
         spec.width,
         XRangeKind::DataRange,
         YRangeKind::DataRange,
-        "linear",
-        "linear",
+        AxisBuilder::x(AxisType::Linear).config(cfg.x_axis.as_ref()),
+        AxisBuilder::y(AxisType::Linear).config(cfg.y_axis.as_ref()),
         Some(ht),
-        cfg.x_axis.as_ref(),
-        cfg.y_axis.as_ref(),
     );
 
     let cds = build_column_data_source(id_gen, df);
