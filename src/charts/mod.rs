@@ -50,6 +50,7 @@ pub use customization::{
     AxisConfig, AxisConfigBuilder,
     DateStep,
     FilterConfig, FilterSpec,
+    MarkerType,
     PaletteSpec, TimeScale,
     TooltipField, TooltipFormat, TooltipSpec, TooltipSpecBuilder,
 };

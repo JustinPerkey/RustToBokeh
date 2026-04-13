@@ -87,7 +87,7 @@ pub fn page_chart_customization() -> Result<Page, ChartError> {
                 .x_label("Revenue (k)")
                 .y_label("Profit (k)")
                 .color("#e74c3c")
-                .marker("diamond")
+                .marker(MarkerType::Diamond)
                 .marker_size(12.0)
                 .alpha(0.85)
                 .tooltips(

@@ -206,7 +206,7 @@ fn build_py_chart_config<'py>(
                 m.set_item("color", col)?;
             }
             if let Some(mk) = &c.marker {
-                m.set_item("marker", mk)?;
+                m.set_item("marker", mk.as_str())?;
             }
             if let Some(sz) = c.marker_size {
                 m.set_item("marker_size", sz)?;
