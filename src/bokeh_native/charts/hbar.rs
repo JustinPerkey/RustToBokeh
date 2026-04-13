@@ -6,7 +6,7 @@ use crate::charts::charts::HBarConfig;
 use crate::charts::ChartSpec;
 use crate::error::ChartError;
 
-use super::super::figure::{build_figure, build_glyph_renderer, FigureOutput, XRangeKind, YRangeKind};
+use super::super::figure::{build_figure, build_glyph_renderer, AxisBuilder, AxisType, FigureOutput, XRangeKind, YRangeKind};
 use super::super::id_gen::IdGen;
 use super::super::model::{BokehObject, BokehValue};
 use super::super::source::{build_column_data_source, get_str_column};
@@ -42,11 +42,9 @@ pub fn build_hbar(
         spec.width,
         XRangeKind::DataRange,
         YRangeKind::Factor(factor_values),
-        "linear",
-        "categorical",
+        AxisBuilder::x(AxisType::Linear).config(cfg.x_axis.as_ref()),
+        AxisBuilder::y(AxisType::Categorical).config(cfg.y_axis.as_ref()),
         Some(ht),
-        cfg.x_axis.as_ref(),
-        cfg.y_axis.as_ref(),
     );
 
     let color = cfg.color.as_deref().unwrap_or("#4C72B0");

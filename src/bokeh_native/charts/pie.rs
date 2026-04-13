@@ -7,7 +7,7 @@ use crate::charts::charts::pie::PieConfig;
 use crate::charts::ChartSpec;
 use crate::error::ChartError;
 
-use super::super::figure::{build_figure, build_glyph_renderer, FigureOutput, XRangeKind, YRangeKind};
+use super::super::figure::{build_figure, build_glyph_renderer, AxisBuilder, AxisType, FigureOutput, XRangeKind, YRangeKind};
 use super::super::id_gen::IdGen;
 use super::super::model::{BokehObject, BokehValue};
 use super::super::palette::resolve_palette;
@@ -52,11 +52,9 @@ pub fn build_pie(
         spec.width,
         XRangeKind::Numeric { start: -1.1, end: 1.1 },
         YRangeKind::Numeric { start: -1.1, end: 1.1 },
-        "linear",
-        "linear",
+        AxisBuilder::x(AxisType::Linear),
+        AxisBuilder::y(AxisType::Linear),
         Some(ht),
-        None,
-        None,
     );
 
     // Build a shared CDS with all data (one row per slice)

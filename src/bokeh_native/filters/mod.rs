@@ -473,7 +473,7 @@ fn build_range_tool(
     df: &DataFrame,
 ) -> Result<FilterOutput, ChartError> {
     use super::source::build_column_data_source;
-    use super::figure::{build_figure, FigureOutput, XRangeKind, YRangeKind};
+    use super::figure::{build_figure, AxisBuilder, AxisType, FigureOutput, XRangeKind, YRangeKind};
 
     let (start, end, y_col, time_scale) = match &filter.config {
         FilterConfig::RangeTool { start, end, y_column, time_scale } => {
@@ -530,7 +530,7 @@ fn build_range_tool(
 
     // Overview figure
     let is_datetime = time_scale.is_some();
-    let x_axis_type = if is_datetime { "datetime" } else { "linear" };
+    let x_axis_type = if is_datetime { AxisType::Datetime } else { AxisType::Linear };
 
     let cds = build_column_data_source(id_gen, df);
     let _cds_id = cds.id.clone();
@@ -542,10 +542,8 @@ fn build_range_tool(
         None,
         XRangeKind::DataRange,
         YRangeKind::DataRange,
-        x_axis_type,
-        "linear",
-        None,
-        None,
+        AxisBuilder::x(x_axis_type),
+        AxisBuilder::y(AxisType::Linear),
         None,
     );
 

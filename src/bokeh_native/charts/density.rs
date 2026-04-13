@@ -7,7 +7,7 @@ use crate::charts::charts::density::DensityConfig;
 use crate::charts::ChartSpec;
 use crate::error::ChartError;
 
-use super::super::figure::{build_figure, build_glyph_renderer, FigureOutput, XRangeKind, YRangeKind};
+use super::super::figure::{build_figure, build_glyph_renderer, AxisBuilder, AxisType, FigureOutput, XRangeKind, YRangeKind};
 use super::super::id_gen::IdGen;
 use super::super::model::{BokehObject, BokehValue};
 use super::super::palette::resolve_palette;
@@ -64,11 +64,9 @@ pub fn build_density(
         spec.width,
         XRangeKind::Factor(factors),
         YRangeKind::DataRange,
-        "categorical",
-        "linear",
+        AxisBuilder::x(AxisType::Categorical),
+        AxisBuilder::y(AxisType::Linear).config(cfg.y_axis.as_ref()),
         Some(ht),
-        None,
-        cfg.y_axis.as_ref(),
     );
 
     // Compute global y range for KDE grid

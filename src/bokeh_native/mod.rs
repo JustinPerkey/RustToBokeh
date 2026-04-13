@@ -13,6 +13,7 @@
 //! dash.render_native(BokehResources::Inline)?;   // offline (same, CDN fallback for now)
 //! ```
 
+pub mod axis;
 pub mod charts;
 pub mod document;
 pub mod figure;
