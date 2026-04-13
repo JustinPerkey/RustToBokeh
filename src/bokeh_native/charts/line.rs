@@ -175,3 +175,133 @@ pub fn build_line(
     set_axis_labels(&mut figure, "", &cfg.y_label);
     Ok(figure)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::charts::{ChartConfig, ChartSpec, GridCell};
+
+    fn find_attr<'a>(obj: &'a BokehObject, key: &str) -> Option<&'a BokehValue> {
+        obj.attributes.iter().find(|(k, _)| k == key).map(|(_, v)| v)
+    }
+
+    fn test_df() -> DataFrame {
+        df!["month" => ["Jan", "Feb", "Mar"], "rev" => [10.0, 20.0, 30.0], "exp" => [5.0, 10.0, 15.0]].unwrap()
+    }
+
+    fn numeric_df() -> DataFrame {
+        df!["x" => [1.0f64, 2.0, 3.0], "a" => [10.0, 20.0, 30.0], "b" => [5.0, 15.0, 25.0]].unwrap()
+    }
+
+    fn test_spec(title: &str) -> ChartSpec {
+        ChartSpec {
+            title: title.into(),
+            source_key: "test".into(),
+            config: ChartConfig::Line(
+                LineConfig::builder().x("x").y_cols(&["a"]).y_label("Y").build().unwrap(),
+            ),
+            grid: GridCell { row: 0, col: 0, col_span: 1 },
+            filtered: false,
+            width: None,
+            height: None,
+        }
+    }
+
+    #[test]
+    fn line_single_series_has_line_and_scatter_renderers() {
+        let df = numeric_df();
+        let mut id_gen = IdGen::new();
+        let cfg = LineConfig::builder().x("x").y_cols(&["a"]).y_label("Y").build().unwrap();
+        let spec = test_spec("Single");
+        let fig = build_line(&mut id_gen, &spec, &cfg, &df, None, None).unwrap();
+
+        assert_eq!(fig.name, "Figure");
+        if let Some(BokehValue::Array(arr)) = find_attr(&fig, "renderers") {
+            // 1 series = 1 Line renderer + 1 Scatter (circle marker) renderer
+            assert_eq!(arr.len(), 2);
+            let names: Vec<&str> = arr.iter().filter_map(|v| {
+                if let BokehValue::Object(r) = v {
+                    find_attr(r, "glyph").and_then(|g| {
+                        if let BokehValue::Object(go) = g { Some(go.name) } else { None }
+                    })
+                } else { None }
+            }).collect();
+            assert!(names.contains(&"Line"), "should have Line glyph");
+            assert!(names.contains(&"Scatter"), "should have Scatter circle marker");
+        }
+    }
+
+    #[test]
+    fn line_multi_series_has_correct_renderer_count() {
+        let df = numeric_df();
+        let mut id_gen = IdGen::new();
+        let cfg = LineConfig::builder().x("x").y_cols(&["a", "b"]).y_label("Y").build().unwrap();
+        let spec = test_spec("Multi");
+        let fig = build_line(&mut id_gen, &spec, &cfg, &df, None, None).unwrap();
+
+        if let Some(BokehValue::Array(arr)) = find_attr(&fig, "renderers") {
+            // 2 series × 2 renderers = 4
+            assert_eq!(arr.len(), 4);
+        }
+    }
+
+    #[test]
+    fn line_has_legend() {
+        let df = numeric_df();
+        let mut id_gen = IdGen::new();
+        let cfg = LineConfig::builder().x("x").y_cols(&["a", "b"]).y_label("Y").build().unwrap();
+        let spec = test_spec("Legend");
+        let fig = build_line(&mut id_gen, &spec, &cfg, &df, None, None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("Legend"));
+        assert!(json.contains("LegendItem"));
+        assert!(json.contains("hide"), "click_policy should be hide");
+    }
+
+    #[test]
+    fn line_categorical_x_uses_factor_range() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = LineConfig::builder().x("month").y_cols(&["rev"]).y_label("Y").build().unwrap();
+        let spec = test_spec("Categorical");
+        let fig = build_line(&mut id_gen, &spec, &cfg, &df, None, None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("FactorRange"));
+        assert!(json.contains("Jan"));
+    }
+
+    #[test]
+    fn line_with_filter_ref() {
+        let df = numeric_df();
+        let mut id_gen = IdGen::new();
+        let cfg = LineConfig::builder().x("x").y_cols(&["a"]).y_label("Y").build().unwrap();
+        let spec = test_spec("Filtered");
+        let filter = BokehObject::new("BooleanFilter", "bf1".into())
+            .attr("booleans", BokehValue::Array(vec![BokehValue::Bool(true); 3]));
+        let fig = build_line(&mut id_gen, &spec, &cfg, &df, Some(filter.into_value()), None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("BooleanFilter"));
+    }
+
+    #[test]
+    fn line_with_range_tool_x_range() {
+        let df = numeric_df();
+        let mut id_gen = IdGen::new();
+        let cfg = LineConfig::builder().x("x").y_cols(&["a"]).y_label("Y").build().unwrap();
+        let spec = test_spec("RT");
+        let fig = build_line(&mut id_gen, &spec, &cfg, &df, None, Some("shared_range")).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("shared_range"));
+    }
+
+    #[test]
+    fn line_cds_embeds_data() {
+        let df = numeric_df();
+        let mut id_gen = IdGen::new();
+        let cfg = LineConfig::builder().x("x").y_cols(&["a"]).y_label("Y").build().unwrap();
+        let spec = test_spec("CDS");
+        let fig = build_line(&mut id_gen, &spec, &cfg, &df, None, None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("ColumnDataSource"));
+    }
+}

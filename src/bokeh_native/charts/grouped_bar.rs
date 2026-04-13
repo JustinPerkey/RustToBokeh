@@ -166,3 +166,116 @@ pub fn build_grouped_bar(
     set_axis_labels(&mut figure, "", &cfg.y_label);
     Ok(figure)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use polars::prelude::*;
+    use crate::charts::{ChartConfig, ChartSpec, GridCell};
+
+    fn find_attr<'a>(obj: &'a BokehObject, key: &str) -> Option<&'a BokehValue> {
+        obj.attributes.iter().find(|(k, _)| k == key).map(|(_, v)| v)
+    }
+
+    fn test_df() -> DataFrame {
+        df![
+            "quarter" => ["Q1", "Q1", "Q2", "Q2"],
+            "product" => ["A", "B", "A", "B"],
+            "revenue" => [100.0, 80.0, 120.0, 90.0],
+        ].unwrap()
+    }
+
+    fn test_spec(title: &str) -> ChartSpec {
+        ChartSpec {
+            title: title.into(),
+            source_key: "test".into(),
+            config: ChartConfig::GroupedBar(
+                GroupedBarConfig::builder()
+                    .x("quarter").group("product").value("revenue").y_label("Revenue")
+                    .build().unwrap(),
+            ),
+            grid: GridCell { row: 0, col: 0, col_span: 1 },
+            filtered: false,
+            width: None,
+            height: None,
+        }
+    }
+
+    #[test]
+    fn grouped_bar_produces_figure_with_vbar_glyph() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = GroupedBarConfig::builder()
+            .x("quarter").group("product").value("revenue").y_label("Rev")
+            .build().unwrap();
+        let spec = test_spec("Grouped");
+        let fig = build_grouped_bar(&mut id_gen, &spec, &cfg, &df, None).unwrap();
+
+        assert_eq!(fig.name, "Figure");
+        if let Some(BokehValue::Array(arr)) = find_attr(&fig, "renderers") {
+            assert_eq!(arr.len(), 1);
+            if let BokehValue::Object(r) = &arr[0] {
+                if let Some(BokehValue::Object(g)) = find_attr(r, "glyph") {
+                    assert_eq!(g.name, "VBar");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn grouped_bar_uses_factor_range_with_tuples() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = GroupedBarConfig::builder()
+            .x("quarter").group("product").value("revenue").y_label("Rev")
+            .build().unwrap();
+        let spec = test_spec("Factors");
+        let fig = build_grouped_bar(&mut id_gen, &spec, &cfg, &df, None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("FactorRange"));
+        assert!(json.contains("Q1"));
+        assert!(json.contains("Q2"));
+    }
+
+    #[test]
+    fn grouped_bar_has_legend() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = GroupedBarConfig::builder()
+            .x("quarter").group("product").value("revenue").y_label("Rev")
+            .build().unwrap();
+        let spec = test_spec("Legend");
+        let fig = build_grouped_bar(&mut id_gen, &spec, &cfg, &df, None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("Legend"));
+        assert!(json.contains("LegendItem"));
+    }
+
+    #[test]
+    fn grouped_bar_cds_has_fill_color_column() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = GroupedBarConfig::builder()
+            .x("quarter").group("product").value("revenue").y_label("Rev")
+            .build().unwrap();
+        let spec = test_spec("FillColor");
+        let fig = build_grouped_bar(&mut id_gen, &spec, &cfg, &df, None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("_fill_color"));
+    }
+
+    #[test]
+    fn grouped_bar_with_filter_ref() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = GroupedBarConfig::builder()
+            .x("quarter").group("product").value("revenue").y_label("Rev")
+            .build().unwrap();
+        let spec = test_spec("Filtered");
+        let filter = BokehObject::new("BooleanFilter", "bf1".into())
+            .attr("booleans", BokehValue::Array(vec![BokehValue::Bool(true); 4]));
+        let fig = build_grouped_bar(&mut id_gen, &spec, &cfg, &df, Some(filter.into_value())).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("BooleanFilter"));
+    }
+}

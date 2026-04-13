@@ -243,6 +243,133 @@ pub fn build_box_plot(
     Ok(figure)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use polars::prelude::*;
+    use crate::charts::{ChartConfig, ChartSpec, GridCell};
+    use crate::charts::charts::box_plot::BoxPlotConfig;
+
+    fn stats_df() -> DataFrame {
+        df![
+            "category" => ["Eng", "Sales"],
+            "q1"       => [60.0, 50.0],
+            "q2"       => [75.0, 65.0],
+            "q3"       => [90.0, 80.0],
+            "lower"    => [45.0, 35.0],
+            "upper"    => [110.0, 100.0],
+        ].unwrap()
+    }
+
+    fn outlier_df() -> DataFrame {
+        df![
+            "category" => ["Eng", "Sales"],
+            "value"    => [130.0, 20.0],
+        ].unwrap()
+    }
+
+    fn test_spec(title: &str) -> ChartSpec {
+        ChartSpec {
+            title: title.into(),
+            source_key: "test".into(),
+            config: ChartConfig::BoxPlot(
+                BoxPlotConfig::builder()
+                    .category("category").q1("q1").q2("q2").q3("q3")
+                    .lower("lower").upper("upper").y_label("Value")
+                    .build().unwrap(),
+            ),
+            grid: GridCell { row: 0, col: 0, col_span: 1 },
+            filtered: false,
+            width: None,
+            height: None,
+        }
+    }
+
+    #[test]
+    fn box_plot_produces_figure_with_multiple_renderers() {
+        let df = stats_df();
+        let mut id_gen = IdGen::new();
+        let cfg = BoxPlotConfig::builder()
+            .category("category").q1("q1").q2("q2").q3("q3")
+            .lower("lower").upper("upper").y_label("Val")
+            .build().unwrap();
+        let spec = test_spec("Box");
+        let fig = build_box_plot(&mut id_gen, &spec, &cfg, &df, None, None).unwrap();
+
+        assert_eq!(fig.name, "Figure");
+        if let Some(BokehValue::Array(arr)) = find_attr_test(&fig, "renderers") {
+            // upper whisker + lower whisker + upper cap + lower cap + box + median = 6
+            assert_eq!(arr.len(), 6);
+        }
+    }
+
+    #[test]
+    fn box_plot_has_vbar_glyph_for_box() {
+        let df = stats_df();
+        let mut id_gen = IdGen::new();
+        let cfg = BoxPlotConfig::builder()
+            .category("category").q1("q1").q2("q2").q3("q3")
+            .lower("lower").upper("upper").y_label("Val")
+            .build().unwrap();
+        let spec = test_spec("VBar");
+        let fig = build_box_plot(&mut id_gen, &spec, &cfg, &df, None, None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("VBar"));
+        assert!(json.contains("Segment"));
+    }
+
+    #[test]
+    fn box_plot_uses_factor_range() {
+        let df = stats_df();
+        let mut id_gen = IdGen::new();
+        let cfg = BoxPlotConfig::builder()
+            .category("category").q1("q1").q2("q2").q3("q3")
+            .lower("lower").upper("upper").y_label("Val")
+            .build().unwrap();
+        let spec = test_spec("Factors");
+        let fig = build_box_plot(&mut id_gen, &spec, &cfg, &df, None, None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("FactorRange"));
+    }
+
+    #[test]
+    fn box_plot_with_outliers_adds_scatter_renderer() {
+        let df = stats_df();
+        let out_df = outlier_df();
+        let mut id_gen = IdGen::new();
+        let cfg = BoxPlotConfig::builder()
+            .category("category").q1("q1").q2("q2").q3("q3")
+            .lower("lower").upper("upper").y_label("Val")
+            .build().unwrap();
+        let spec = test_spec("Outliers");
+        let fig = build_box_plot(&mut id_gen, &spec, &cfg, &df, Some(&out_df), None).unwrap();
+
+        if let Some(BokehValue::Array(arr)) = find_attr_test(&fig, "renderers") {
+            // 6 base + 1 outlier scatter = 7
+            assert_eq!(arr.len(), 7);
+        }
+        let json = serde_json::to_string(&fig).unwrap();
+        // Outlier renderer uses Scatter glyph
+        assert!(json.contains("\"Scatter\"") || json.contains("\"name\":\"Scatter\""));
+    }
+
+    #[test]
+    fn box_plot_with_filter_ref() {
+        let df = stats_df();
+        let mut id_gen = IdGen::new();
+        let cfg = BoxPlotConfig::builder()
+            .category("category").q1("q1").q2("q2").q3("q3")
+            .lower("lower").upper("upper").y_label("Val")
+            .build().unwrap();
+        let spec = test_spec("Filtered");
+        let filter = BokehObject::new("BooleanFilter", "bf1".into())
+            .attr("booleans", BokehValue::Array(vec![BokehValue::Bool(true); 2]));
+        let fig = build_box_plot(&mut id_gen, &spec, &cfg, &df, None, Some(filter.into_value())).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("BooleanFilter"));
+    }
+}
+
 fn build_whisker_cds(
     id_gen: &mut IdGen,
     categories: &[String],
@@ -292,6 +419,11 @@ fn build_segment_glyph(id_gen: &mut IdGen, x0: &str, y0: &str, x1: &str, y1: &st
         .attr("y1", BokehValue::field(y1))
         .attr("line_color", BokehValue::value_of(BokehValue::Str(color.to_string())))
         .attr("line_width", BokehValue::value_of(BokehValue::Float(1.5)))
+}
+
+#[cfg(test)]
+fn find_attr_test<'a>(obj: &'a BokehObject, key: &str) -> Option<&'a BokehValue> {
+    obj.attributes.iter().find(|(k, _)| k == key).map(|(_, v)| v)
 }
 
 fn build_segment_glyph_nonsel(id_gen: &mut IdGen, x0: &str, y0: &str, x1: &str, y1: &str) -> BokehObject {

@@ -320,6 +320,11 @@ fn build_box_annotation_editable(id_gen: &mut IdGen) -> BokehObject {
     build_box_annotation_inner(id_gen, true)
 }
 
+#[cfg(test)]
+fn find_attr_test<'a>(obj: &'a BokehObject, key: &str) -> Option<&'a BokehValue> {
+    obj.attributes.iter().find(|(k, _)| k == key).map(|(_, v)| v)
+}
+
 fn build_box_annotation_inner(id_gen: &mut IdGen, editable: bool) -> BokehObject {
     let handles_id = id_gen.next();
     let visuals_id = id_gen.next();
@@ -390,4 +395,307 @@ pub fn build_glyph_renderer(
         .attr("view", view.into_value())
         .attr("glyph", glyph.into_value())
         .attr("nonselection_glyph", nonsel.into_value())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── build_figure ────────────────────────────────────────────────────────
+
+    #[test]
+    fn figure_with_factor_range() {
+        let mut id_gen = IdGen::new();
+        let factors = vec![BokehValue::Str("A".into()), BokehValue::Str("B".into())];
+        let out = build_figure(
+            &mut id_gen, "Test", 400, None,
+            XRangeKind::Factor(factors),
+            YRangeKind::DataRange,
+            AxisBuilder::x(AxisType::Categorical),
+            AxisBuilder::y(AxisType::Linear),
+            None,
+        );
+        assert_eq!(out.figure.name, "Figure");
+        let json = serde_json::to_string(&out.figure).unwrap();
+        assert!(json.contains("FactorRange"));
+        assert!(json.contains("CategoricalScale"));
+        assert!(json.contains("CategoricalAxis"));
+    }
+
+    #[test]
+    fn figure_with_numeric_range() {
+        let mut id_gen = IdGen::new();
+        let out = build_figure(
+            &mut id_gen, "Num", 400, None,
+            XRangeKind::Numeric { start: 0.0, end: 100.0 },
+            YRangeKind::DataRange,
+            AxisBuilder::x(AxisType::Linear),
+            AxisBuilder::y(AxisType::Linear),
+            None,
+        );
+        let json = serde_json::to_string(&out.figure).unwrap();
+        assert!(json.contains("Range1d"));
+        assert!(json.contains("LinearScale"));
+    }
+
+    #[test]
+    fn figure_with_data_range() {
+        let mut id_gen = IdGen::new();
+        let out = build_figure(
+            &mut id_gen, "Auto", 400, None,
+            XRangeKind::DataRange,
+            YRangeKind::DataRange,
+            AxisBuilder::x(AxisType::Linear),
+            AxisBuilder::y(AxisType::Linear),
+            None,
+        );
+        let json = serde_json::to_string(&out.figure).unwrap();
+        assert!(json.contains("DataRange1d"));
+    }
+
+    #[test]
+    fn figure_with_datetime_range() {
+        let mut id_gen = IdGen::new();
+        let out = build_figure(
+            &mut id_gen, "DT", 400, None,
+            XRangeKind::Datetime { start: 1000.0, end: 9000.0 },
+            YRangeKind::DataRange,
+            AxisBuilder::x(AxisType::Datetime),
+            AxisBuilder::y(AxisType::Linear),
+            None,
+        );
+        let json = serde_json::to_string(&out.figure).unwrap();
+        assert!(json.contains("DatetimeAxis"));
+        assert!(json.contains("1000.0") || json.contains("1000"));
+    }
+
+    #[test]
+    fn figure_with_existing_x_range_id() {
+        let mut id_gen = IdGen::new();
+        let out = build_figure(
+            &mut id_gen, "Existing", 400, None,
+            XRangeKind::ExistingId("shared_r1".into()),
+            YRangeKind::DataRange,
+            AxisBuilder::x(AxisType::Linear),
+            AxisBuilder::y(AxisType::Linear),
+            None,
+        );
+        assert_eq!(out.x_range_id, "shared_r1");
+    }
+
+    #[test]
+    fn figure_with_fixed_width() {
+        let mut id_gen = IdGen::new();
+        let out = build_figure(
+            &mut id_gen, "Fixed", 400, Some(800),
+            XRangeKind::DataRange,
+            YRangeKind::DataRange,
+            AxisBuilder::x(AxisType::Linear),
+            AxisBuilder::y(AxisType::Linear),
+            None,
+        );
+        let json = serde_json::to_string(&out.figure).unwrap();
+        assert!(json.contains("\"fixed\""));
+        assert!(json.contains("800"));
+    }
+
+    #[test]
+    fn figure_stretch_width_when_no_width() {
+        let mut id_gen = IdGen::new();
+        let out = build_figure(
+            &mut id_gen, "Stretch", 400, None,
+            XRangeKind::DataRange,
+            YRangeKind::DataRange,
+            AxisBuilder::x(AxisType::Linear),
+            AxisBuilder::y(AxisType::Linear),
+            None,
+        );
+        let json = serde_json::to_string(&out.figure).unwrap();
+        assert!(json.contains("stretch_width"));
+    }
+
+    #[test]
+    fn figure_has_standard_tools() {
+        let mut id_gen = IdGen::new();
+        let out = build_figure(
+            &mut id_gen, "Tools", 400, None,
+            XRangeKind::DataRange,
+            YRangeKind::DataRange,
+            AxisBuilder::x(AxisType::Linear),
+            AxisBuilder::y(AxisType::Linear),
+            None,
+        );
+        let json = serde_json::to_string(&out.figure).unwrap();
+        assert!(json.contains("PanTool"));
+        assert!(json.contains("WheelZoomTool"));
+        assert!(json.contains("BoxZoomTool"));
+        assert!(json.contains("ResetTool"));
+        assert!(json.contains("SaveTool"));
+        assert!(json.contains("BoxSelectTool"));
+        assert!(json.contains("TapTool"));
+    }
+
+    #[test]
+    fn figure_with_hover_tool() {
+        let mut id_gen = IdGen::new();
+        let ht = build_hover_tool(&mut id_gen, &[("X", "@{x}")], &[]);
+        let out = build_figure(
+            &mut id_gen, "Hover", 400, None,
+            XRangeKind::DataRange,
+            YRangeKind::DataRange,
+            AxisBuilder::x(AxisType::Linear),
+            AxisBuilder::y(AxisType::Linear),
+            Some(ht),
+        );
+        let json = serde_json::to_string(&out.figure).unwrap();
+        assert!(json.contains("HoverTool"));
+    }
+
+    #[test]
+    fn figure_has_title() {
+        let mut id_gen = IdGen::new();
+        let out = build_figure(
+            &mut id_gen, "My Title", 400, None,
+            XRangeKind::DataRange,
+            YRangeKind::DataRange,
+            AxisBuilder::x(AxisType::Linear),
+            AxisBuilder::y(AxisType::Linear),
+            None,
+        );
+        let json = serde_json::to_string(&out.figure).unwrap();
+        assert!(json.contains("My Title"));
+    }
+
+    #[test]
+    fn figure_has_grids() {
+        let mut id_gen = IdGen::new();
+        let out = build_figure(
+            &mut id_gen, "Grid", 400, None,
+            XRangeKind::DataRange,
+            YRangeKind::DataRange,
+            AxisBuilder::x(AxisType::Linear),
+            AxisBuilder::y(AxisType::Linear),
+            None,
+        );
+        let json = serde_json::to_string(&out.figure).unwrap();
+        assert!(json.contains("Grid"));
+    }
+
+    #[test]
+    fn figure_returns_unique_ids() {
+        let mut id_gen = IdGen::new();
+        let out = build_figure(
+            &mut id_gen, "IDs", 400, None,
+            XRangeKind::DataRange,
+            YRangeKind::DataRange,
+            AxisBuilder::x(AxisType::Linear),
+            AxisBuilder::y(AxisType::Linear),
+            None,
+        );
+        // All IDs should be distinct
+        let ids = vec![
+            &out.x_range_id, &out.y_range_id,
+            &out.x_axis_id, &out.y_axis_id,
+            &out.x_grid_id, &out.y_grid_id,
+        ];
+        let mut unique = std::collections::HashSet::new();
+        for id in &ids {
+            assert!(unique.insert(id.as_str()), "duplicate ID: {}", id);
+        }
+    }
+
+    // ── build_glyph_renderer ────────────────────────────────────────────────
+
+    #[test]
+    fn glyph_renderer_without_filter_uses_all_indices() {
+        let mut id_gen = IdGen::new();
+        let glyph = BokehObject::new("Scatter", id_gen.next());
+        let source_ref = BokehValue::Ref("cds1".into());
+        let renderer = build_glyph_renderer(&mut id_gen, source_ref, glyph, None, None);
+        assert_eq!(renderer.name, "GlyphRenderer");
+        let json = serde_json::to_string(&renderer).unwrap();
+        assert!(json.contains("AllIndices"));
+        assert!(json.contains("CDSView"));
+    }
+
+    #[test]
+    fn glyph_renderer_with_filter_embeds_filter() {
+        let mut id_gen = IdGen::new();
+        let glyph = BokehObject::new("Scatter", id_gen.next());
+        let source_ref = BokehValue::Ref("cds1".into());
+        let filter = BokehObject::new("BooleanFilter", "bf1".into()).into_value();
+        let renderer = build_glyph_renderer(&mut id_gen, source_ref, glyph, None, Some(filter));
+        let json = serde_json::to_string(&renderer).unwrap();
+        assert!(json.contains("BooleanFilter"));
+    }
+
+    #[test]
+    fn glyph_renderer_has_nonselection_glyph() {
+        let mut id_gen = IdGen::new();
+        let glyph = BokehObject::new("Scatter", id_gen.next());
+        let nonsel = BokehObject::new("Scatter", id_gen.next())
+            .attr("fill_alpha", BokehValue::Float(0.1));
+        let source_ref = BokehValue::Ref("cds1".into());
+        let renderer = build_glyph_renderer(&mut id_gen, source_ref, glyph, Some(nonsel), None);
+        if let Some(BokehValue::Object(ns)) = find_attr_test(&renderer, "nonselection_glyph") {
+            assert_eq!(ns.name, "Scatter");
+        }
+    }
+
+    // ── build_hover_tool ────────────────────────────────────────────────────
+
+    #[test]
+    fn hover_tool_with_formatters() {
+        let mut id_gen = IdGen::new();
+        let ht = build_hover_tool(
+            &mut id_gen,
+            &[("Time", "@{ts}{%Y-%m-%d}")],
+            &[("@{ts}", "datetime")],
+        );
+        assert_eq!(ht.name, "HoverTool");
+        let json = serde_json::to_string(&ht).unwrap();
+        assert!(json.contains("datetime"));
+        assert!(json.contains("formatters"));
+    }
+
+    #[test]
+    fn hover_tool_without_formatters() {
+        let mut id_gen = IdGen::new();
+        let ht = build_hover_tool(&mut id_gen, &[("X", "@{x}")], &[]);
+        let json = serde_json::to_string(&ht).unwrap();
+        assert!(!json.contains("formatters"), "no formatters should be emitted");
+    }
+
+    // ── Y FactorRange ───────────────────────────────────────────────────────
+
+    #[test]
+    fn figure_with_y_factor_range() {
+        let mut id_gen = IdGen::new();
+        let factors = vec![BokehValue::Str("X".into()), BokehValue::Str("Y".into())];
+        let out = build_figure(
+            &mut id_gen, "YFactor", 400, None,
+            XRangeKind::DataRange,
+            YRangeKind::Factor(factors),
+            AxisBuilder::x(AxisType::Linear),
+            AxisBuilder::y(AxisType::Categorical),
+            None,
+        );
+        let json = serde_json::to_string(&out.figure).unwrap();
+        assert!(json.contains("FactorRange"));
+    }
+
+    #[test]
+    fn figure_with_y_numeric_range() {
+        let mut id_gen = IdGen::new();
+        let out = build_figure(
+            &mut id_gen, "YNum", 400, None,
+            XRangeKind::DataRange,
+            YRangeKind::Numeric { start: 0.0, end: 100.0 },
+            AxisBuilder::x(AxisType::Linear),
+            AxisBuilder::y(AxisType::Linear),
+            None,
+        );
+        let json = serde_json::to_string(&out.figure).unwrap();
+        assert!(json.contains("100.0") || json.contains("100"));
+    }
 }

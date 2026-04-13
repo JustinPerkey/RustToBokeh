@@ -329,7 +329,6 @@ pub fn compute_box_outliers(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use polars::prelude::*;
 
     // ── compute_histogram ─────────────────────────────────────────────────────
 

@@ -139,3 +139,119 @@ pub fn build_histogram(
     set_axis_labels(&mut figure, &cfg.x_label, y_label);
     Ok(figure)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use polars::prelude::*;
+    use crate::charts::{ChartConfig, ChartSpec, GridCell};
+    use crate::bokeh_native::model::BokehValue;
+
+    fn find_attr<'a>(obj: &'a super::super::super::model::BokehObject, key: &str) -> Option<&'a BokehValue> {
+        obj.attributes.iter().find(|(k, _)| k == key).map(|(_, v)| v)
+    }
+
+    fn hist_df() -> DataFrame {
+        df![
+            "left"  => [0.0, 10.0, 20.0, 30.0],
+            "right" => [10.0, 20.0, 30.0, 40.0],
+            "count" => [5.0, 10.0, 8.0, 3.0],
+            "pdf"   => [0.05, 0.10, 0.08, 0.03],
+            "cdf"   => [0.19, 0.58, 0.88, 1.0],
+        ].unwrap()
+    }
+
+    fn test_spec(title: &str) -> ChartSpec {
+        ChartSpec {
+            title: title.into(),
+            source_key: "test".into(),
+            config: ChartConfig::Histogram(
+                HistogramConfig::builder().x_label("X").build().unwrap(),
+            ),
+            grid: GridCell { row: 0, col: 0, col_span: 1 },
+            filtered: false,
+            width: None,
+            height: None,
+        }
+    }
+
+    #[test]
+    fn histogram_count_mode_uses_quad_glyph() {
+        let df = hist_df();
+        let mut id_gen = IdGen::new();
+        let cfg = HistogramConfig::builder().x_label("X").build().unwrap();
+        let spec = test_spec("Count");
+        let fig = build_histogram(&mut id_gen, &spec, &cfg, &df, None).unwrap();
+
+        assert_eq!(fig.name, "Figure");
+        if let Some(BokehValue::Array(arr)) = find_attr(&fig, "renderers") {
+            assert_eq!(arr.len(), 1);
+            if let BokehValue::Object(r) = &arr[0] {
+                if let Some(BokehValue::Object(g)) = find_attr(r, "glyph") {
+                    assert_eq!(g.name, "Quad");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn histogram_pdf_mode_uses_quad_glyph() {
+        let df = hist_df();
+        let mut id_gen = IdGen::new();
+        let cfg = HistogramConfig::builder()
+            .x_label("X")
+            .display(HistogramDisplay::Pdf)
+            .build().unwrap();
+        let spec = test_spec("PDF");
+        let fig = build_histogram(&mut id_gen, &spec, &cfg, &df, None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("Quad"));
+    }
+
+    #[test]
+    fn histogram_cdf_mode_uses_line_glyph() {
+        let df = hist_df();
+        let mut id_gen = IdGen::new();
+        let cfg = HistogramConfig::builder()
+            .x_label("X")
+            .display(HistogramDisplay::Cdf)
+            .build().unwrap();
+        let spec = test_spec("CDF");
+        let fig = build_histogram(&mut id_gen, &spec, &cfg, &df, None).unwrap();
+
+        if let Some(BokehValue::Array(arr)) = find_attr(&fig, "renderers") {
+            assert_eq!(arr.len(), 1);
+            if let BokehValue::Object(r) = &arr[0] {
+                if let Some(BokehValue::Object(g)) = find_attr(r, "glyph") {
+                    assert_eq!(g.name, "Line");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn histogram_with_filter_ref() {
+        let df = hist_df();
+        let mut id_gen = IdGen::new();
+        let cfg = HistogramConfig::builder().x_label("X").build().unwrap();
+        let spec = test_spec("Filtered");
+        let filter = BokehObject::new("BooleanFilter", "bf1".into())
+            .attr("booleans", BokehValue::Array(vec![BokehValue::Bool(true); 4]));
+        let fig = build_histogram(&mut id_gen, &spec, &cfg, &df, Some(filter.into_value())).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("BooleanFilter"));
+    }
+
+    #[test]
+    fn histogram_custom_color() {
+        let df = hist_df();
+        let mut id_gen = IdGen::new();
+        let cfg = HistogramConfig::builder()
+            .x_label("X").color("#2ecc71")
+            .build().unwrap();
+        let spec = test_spec("Color");
+        let fig = build_histogram(&mut id_gen, &spec, &cfg, &df, None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("#2ecc71"));
+    }
+}

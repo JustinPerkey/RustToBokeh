@@ -158,6 +158,130 @@ pub fn build_pie(
     Ok(figure)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use polars::prelude::*;
+    use crate::charts::{ChartConfig, ChartSpec, GridCell};
+
+    fn test_df() -> DataFrame {
+        df![
+            "category" => ["A", "B", "C"],
+            "amount"   => [30.0, 50.0, 20.0],
+        ].unwrap()
+    }
+
+    fn test_spec(title: &str) -> ChartSpec {
+        ChartSpec {
+            title: title.into(),
+            source_key: "test".into(),
+            config: ChartConfig::Pie(
+                PieConfig::builder().label("category").value("amount").build().unwrap(),
+            ),
+            grid: GridCell { row: 0, col: 0, col_span: 1 },
+            filtered: false,
+            width: None,
+            height: None,
+        }
+    }
+
+    #[test]
+    fn pie_produces_figure_with_annular_wedge_glyphs() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = PieConfig::builder().label("category").value("amount").build().unwrap();
+        let spec = test_spec("Pie");
+        let fig = build_pie(&mut id_gen, &spec, &cfg, &df).unwrap();
+
+        assert_eq!(fig.name, "Figure");
+        if let Some(BokehValue::Array(arr)) = find_attr_test(&fig, "renderers") {
+            // 3 slices = 3 renderers
+            assert_eq!(arr.len(), 3);
+            for item in arr {
+                if let BokehValue::Object(r) = item {
+                    if let Some(BokehValue::Object(g)) = find_attr_test(r, "glyph") {
+                        assert_eq!(g.name, "AnnularWedge");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn pie_has_legend_by_default() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = PieConfig::builder().label("category").value("amount").build().unwrap();
+        let spec = test_spec("Legend");
+        let fig = build_pie(&mut id_gen, &spec, &cfg, &df).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("Legend"));
+        assert!(json.contains("LegendItem"));
+    }
+
+    #[test]
+    fn pie_no_legend_when_disabled() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = PieConfig::builder()
+            .label("category").value("amount")
+            .show_legend(false)
+            .build().unwrap();
+        let spec = test_spec("NoLegend");
+        let fig = build_pie(&mut id_gen, &spec, &cfg, &df).unwrap();
+        // center should not contain a Legend
+        if let Some(BokehValue::Array(center)) = find_attr_test(&fig, "center") {
+            let has_legend = center.iter().any(|v| {
+                if let BokehValue::Object(o) = v { o.name == "Legend" } else { false }
+            });
+            assert!(!has_legend, "legend should not be present");
+        }
+    }
+
+    #[test]
+    fn pie_uses_numeric_range_for_axes() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = PieConfig::builder().label("category").value("amount").build().unwrap();
+        let spec = test_spec("Range");
+        let fig = build_pie(&mut id_gen, &spec, &cfg, &df).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("Range1d"));
+        // Axes hidden
+        assert!(json.contains("\"visible\":false"));
+    }
+
+    #[test]
+    fn pie_donut_has_inner_radius() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = PieConfig::builder()
+            .label("category").value("amount")
+            .inner_radius(0.45)
+            .build().unwrap();
+        let spec = test_spec("Donut");
+        let fig = build_pie(&mut id_gen, &spec, &cfg, &df).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("0.45"));
+    }
+
+    #[test]
+    fn pie_each_slice_has_index_filter() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = PieConfig::builder().label("category").value("amount").build().unwrap();
+        let spec = test_spec("IndexFilter");
+        let fig = build_pie(&mut id_gen, &spec, &cfg, &df).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("IndexFilter"));
+    }
+}
+
+#[cfg(test)]
+fn find_attr_test<'a>(obj: &'a BokehObject, key: &str) -> Option<&'a BokehValue> {
+    obj.attributes.iter().find(|(k, _)| k == key).map(|(_, v)| v)
+}
+
 fn hide_axes(fig: &mut BokehObject) {
     for (key, val) in &mut fig.attributes {
         if key == "below" || key == "left" {

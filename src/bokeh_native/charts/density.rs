@@ -332,8 +332,104 @@ impl LcgRng {
 }
 
 #[cfg(test)]
+fn find_attr_test<'a>(obj: &'a BokehObject, key: &str) -> Option<&'a BokehValue> {
+    obj.attributes.iter().find(|(k, _)| k == key).map(|(_, v)| v)
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
+    use polars::prelude::*;
+    use crate::charts::{ChartConfig, ChartSpec, GridCell};
+    use crate::charts::charts::density::DensityConfig;
+
+    fn test_spec(title: &str) -> ChartSpec {
+        ChartSpec {
+            title: title.into(),
+            source_key: "test".into(),
+            config: ChartConfig::Density(
+                DensityConfig::builder().category("cat").value("val").y_label("Y").build().unwrap(),
+            ),
+            grid: GridCell { row: 0, col: 0, col_span: 1 },
+            filtered: false,
+            width: None,
+            height: None,
+        }
+    }
+
+    #[test]
+    fn density_sina_for_few_points() {
+        // 3 points per category < default threshold of 50 → sina (Scatter)
+        let df = df![
+            "cat" => ["A", "A", "A", "B", "B", "B"],
+            "val" => [10.0, 20.0, 30.0, 15.0, 25.0, 35.0],
+        ].unwrap();
+        let mut id_gen = IdGen::new();
+        let cfg = DensityConfig::builder().category("cat").value("val").y_label("Y").build().unwrap();
+        let spec = test_spec("Sina");
+        let fig = build_density(&mut id_gen, &spec, &cfg, &df, None).unwrap();
+
+        assert_eq!(fig.name, "Figure");
+        let json = serde_json::to_string(&fig).unwrap();
+        // Sina uses Scatter glyphs, not Patch
+        assert!(json.contains("Scatter"));
+        assert!(!json.contains("Patch"));
+    }
+
+    #[test]
+    fn density_violin_for_many_points() {
+        // > threshold → violin (Patch glyph + median Line)
+        let cats: Vec<&str> = (0..100).map(|_| "X").collect();
+        let vals: Vec<f64> = (0..100).map(|i| i as f64).collect();
+        let df = df!["cat" => cats, "val" => vals].unwrap();
+        let mut id_gen = IdGen::new();
+        let cfg = DensityConfig::builder()
+            .category("cat").value("val").y_label("Y")
+            .point_threshold(50)
+            .build().unwrap();
+        let spec = test_spec("Violin");
+        let fig = build_density(&mut id_gen, &spec, &cfg, &df, None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("Patch"), "violin should use Patch glyph");
+        // Median line
+        assert!(json.contains("\"Line\"") || json.contains("\"name\":\"Line\""));
+    }
+
+    #[test]
+    fn density_uses_factor_range() {
+        let df = df!["cat" => ["A", "B"], "val" => [10.0, 20.0]].unwrap();
+        let mut id_gen = IdGen::new();
+        let cfg = DensityConfig::builder().category("cat").value("val").y_label("Y").build().unwrap();
+        let spec = test_spec("Factors");
+        let fig = build_density(&mut id_gen, &spec, &cfg, &df, None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("FactorRange"));
+    }
+
+    #[test]
+    fn density_with_filter_ref() {
+        let df = df!["cat" => ["A", "B"], "val" => [10.0, 20.0]].unwrap();
+        let mut id_gen = IdGen::new();
+        let cfg = DensityConfig::builder().category("cat").value("val").y_label("Y").build().unwrap();
+        let spec = test_spec("Filtered");
+        let filter = BokehObject::new("BooleanFilter", "bf1".into())
+            .attr("booleans", BokehValue::Array(vec![BokehValue::Bool(true); 2]));
+        let fig = build_density(&mut id_gen, &spec, &cfg, &df, Some(filter.into_value())).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("BooleanFilter"));
+    }
+
+    #[test]
+    fn density_empty_data_returns_figure() {
+        let df = df!["cat" => Vec::<&str>::new(), "val" => Vec::<f64>::new()].unwrap();
+        let mut id_gen = IdGen::new();
+        let cfg = DensityConfig::builder().category("cat").value("val").y_label("Y").build().unwrap();
+        let spec = test_spec("Empty");
+        let fig = build_density(&mut id_gen, &spec, &cfg, &df, None).unwrap();
+        assert_eq!(fig.name, "Figure");
+    }
+
+    // ── Pure-Rust KDE helpers ────────────────────────────────────────────────
 
     #[test]
     fn gaussian_kde_sums_to_approx_one() {

@@ -142,7 +142,6 @@ pub fn get_str_column(df: &DataFrame, col: &str) -> Result<Vec<String>, String> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use polars::prelude::*;
 
     #[test]
     fn cds_has_data_map() {
@@ -178,5 +177,111 @@ mod tests {
                 assert!(matches!(&vals[0], BokehValue::Str(s) if s == "Alice"));
             }
         }
+    }
+
+    #[test]
+    fn int_column_serializes_as_int_array() {
+        let df = df!["count" => [1i64, 2, 3]].unwrap();
+        let mut id_gen = IdGen::new();
+        let cds = build_column_data_source(&mut id_gen, &df);
+        let data = cds.attributes.iter().find(|(k, _)| k == "data").unwrap();
+        if let (_, BokehValue::Map(entries)) = data {
+            let entry = entries.iter().find(|(k, _)| k == "count").unwrap();
+            if let (_, BokehValue::Array(vals)) = entry {
+                assert!(matches!(&vals[0], BokehValue::Int(1)));
+                assert_eq!(vals.len(), 3);
+            }
+        }
+    }
+
+    #[test]
+    fn bool_column_serializes_as_bool_array() {
+        let df = df!["flag" => [true, false, true]].unwrap();
+        let mut id_gen = IdGen::new();
+        let cds = build_column_data_source(&mut id_gen, &df);
+        let data = cds.attributes.iter().find(|(k, _)| k == "data").unwrap();
+        if let (_, BokehValue::Map(entries)) = data {
+            let entry = entries.iter().find(|(k, _)| k == "flag").unwrap();
+            if let (_, BokehValue::Array(vals)) = entry {
+                assert!(matches!(&vals[0], BokehValue::Bool(true)));
+                assert!(matches!(&vals[1], BokehValue::Bool(false)));
+            }
+        }
+    }
+
+    #[test]
+    fn null_values_become_bokeh_null() {
+        let df = df!["v" => [Some(1.0f64), None, Some(3.0)]].unwrap();
+        let mut id_gen = IdGen::new();
+        let cds = build_column_data_source(&mut id_gen, &df);
+        let data = cds.attributes.iter().find(|(k, _)| k == "data").unwrap();
+        if let (_, BokehValue::Map(entries)) = data {
+            let entry = entries.iter().find(|(k, _)| k == "v").unwrap();
+            if let (_, BokehValue::Array(vals)) = entry {
+                assert!(matches!(&vals[1], BokehValue::Null));
+            }
+        }
+    }
+
+    #[test]
+    fn cds_has_selection_and_policy() {
+        let df = df!["x" => [1.0f64]].unwrap();
+        let mut id_gen = IdGen::new();
+        let cds = build_column_data_source(&mut id_gen, &df);
+        let json = serde_json::to_string(&cds).unwrap();
+        assert!(json.contains("Selection"));
+        assert!(json.contains("UnionRenderers"));
+    }
+
+    #[test]
+    fn cds_serializes_to_valid_json() {
+        let df = df!["a" => [1.0, 2.0], "b" => ["x", "y"]].unwrap();
+        let mut id_gen = IdGen::new();
+        let cds = build_column_data_source(&mut id_gen, &df);
+        let json = serde_json::to_string(&cds).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert!(parsed.is_object());
+    }
+
+    #[test]
+    fn uint_column_cast_to_int() {
+        let df = df!["u" => [1u32, 2u32, 3u32]].unwrap();
+        let mut id_gen = IdGen::new();
+        let cds = build_column_data_source(&mut id_gen, &df);
+        let data = cds.attributes.iter().find(|(k, _)| k == "data").unwrap();
+        if let (_, BokehValue::Map(entries)) = data {
+            let entry = entries.iter().find(|(k, _)| k == "u").unwrap();
+            if let (_, BokehValue::Array(vals)) = entry {
+                assert!(matches!(&vals[0], BokehValue::Int(1)));
+            }
+        }
+    }
+
+    // ── get_f64_column / get_str_column ─────────────────────────────────────
+
+    #[test]
+    fn get_f64_column_returns_values() {
+        let df = df!["val" => [1.0, 2.5, 3.0]].unwrap();
+        let vals = get_f64_column(&df, "val").unwrap();
+        assert_eq!(vals, vec![1.0, 2.5, 3.0]);
+    }
+
+    #[test]
+    fn get_f64_column_missing_returns_error() {
+        let df = df!["x" => [1.0]].unwrap();
+        assert!(get_f64_column(&df, "missing").is_err());
+    }
+
+    #[test]
+    fn get_str_column_returns_values() {
+        let df = df!["name" => ["Alice", "Bob"]].unwrap();
+        let vals = get_str_column(&df, "name").unwrap();
+        assert_eq!(vals, vec!["Alice".to_string(), "Bob".to_string()]);
+    }
+
+    #[test]
+    fn get_str_column_missing_returns_error() {
+        let df = df!["x" => ["a"]].unwrap();
+        assert!(get_str_column(&df, "missing").is_err());
     }
 }

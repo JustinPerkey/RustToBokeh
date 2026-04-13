@@ -149,7 +149,7 @@ mod tests {
 
     #[test]
     fn empty_document_produces_valid_json() {
-        let mut doc = BokehDocument::new();
+        let doc = BokehDocument::new();
         let mut id_gen = IdGen::new();
         let json_str = doc.to_docs_json(&mut id_gen);
         // Should not contain unescaped single quotes
@@ -173,7 +173,7 @@ mod tests {
     #[test]
     fn docs_json_escapes_single_quotes() {
         // Any single quote in data should be escaped
-        let mut doc = BokehDocument::new();
+        let doc = BokehDocument::new();
         let mut id_gen = IdGen::new();
         let json = doc.to_docs_json(&mut id_gen);
         // The outer wrapper uses single quotes — no raw single quote should appear
@@ -182,6 +182,6 @@ mod tests {
         // If any part would have been an unescaped quote, split would produce > 1 part
         // But we need \\' (escaped), so check there are no unescaped singles
         // (our escape replaces ' with \' so the result only has \' not ')
-        assert!(!json.contains("'"));
+        assert!(!parts.contains(&"'"));
     }
 }

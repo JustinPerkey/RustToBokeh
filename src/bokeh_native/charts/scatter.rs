@@ -12,6 +12,12 @@ use super::super::model::{BokehObject, BokehValue};
 use super::super::source::build_column_data_source;
 use super::{add_renderers, make_hover_tool, set_axis_labels};
 
+/// Extract a named attribute from a `BokehObject`.
+#[cfg(test)]
+fn find_attr<'a>(obj: &'a BokehObject, key: &str) -> Option<&'a BokehValue> {
+    obj.attributes.iter().find(|(k, _)| k == key).map(|(_, v)| v)
+}
+
 pub fn build_scatter(
     id_gen: &mut IdGen,
     spec: &ChartSpec,
@@ -86,4 +92,188 @@ pub fn build_scatter(
     set_axis_labels(&mut figure, &cfg.x_label, &cfg.y_label);
 
     Ok(figure)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use polars::prelude::*;
+
+    fn test_df() -> DataFrame {
+        df!["x" => [1.0, 2.0, 3.0], "y" => [4.0, 5.0, 6.0]].unwrap()
+    }
+
+    fn test_spec(title: &str) -> ChartSpec {
+        ChartSpec {
+            title: title.into(),
+            source_key: "test".into(),
+            config: crate::charts::ChartConfig::Scatter(
+                ScatterConfig::builder().x("x").y("y").x_label("X").y_label("Y").build().unwrap(),
+            ),
+            grid: crate::charts::GridCell { row: 0, col: 0, col_span: 1 },
+            filtered: false,
+            width: None,
+            height: None,
+        }
+    }
+
+    #[test]
+    fn scatter_produces_figure_with_scatter_glyph() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = ScatterConfig::builder().x("x").y("y").x_label("X").y_label("Y").build().unwrap();
+        let spec = test_spec("Scatter");
+        let fig = build_scatter(&mut id_gen, &spec, &cfg, &df, None, None).unwrap();
+
+        assert_eq!(fig.name, "Figure");
+        if let Some(BokehValue::Array(arr)) = find_attr(&fig, "renderers") {
+            assert_eq!(arr.len(), 1);
+            if let BokehValue::Object(r) = &arr[0] {
+                assert_eq!(r.name, "GlyphRenderer");
+                if let Some(BokehValue::Object(g)) = find_attr(r, "glyph") {
+                    assert_eq!(g.name, "Scatter");
+                }
+            }
+        } else {
+            panic!("expected renderers array");
+        }
+    }
+
+    #[test]
+    fn scatter_default_color_and_marker() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = ScatterConfig::builder().x("x").y("y").x_label("X").y_label("Y").build().unwrap();
+        let spec = test_spec("Defaults");
+        let fig = build_scatter(&mut id_gen, &spec, &cfg, &df, None, None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("#4C72B0"), "default color");
+        assert!(json.contains("circle"), "default marker");
+    }
+
+    #[test]
+    fn scatter_custom_color_marker_size_alpha() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = ScatterConfig::builder()
+            .x("x").y("y").x_label("X").y_label("Y")
+            .color("#ff0000")
+            .marker(crate::charts::customization::marker::MarkerType::Square)
+            .marker_size(15.0)
+            .alpha(0.5)
+            .build().unwrap();
+        let spec = test_spec("Custom");
+        let fig = build_scatter(&mut id_gen, &spec, &cfg, &df, None, None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("#ff0000"));
+        assert!(json.contains("square"));
+        assert!(json.contains("15.0") || json.contains("15"));
+    }
+
+    #[test]
+    fn scatter_with_filter_ref_embeds_filter_in_view() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = ScatterConfig::builder().x("x").y("y").x_label("X").y_label("Y").build().unwrap();
+        let spec = test_spec("Filtered");
+        let filter = BokehObject::new("BooleanFilter", "bf1".into())
+            .attr("booleans", BokehValue::Array(vec![BokehValue::Bool(true); 3]));
+        let fig = build_scatter(&mut id_gen, &spec, &cfg, &df, Some(filter.into_value()), None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("BooleanFilter"));
+        assert!(json.contains("CDSView"));
+    }
+
+    #[test]
+    fn scatter_without_filter_uses_all_indices() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = ScatterConfig::builder().x("x").y("y").x_label("X").y_label("Y").build().unwrap();
+        let spec = test_spec("NoFilter");
+        let fig = build_scatter(&mut id_gen, &spec, &cfg, &df, None, None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("AllIndices"));
+    }
+
+    #[test]
+    fn scatter_with_fixed_dimensions() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = ScatterConfig::builder().x("x").y("y").x_label("X").y_label("Y").build().unwrap();
+        let mut spec = test_spec("Sized");
+        spec.width = Some(800);
+        spec.height = Some(600);
+        let fig = build_scatter(&mut id_gen, &spec, &cfg, &df, None, None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("\"fixed\""));
+        assert!(json.contains("800"));
+        assert!(json.contains("600"));
+    }
+
+    #[test]
+    fn scatter_has_hover_tool() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = ScatterConfig::builder().x("x").y("y").x_label("X").y_label("Y").build().unwrap();
+        let spec = test_spec("Hover");
+        let fig = build_scatter(&mut id_gen, &spec, &cfg, &df, None, None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("HoverTool"));
+    }
+
+    #[test]
+    fn scatter_cds_contains_data_columns() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = ScatterConfig::builder().x("x").y("y").x_label("X").y_label("Y").build().unwrap();
+        let spec = test_spec("CDS");
+        let fig = build_scatter(&mut id_gen, &spec, &cfg, &df, None, None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("ColumnDataSource"));
+        assert!(json.contains("\"x\""));
+        assert!(json.contains("\"y\""));
+    }
+
+    #[test]
+    fn scatter_nonselection_glyph_has_low_alpha() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = ScatterConfig::builder().x("x").y("y").x_label("X").y_label("Y").build().unwrap();
+        let spec = test_spec("Nonsel");
+        let fig = build_scatter(&mut id_gen, &spec, &cfg, &df, None, None).unwrap();
+        if let Some(BokehValue::Array(arr)) = find_attr(&fig, "renderers") {
+            if let BokehValue::Object(r) = &arr[0] {
+                if let Some(BokehValue::Object(ns)) = find_attr(r, "nonselection_glyph") {
+                    assert_eq!(ns.name, "Scatter");
+                    let ns_json = serde_json::to_string(&*ns).unwrap();
+                    assert!(ns_json.contains("0.1"), "nonselection alpha should be 0.1");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn scatter_with_range_tool_x_range() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = ScatterConfig::builder().x("x").y("y").x_label("X").y_label("Y").build().unwrap();
+        let spec = test_spec("RangeTool");
+        let fig = build_scatter(&mut id_gen, &spec, &cfg, &df, None, Some("rt_range_1")).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("rt_range_1"));
+    }
+
+    #[test]
+    fn scatter_axis_labels_applied() {
+        let df = test_df();
+        let mut id_gen = IdGen::new();
+        let cfg = ScatterConfig::builder()
+            .x("x").y("y").x_label("Revenue").y_label("Profit")
+            .build().unwrap();
+        let spec = test_spec("Labels");
+        let fig = build_scatter(&mut id_gen, &spec, &cfg, &df, None, None).unwrap();
+        let json = serde_json::to_string(&fig).unwrap();
+        assert!(json.contains("Revenue"));
+        assert!(json.contains("Profit"));
+    }
 }
