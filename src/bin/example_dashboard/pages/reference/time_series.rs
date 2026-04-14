@@ -36,77 +36,9 @@ pub fn page_range_tool_demo() -> Result<Page, ChartError> {
             .at(0, 0, 2)
             .build(),
         )
-        .chart(
-            C::line(
-                "Sensor Readings Over Time",
-                "sensor_events",
-                Line::builder()
-                    .x("timestamp_ms")
-                    .y_cols(&["temperature", "humidity"])
-                    .y_label("Reading")
-                    .x_axis(
-                        AxisConfig::builder()
-                            .time_scale(TimeScale::Days)
-                            .build(),
-                    )
-                    .tooltips(
-                        TooltipSpec::builder()
-                            .field("timestamp_ms", "Date", TooltipFormat::DateTime(TimeScale::Days))
-                            .field("sensor", "Sensor", TooltipFormat::Text)
-                            .field("temperature", "Temp (°C)", TooltipFormat::Number(Some(1)))
-                            .field("humidity", "Humidity (%)", TooltipFormat::Number(Some(1)))
-                            .build(),
-                    )
-                    .build()?,
-            )
-            .at(1, 0, 2)
-            .build(),
-        )
-        .chart(
-            C::scatter(
-                "Temperature vs Humidity",
-                "sensor_events",
-                Scat::builder()
-                    .x("temperature")
-                    .y("humidity")
-                    .x_label("Temperature (°C)")
-                    .y_label("Humidity (%)")
-                    .tooltips(
-                        TooltipSpec::builder()
-                            .field("sensor", "Sensor", TooltipFormat::Text)
-                            .field("timestamp_ms", "Date", TooltipFormat::DateTime(TimeScale::Days))
-                            .field("temperature", "Temp (°C)", TooltipFormat::Number(Some(1)))
-                            .field("humidity", "Humidity (%)", TooltipFormat::Number(Some(1)))
-                            .build(),
-                    )
-                    .build()?,
-            )
-            .at(2, 0, 1)
-            .filtered()
-            .build(),
-        )
-        .chart(
-            C::scatter(
-                "Temperature vs Pressure",
-                "sensor_events",
-                Scat::builder()
-                    .x("temperature")
-                    .y("pressure")
-                    .x_label("Temperature (°C)")
-                    .y_label("Pressure (hPa)")
-                    .tooltips(
-                        TooltipSpec::builder()
-                            .field("sensor", "Sensor", TooltipFormat::Text)
-                            .field("temperature", "Temp (°C)", TooltipFormat::Number(Some(1)))
-                            .field("pressure", "Pressure", TooltipFormat::Number(Some(1)))
-                            .build(),
-                    )
-                    .build()?,
-            )
-            .at(2, 1, 1)
-            .filtered()
-            .build(),
-        )
+        .chart(sensor_line_chart(1, 0, 2)?)
+        .chart(temp_humidity_scatter(2, 0, 1, true)?)
+        .chart(temp_pressure_scatter(2, 1, 1, true)?)
         .filter(FilterSpec::range_tool(
             "sensor_events",
             "timestamp_ms",
@@ -148,77 +80,9 @@ pub fn page_time_series_events() -> Result<Page, ChartError> {
             .at(0, 0, 2)
             .build(),
         )
-        .chart(
-            C::line(
-                "Sensor Readings Over Time",
-                "sensor_events",
-                Line::builder()
-                    .x("timestamp_ms")
-                    .y_cols(&["temperature", "humidity"])
-                    .y_label("Reading")
-                    .x_axis(
-                        AxisConfig::builder()
-                            .time_scale(TimeScale::Days)
-                            .build(),
-                    )
-                    .tooltips(
-                        TooltipSpec::builder()
-                            .field("timestamp_ms", "Date", TooltipFormat::DateTime(TimeScale::Days))
-                            .field("sensor", "Sensor", TooltipFormat::Text)
-                            .field("temperature", "Temp (°C)", TooltipFormat::Number(Some(1)))
-                            .field("humidity", "Humidity (%)", TooltipFormat::Number(Some(1)))
-                            .build(),
-                    )
-                    .build()?,
-            )
-            .at(1, 0, 2)
-            .build(),
-        )
-        .chart(
-            C::scatter(
-                "Temperature vs Humidity",
-                "sensor_events",
-                Scat::builder()
-                    .x("temperature")
-                    .y("humidity")
-                    .x_label("Temperature (°C)")
-                    .y_label("Humidity (%)")
-                    .tooltips(
-                        TooltipSpec::builder()
-                            .field("sensor", "Sensor", TooltipFormat::Text)
-                            .field("timestamp_ms", "Date", TooltipFormat::DateTime(TimeScale::Days))
-                            .field("temperature", "Temp (°C)", TooltipFormat::Number(Some(1)))
-                            .field("humidity", "Humidity (%)", TooltipFormat::Number(Some(1)))
-                            .build(),
-                    )
-                    .build()?,
-            )
-            .at(2, 0, 1)
-            .filtered()
-            .build(),
-        )
-        .chart(
-            C::scatter(
-                "Temperature vs Pressure",
-                "sensor_events",
-                Scat::builder()
-                    .x("temperature")
-                    .y("pressure")
-                    .x_label("Temperature (°C)")
-                    .y_label("Pressure (hPa)")
-                    .tooltips(
-                        TooltipSpec::builder()
-                            .field("sensor", "Sensor", TooltipFormat::Text)
-                            .field("temperature", "Temp (°C)", TooltipFormat::Number(Some(1)))
-                            .field("pressure", "Pressure", TooltipFormat::Number(Some(1)))
-                            .build(),
-                    )
-                    .build()?,
-            )
-            .at(2, 1, 1)
-            .filtered()
-            .build(),
-        )
+        .chart(sensor_line_chart(1, 0, 2)?)
+        .chart(temp_humidity_scatter(2, 0, 1, true)?)
+        .chart(temp_pressure_scatter(2, 1, 1, true)?)
         .filter(FilterSpec::date_range(
             "sensor_events",
             "timestamp_ms",
@@ -235,4 +99,61 @@ pub fn page_time_series_events() -> Result<Page, ChartError> {
             vec!["Alpha", "Beta", "Gamma"],
         ))
         .build()
+}
+
+fn sensor_line_chart(row: usize, col: usize, col_span: usize) -> Result<ChartSpec, ChartError> {
+    let cfg = Line::builder()
+        .x("timestamp_ms")
+        .y_cols(&["temperature", "humidity"])
+        .y_label("Reading")
+        .x_axis(AxisConfig::builder().time_scale(TimeScale::Days).build())
+        .tooltips(
+            TooltipSpec::builder()
+                .field("timestamp_ms", "Date", TooltipFormat::DateTime(TimeScale::Days))
+                .field("sensor", "Sensor", TooltipFormat::Text)
+                .field("temperature", "Temp (°C)", TooltipFormat::Number(Some(1)))
+                .field("humidity", "Humidity (%)", TooltipFormat::Number(Some(1)))
+                .build(),
+        )
+        .build()?;
+    Ok(C::line("Sensor Readings Over Time", "sensor_events", cfg).at(row, col, col_span).build())
+}
+
+fn temp_humidity_scatter(row: usize, col: usize, col_span: usize, filtered: bool) -> Result<ChartSpec, ChartError> {
+    let cfg = Scat::builder()
+        .x("temperature")
+        .y("humidity")
+        .x_label("Temperature (°C)")
+        .y_label("Humidity (%)")
+        .tooltips(
+            TooltipSpec::builder()
+                .field("sensor", "Sensor", TooltipFormat::Text)
+                .field("timestamp_ms", "Date", TooltipFormat::DateTime(TimeScale::Days))
+                .field("temperature", "Temp (°C)", TooltipFormat::Number(Some(1)))
+                .field("humidity", "Humidity (%)", TooltipFormat::Number(Some(1)))
+                .build(),
+        )
+        .build()?;
+    let mut b = C::scatter("Temperature vs Humidity", "sensor_events", cfg).at(row, col, col_span);
+    if filtered { b = b.filtered(); }
+    Ok(b.build())
+}
+
+fn temp_pressure_scatter(row: usize, col: usize, col_span: usize, filtered: bool) -> Result<ChartSpec, ChartError> {
+    let cfg = Scat::builder()
+        .x("temperature")
+        .y("pressure")
+        .x_label("Temperature (°C)")
+        .y_label("Pressure (hPa)")
+        .tooltips(
+            TooltipSpec::builder()
+                .field("sensor", "Sensor", TooltipFormat::Text)
+                .field("temperature", "Temp (°C)", TooltipFormat::Number(Some(1)))
+                .field("pressure", "Pressure", TooltipFormat::Number(Some(1)))
+                .build(),
+        )
+        .build()?;
+    let mut b = C::scatter("Temperature vs Pressure", "sensor_events", cfg).at(row, col, col_span);
+    if filtered { b = b.filtered(); }
+    Ok(b.build())
 }

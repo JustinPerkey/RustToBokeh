@@ -76,119 +76,105 @@ pub fn page_chart_customization() -> Result<Page, ChartError> {
         2,
     )
     .category("Reference")
-    // Scatter — custom marker, color, alpha, tooltip, axis ranges + bounds, fixed dimensions
-    .chart(
-        C::scatter(
-            "Revenue vs Profit (styled)",
-            "scatter_performance",
-            Scat::builder()
-                .x("revenue")
-                .y("profit")
-                .x_label("Revenue (k)")
-                .y_label("Profit (k)")
-                .color("#e74c3c")
-                .marker(MarkerType::Diamond)
-                .marker_size(12.0)
-                .alpha(0.85)
-                .tooltips(
-                    TooltipSpec::builder()
-                        .field("tier", "Tier", TooltipFormat::Text)
-                        .field("revenue", "Revenue", TooltipFormat::Currency)
-                        .field("profit", "Profit", TooltipFormat::Number(Some(1)))
-                        .field("satisfaction", "Satisfaction", TooltipFormat::Number(Some(2)))
-                        .build(),
-                )
-                .x_axis(
-                    AxisConfig::builder()
-                        .range(0.0, 350.0)
-                        .bounds(0.0, 400.0)
-                        .tick_format("$0,0")
-                        .build(),
-                )
-                .y_axis(
-                    AxisConfig::builder()
-                        .range(0.0, 100.0)
-                        .bounds(0.0, 120.0)
-                        .show_grid(false)
-                        .build(),
-                )
-                .build()?,
+    .chart(styled_scatter()?)
+    .chart(styled_hbar()?)
+    .chart(styled_line()?)
+    .chart(styled_grouped_bar()?)
+    .build()
+}
+
+fn styled_scatter() -> Result<ChartSpec, ChartError> {
+    let cfg = Scat::builder()
+        .x("revenue")
+        .y("profit")
+        .x_label("Revenue (k)")
+        .y_label("Profit (k)")
+        .color("#e74c3c")
+        .marker(MarkerType::Diamond)
+        .marker_size(12.0)
+        .alpha(0.85)
+        .tooltips(
+            TooltipSpec::builder()
+                .field("tier", "Tier", TooltipFormat::Text)
+                .field("revenue", "Revenue", TooltipFormat::Currency)
+                .field("profit", "Profit", TooltipFormat::Number(Some(1)))
+                .field("satisfaction", "Satisfaction", TooltipFormat::Number(Some(2)))
+                .build(),
         )
+        .x_axis(
+            AxisConfig::builder()
+                .range(0.0, 350.0)
+                .bounds(0.0, 400.0)
+                .tick_format("$0,0")
+                .build(),
+        )
+        .y_axis(
+            AxisConfig::builder()
+                .range(0.0, 100.0)
+                .bounds(0.0, 120.0)
+                .show_grid(false)
+                .build(),
+        )
+        .build()?;
+    Ok(C::scatter("Revenue vs Profit (styled)", "scatter_performance", cfg)
         .at(0, 0, 1)
         .dimensions(550, 380)
-        .build(),
-    )
-    // HBar — custom color, tick format, axis range + bounds on value axis
-    .chart(
-        C::hbar(
-            "Market Share % (styled)",
-            "market_share",
-            HB::builder()
-                .category("company")
-                .value("share")
-                .x_label("Share (%)")
-                .color("#9b59b6")
-                .tooltips(
-                    TooltipSpec::builder()
-                        .field("company", "Company", TooltipFormat::Text)
-                        .field("share", "Share", TooltipFormat::Number(Some(1)))
-                        .build(),
-                )
-                .x_axis(
-                    AxisConfig::builder()
-                        .range(0.0, 35.0)
-                        .bounds(0.0, 40.0)
-                        .tick_format("0.0")
-                        .build(),
-                )
-                .build()?,
+        .build())
+}
+
+fn styled_hbar() -> Result<ChartSpec, ChartError> {
+    let cfg = HB::builder()
+        .category("company")
+        .value("share")
+        .x_label("Share (%)")
+        .color("#9b59b6")
+        .tooltips(
+            TooltipSpec::builder()
+                .field("company", "Company", TooltipFormat::Text)
+                .field("share", "Share", TooltipFormat::Number(Some(1)))
+                .build(),
         )
-        .at(0, 1, 1)
-        .build(),
-    )
-    // Line — custom palette, line_width, point_size, y-axis tick format
-    .chart(
-        C::line(
-            "Revenue & Profit Trends (styled)",
-            "monthly_trends",
-            Line::builder()
-                .x("month")
-                .y_cols(&["revenue", "profit", "expenses"])
-                .y_label("USD (k)")
-                .palette(PaletteSpec::Custom(vec![
-                    "#2ecc71".into(),
-                    "#e74c3c".into(),
-                    "#3498db".into(),
-                ]))
-                .line_width(3.5)
-                .point_size(9.0)
-                .y_axis(
-                    AxisConfig::builder()
-                        .tick_format("$0,0")
-                        .build(),
-                )
-                .build()?,
+        .x_axis(
+            AxisConfig::builder()
+                .range(0.0, 35.0)
+                .bounds(0.0, 40.0)
+                .tick_format("0.0")
+                .build(),
         )
+        .build()?;
+    Ok(C::hbar("Market Share % (styled)", "market_share", cfg).at(0, 1, 1).build())
+}
+
+fn styled_line() -> Result<ChartSpec, ChartError> {
+    let cfg = Line::builder()
+        .x("month")
+        .y_cols(&["revenue", "profit", "expenses"])
+        .y_label("USD (k)")
+        .palette(PaletteSpec::Custom(vec![
+            "#2ecc71".into(),
+            "#e74c3c".into(),
+            "#3498db".into(),
+        ]))
+        .line_width(3.5)
+        .point_size(9.0)
+        .y_axis(AxisConfig::builder().tick_format("$0,0").build())
+        .build()?;
+    Ok(C::line("Revenue & Profit Trends (styled)", "monthly_trends", cfg)
         .at(1, 0, 1)
-        .build(),
-    )
-    // Grouped bar — named Bokeh palette, narrower bars, label rotation on x
-    .chart(
-        C::bar(
-            "Quarterly Products (styled)",
-            "quarterly_products",
-            Bar::builder()
-                .x("quarter")
-                .group("product")
-                .value("value")
-                .y_label("Revenue (k)")
-                .palette(PaletteSpec::Named("Category20".into()))
-                .bar_width(0.65)
-                .y_axis(AxisConfig::builder().tick_format("$0,0").build())
-                .build()?,
-        )
+        .build())
+}
+
+fn styled_grouped_bar() -> Result<ChartSpec, ChartError> {
+    let cfg = Bar::builder()
+        .x("quarter")
+        .group("product")
+        .value("value")
+        .y_label("Revenue (k)")
+        .palette(PaletteSpec::Named("Category20".into()))
+        .bar_width(0.65)
+        .y_axis(AxisConfig::builder().tick_format("$0,0").build())
+        .build()?;
+    Ok(C::bar("Quarterly Products (styled)", "quarterly_products", cfg)
         .at(1, 1, 1)
-        .build(),
-    )
-    .build()
+        .build())
 }

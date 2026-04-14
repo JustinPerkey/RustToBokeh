@@ -10,8 +10,11 @@ use super::super::figure::{build_figure, build_glyph_renderer, AxisBuilder, Axis
 use super::super::id_gen::IdGen;
 use super::super::model::{BokehObject, BokehValue};
 use super::super::palette::resolve_palette;
-use super::super::source::{get_f64_column, get_str_column};
+use super::super::source::{build_cds_from_entries, get_f64_column, get_str_column};
 use super::{add_renderers, make_hover_tool, set_axis_labels};
+
+const CAP_HW: f64 = 0.3;
+const BOX_W: f64 = 0.6;
 
 pub fn build_box_plot(
     id_gen: &mut IdGen,
@@ -59,90 +62,102 @@ pub fn build_box_plot(
         Some(ht),
     );
 
-    const CAP_HW: f64 = 0.3;
-    const BOX_W: f64 = 0.6;
-
-    // --- Upper whisker stem: [cat, q3] → [cat, upper]
-    let _upper_x0: Vec<BokehValue> = categories.iter().map(|c| BokehValue::Str(c.clone())).collect();
-    let upper_y0: Vec<BokehValue> = q3_vals.iter().map(|&v| BokehValue::Float(v)).collect();
-    let upper_y1: Vec<BokehValue> = upper_vals.iter().map(|&v| BokehValue::Float(v)).collect();
-
-    // --- Lower whisker stem: [cat, lower] → [cat, q1]
-    let lower_y0: Vec<BokehValue> = lower_vals.iter().map(|&v| BokehValue::Float(v)).collect();
-    let lower_y1: Vec<BokehValue> = q1_vals.iter().map(|&v| BokehValue::Float(v)).collect();
-
-    // --- Upper whisker cap: (cat, -(CAP_HW)) → (cat, +(CAP_HW))
-    // In FactorRange: x offset tuples [category, offset_fraction]
-    let cap_upper_x0: Vec<BokehValue> = categories.iter()
-        .map(|c| BokehValue::Array(vec![BokehValue::Str(c.clone()), BokehValue::Float(-CAP_HW)]))
-        .collect();
-    let cap_upper_x1: Vec<BokehValue> = categories.iter()
-        .map(|c| BokehValue::Array(vec![BokehValue::Str(c.clone()), BokehValue::Float(CAP_HW)]))
-        .collect();
-    let cap_lower_x0 = cap_upper_x0.clone();
-    let cap_lower_x1 = cap_upper_x1.clone();
-
-    // Build CDS for whiskers (segment glyphs)
-    let whisker_cds = build_whisker_cds(
-        id_gen,
-        &categories,
-        &upper_y0, &upper_y1,
-        &lower_y0, &lower_y1,
-        &upper_vals,
-        &lower_vals,
-        cap_upper_x0, cap_upper_x1,
-        cap_lower_x0, cap_lower_x1,
-    );
+    // Whisker CDS: shared across 4 segment renderers (upper/lower stem, upper/lower cap)
+    let whisker_cds = build_whisker_cds(id_gen, &categories, &q1_vals, &q3_vals, &lower_vals, &upper_vals);
     let whisker_cds_id = whisker_cds.id.clone();
 
-    // Build CDS for boxes (VBar glyph)
-    let box_colors: Vec<BokehValue> = colors.iter().map(|c| BokehValue::Str(c.clone())).collect();
-    let box_cds_id = id_gen.next();
-    let sel_id = id_gen.next();
-    let policy_id = id_gen.next();
-    let box_cds = BokehObject::new("ColumnDataSource", box_cds_id.clone())
-        .attr(
-            "selected",
-            BokehObject::new("Selection", sel_id)
-                .attr("indices", BokehValue::Array(vec![]))
-                .attr("line_indices", BokehValue::Array(vec![]))
-                .into_value(),
-        )
-        .attr("selection_policy", BokehObject::new("UnionRenderers", policy_id).into_value())
-        .attr("data", BokehValue::Map(vec![
-            (cfg.category_col.clone(), BokehValue::Array(categories.iter().map(|s| BokehValue::Str(s.clone())).collect())),
-            ("q1".into(), BokehValue::Array(q1_vals.iter().map(|&v| BokehValue::Float(v)).collect())),
-            ("q2".into(), BokehValue::Array(q2_vals.iter().map(|&v| BokehValue::Float(v)).collect())),
-            ("q3".into(), BokehValue::Array(q3_vals.iter().map(|&v| BokehValue::Float(v)).collect())),
-            ("lower".into(), BokehValue::Array(lower_vals.iter().map(|&v| BokehValue::Float(v)).collect())),
-            ("upper".into(), BokehValue::Array(upper_vals.iter().map(|&v| BokehValue::Float(v)).collect())),
-            ("_fill_color".into(), BokehValue::Array(box_colors)),
-        ]));
+    // Box CDS: per-category IQR + colors
+    let box_cds = build_box_cds(id_gen, &cfg.category_col, &categories, &q1_vals, &q2_vals, &q3_vals, &lower_vals, &upper_vals, &colors);
 
-    // Upper whisker segment
-    let u_whisker = build_segment_glyph(id_gen, "x", "upper_y0", "x", "upper_y1", "#666666");
-    let u_nonsel = build_segment_glyph_nonsel(id_gen, "x", "upper_y0", "x", "upper_y1");
-    let u_renderer = build_glyph_renderer(id_gen, whisker_cds.clone().into_value(), u_whisker, Some(u_nonsel), filter_ref.clone());
+    // Whisker + cap renderers share one CDS
+    let whisker_rs = build_whisker_renderers(id_gen, whisker_cds, &whisker_cds_id, filter_ref.clone());
 
-    // Lower whisker segment
-    let l_whisker = build_segment_glyph(id_gen, "x", "lower_y0", "x", "lower_y1", "#666666");
-    let l_nonsel = build_segment_glyph_nonsel(id_gen, "x", "lower_y0", "x", "lower_y1");
-    let l_renderer = build_glyph_renderer(id_gen, BokehValue::ref_of(&whisker_cds_id), l_whisker, Some(l_nonsel), filter_ref.clone());
+    // IQR box renderer
+    let box_renderer = build_box_renderer(id_gen, box_cds, &cfg.category_col, alpha, filter_ref.clone());
 
-    // Upper cap segment
-    let uc_whisker = build_segment_glyph(id_gen, "cap_upper_x0", "upper_val", "cap_upper_x1", "upper_val", "#666666");
-    let uc_nonsel = build_segment_glyph_nonsel(id_gen, "cap_upper_x0", "upper_val", "cap_upper_x1", "upper_val");
-    let uc_renderer = build_glyph_renderer(id_gen, BokehValue::ref_of(&whisker_cds_id), uc_whisker, Some(uc_nonsel), filter_ref.clone());
+    // Median segment
+    let med_renderer = build_median_renderer(id_gen, &categories, &q2_vals, filter_ref.clone());
 
-    // Lower cap segment
-    let lc_whisker = build_segment_glyph(id_gen, "cap_lower_x0", "lower_val", "cap_lower_x1", "lower_val", "#666666");
-    let lc_nonsel = build_segment_glyph_nonsel(id_gen, "cap_lower_x0", "lower_val", "cap_lower_x1", "lower_val");
-    let lc_renderer = build_glyph_renderer(id_gen, BokehValue::ref_of(&whisker_cds_id), lc_whisker, Some(lc_nonsel), filter_ref.clone());
+    let mut all_renderers = whisker_rs;
+    all_renderers.push(box_renderer);
+    all_renderers.push(med_renderer);
+    add_renderers(&mut figure, all_renderers);
 
-    // IQR box (VBar from q1 to q3)
-    let box_glyph_id = id_gen.next();
-    let box_glyph = BokehObject::new("VBar", box_glyph_id)
-        .attr("x", BokehValue::field(&cfg.category_col))
+    if let Some(outlier_df) = outlier_df {
+        if let Some(out_renderer) = build_outlier_renderer(id_gen, outlier_df, cfg) {
+            add_renderers(&mut figure, vec![out_renderer]);
+        }
+    }
+
+    set_axis_labels(&mut figure, "", &cfg.y_label);
+    Ok(figure)
+}
+
+fn build_box_cds(
+    id_gen: &mut IdGen,
+    category_col: &str,
+    categories: &[String],
+    q1_vals: &[f64],
+    q2_vals: &[f64],
+    q3_vals: &[f64],
+    lower_vals: &[f64],
+    upper_vals: &[f64],
+    colors: &[String],
+) -> BokehObject {
+    let to_floats = |v: &[f64]| BokehValue::Array(v.iter().map(|&x| BokehValue::Float(x)).collect());
+    build_cds_from_entries(
+        id_gen,
+        vec![
+            (category_col.into(), BokehValue::Array(categories.iter().map(|s| BokehValue::Str(s.clone())).collect())),
+            ("q1".into(), to_floats(q1_vals)),
+            ("q2".into(), to_floats(q2_vals)),
+            ("q3".into(), to_floats(q3_vals)),
+            ("lower".into(), to_floats(lower_vals)),
+            ("upper".into(), to_floats(upper_vals)),
+            ("_fill_color".into(), BokehValue::Array(colors.iter().map(|c| BokehValue::Str(c.clone())).collect())),
+        ],
+    )
+}
+
+fn build_whisker_renderers(
+    id_gen: &mut IdGen,
+    whisker_cds: BokehObject,
+    whisker_cds_id: &str,
+    filter_ref: Option<BokehValue>,
+) -> Vec<BokehObject> {
+    let stem_color = "#666666";
+    let pairs: [(&str, &str, &str, &str); 4] = [
+        ("x", "upper_y0", "x", "upper_y1"),
+        ("x", "lower_y0", "x", "lower_y1"),
+        ("cap_upper_x0", "upper_val", "cap_upper_x1", "upper_val"),
+        ("cap_lower_x0", "lower_val", "cap_lower_x1", "lower_val"),
+    ];
+
+    pairs
+        .iter()
+        .enumerate()
+        .map(|(i, (x0, y0, x1, y1))| {
+            let glyph = build_segment_glyph(id_gen, x0, y0, x1, y1, stem_color);
+            let nonsel = build_segment_glyph_nonsel(id_gen, x0, y0, x1, y1);
+            let cds_ref = if i == 0 {
+                whisker_cds.clone().into_value()
+            } else {
+                BokehValue::ref_of(whisker_cds_id)
+            };
+            build_glyph_renderer(id_gen, cds_ref, glyph, Some(nonsel), filter_ref.clone())
+        })
+        .collect()
+}
+
+fn build_box_renderer(
+    id_gen: &mut IdGen,
+    box_cds: BokehObject,
+    category_col: &str,
+    alpha: f64,
+    filter_ref: Option<BokehValue>,
+) -> BokehObject {
+    let glyph = BokehObject::new("VBar", id_gen.next())
+        .attr("x", BokehValue::field(category_col))
         .attr("top", BokehValue::field("q3"))
         .attr("bottom", BokehValue::field("q1"))
         .attr("width", BokehValue::value_of(BokehValue::Float(BOX_W)))
@@ -150,97 +165,78 @@ pub fn build_box_plot(
         .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(alpha)))
         .attr("line_color", BokehValue::value_of(BokehValue::Str("#333333".into())));
 
-    let box_nonsel_id = id_gen.next();
-    let box_nonsel = BokehObject::new("VBar", box_nonsel_id)
-        .attr("x", BokehValue::field(&cfg.category_col))
+    let nonsel = BokehObject::new("VBar", id_gen.next())
+        .attr("x", BokehValue::field(category_col))
         .attr("top", BokehValue::field("q3"))
         .attr("bottom", BokehValue::field("q1"))
         .attr("width", BokehValue::value_of(BokehValue::Float(BOX_W)))
         .attr("fill_color", BokehValue::field("_fill_color"))
         .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(0.1)));
 
-    let box_renderer = build_glyph_renderer(id_gen, box_cds.into_value(), box_glyph, Some(box_nonsel), filter_ref.clone());
+    build_glyph_renderer(id_gen, box_cds.into_value(), glyph, Some(nonsel), filter_ref)
+}
 
-    // Median segment (horizontal line at q2)
-    let median_x0: Vec<BokehValue> = categories.iter()
+fn build_median_renderer(
+    id_gen: &mut IdGen,
+    categories: &[String],
+    q2_vals: &[f64],
+    filter_ref: Option<BokehValue>,
+) -> BokehObject {
+    let median_x0: Vec<BokehValue> = categories
+        .iter()
         .map(|c| BokehValue::Array(vec![BokehValue::Str(c.clone()), BokehValue::Float(-BOX_W / 2.0)]))
         .collect();
-    let median_x1: Vec<BokehValue> = categories.iter()
+    let median_x1: Vec<BokehValue> = categories
+        .iter()
         .map(|c| BokehValue::Array(vec![BokehValue::Str(c.clone()), BokehValue::Float(BOX_W / 2.0)]))
         .collect();
-
-    let median_cds_id = id_gen.next();
-    let sel_id2 = id_gen.next();
-    let policy_id2 = id_gen.next();
-    let median_cds = BokehObject::new("ColumnDataSource", median_cds_id.clone())
-        .attr(
-            "selected",
-            BokehObject::new("Selection", sel_id2)
-                .attr("indices", BokehValue::Array(vec![]))
-                .attr("line_indices", BokehValue::Array(vec![]))
-                .into_value(),
-        )
-        .attr("selection_policy", BokehObject::new("UnionRenderers", policy_id2).into_value())
-        .attr("data", BokehValue::Map(vec![
+    let median_cds = build_cds_from_entries(
+        id_gen,
+        vec![
             ("median_x0".into(), BokehValue::Array(median_x0)),
             ("median_x1".into(), BokehValue::Array(median_x1)),
             ("median_y".into(), BokehValue::Array(q2_vals.iter().map(|&v| BokehValue::Float(v)).collect())),
-        ]));
+        ],
+    );
 
     let med_glyph = build_segment_glyph(id_gen, "median_x0", "median_y", "median_x1", "median_y", "#333333");
     let med_nonsel = build_segment_glyph_nonsel(id_gen, "median_x0", "median_y", "median_x1", "median_y");
-    let med_renderer = build_glyph_renderer(id_gen, median_cds.into_value(), med_glyph, Some(med_nonsel), filter_ref.clone());
+    build_glyph_renderer(id_gen, median_cds.into_value(), med_glyph, Some(med_nonsel), filter_ref)
+}
 
-    add_renderers(&mut figure, vec![u_renderer, l_renderer, uc_renderer, lc_renderer, box_renderer, med_renderer]);
+fn build_outlier_renderer(
+    id_gen: &mut IdGen,
+    outlier_df: &DataFrame,
+    cfg: &BoxPlotConfig,
+) -> Option<BokehObject> {
+    let out_cats = get_str_column(outlier_df, &cfg.category_col).ok()?;
+    let out_vals = get_f64_column(outlier_df, cfg.outlier_value_col.as_deref().unwrap_or("value")).ok()?;
 
-    // Outliers
-    if let Some(outlier_df) = outlier_df {
-        if let (Ok(out_cats), Ok(out_vals)) = (
-            get_str_column(outlier_df, &cfg.category_col),
-            get_f64_column(outlier_df, cfg.outlier_value_col.as_deref().unwrap_or("value")),
-        ) {
-            let out_cds_id = id_gen.next();
-            let sel_id3 = id_gen.next();
-            let policy_id3 = id_gen.next();
-            let out_cds = BokehObject::new("ColumnDataSource", out_cds_id)
-                .attr(
-                    "selected",
-                    BokehObject::new("Selection", sel_id3)
-                        .attr("indices", BokehValue::Array(vec![]))
-                        .attr("line_indices", BokehValue::Array(vec![]))
-                        .into_value(),
-                )
-                .attr("selection_policy", BokehObject::new("UnionRenderers", policy_id3).into_value())
-                .attr("data", BokehValue::Map(vec![
-                    (cfg.category_col.clone(), BokehValue::Array(out_cats.iter().map(|s| BokehValue::Str(s.clone())).collect())),
-                    ("value".into(), BokehValue::Array(out_vals.iter().map(|&v| BokehValue::Float(v)).collect())),
-                ]));
+    let out_cds = build_cds_from_entries(
+        id_gen,
+        vec![
+            (cfg.category_col.clone(), BokehValue::Array(out_cats.iter().map(|s| BokehValue::Str(s.clone())).collect())),
+            ("value".into(), BokehValue::Array(out_vals.iter().map(|&v| BokehValue::Float(v)).collect())),
+        ],
+    );
 
-            let out_glyph_id = id_gen.next();
-            let out_glyph = BokehObject::new("Scatter", out_glyph_id)
-                .attr("x", BokehValue::field(&cfg.category_col))
-                .attr("y", BokehValue::field("value"))
-                .attr("size", BokehValue::value_of(BokehValue::Float(5.0)))
-                .attr("fill_color", BokehValue::value_of(BokehValue::Str("#666666".into())))
-                .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(0.6)))
-                .attr("line_color", BokehValue::value_of(BokehValue::Null))
-                .attr("marker", BokehValue::value_of(BokehValue::Str("circle".into())));
+    let glyph = BokehObject::new("Scatter", id_gen.next())
+        .attr("x", BokehValue::field(&cfg.category_col))
+        .attr("y", BokehValue::field("value"))
+        .attr("size", BokehValue::value_of(BokehValue::Float(5.0)))
+        .attr("fill_color", BokehValue::value_of(BokehValue::Str("#666666".into())))
+        .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(0.6)))
+        .attr("line_color", BokehValue::value_of(BokehValue::Null))
+        .attr("marker", BokehValue::value_of(BokehValue::Str("circle".into())));
 
-            let out_nonsel_id = id_gen.next();
-            let out_nonsel = BokehObject::new("Scatter", out_nonsel_id)
-                .attr("x", BokehValue::field(&cfg.category_col))
-                .attr("y", BokehValue::field("value"))
-                .attr("size", BokehValue::value_of(BokehValue::Float(5.0)))
-                .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(0.1)))
-                .attr("marker", BokehValue::value_of(BokehValue::Str("circle".into())));
+    let nonsel = BokehObject::new("Scatter", id_gen.next())
+        .attr("x", BokehValue::field(&cfg.category_col))
+        .attr("y", BokehValue::field("value"))
+        .attr("size", BokehValue::value_of(BokehValue::Float(5.0)))
+        .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(0.1)))
+        .attr("marker", BokehValue::value_of(BokehValue::Str("circle".into())));
 
-            let out_renderer = build_glyph_renderer(id_gen, out_cds.into_value(), out_glyph, Some(out_nonsel), None);
-            add_renderers(&mut figure, vec![out_renderer]);
-        }
-    }
-
-    set_axis_labels(&mut figure, "", &cfg.y_label);
-    Ok(figure)
+    Some(build_glyph_renderer(id_gen, out_cds.into_value(), glyph, Some(nonsel), None))
 }
 
 #[cfg(test)]
@@ -373,42 +369,37 @@ mod tests {
 fn build_whisker_cds(
     id_gen: &mut IdGen,
     categories: &[String],
-    upper_y0: &[BokehValue],
-    upper_y1: &[BokehValue],
-    lower_y0: &[BokehValue],
-    lower_y1: &[BokehValue],
-    upper_vals: &[f64],
+    q1_vals: &[f64],
+    q3_vals: &[f64],
     lower_vals: &[f64],
-    cap_upper_x0: Vec<BokehValue>,
-    cap_upper_x1: Vec<BokehValue>,
-    cap_lower_x0: Vec<BokehValue>,
-    cap_lower_x1: Vec<BokehValue>,
+    upper_vals: &[f64],
 ) -> BokehObject {
-    let cds_id = id_gen.next();
-    let sel_id = id_gen.next();
-    let policy_id = id_gen.next();
-    BokehObject::new("ColumnDataSource", cds_id)
-        .attr(
-            "selected",
-            BokehObject::new("Selection", sel_id)
-                .attr("indices", BokehValue::Array(vec![]))
-                .attr("line_indices", BokehValue::Array(vec![]))
-                .into_value(),
+    let to_floats = |v: &[f64]| BokehValue::Array(v.iter().map(|&x| BokehValue::Float(x)).collect());
+    let cat_with_offset = |off: f64| -> BokehValue {
+        BokehValue::Array(
+            categories
+                .iter()
+                .map(|c| BokehValue::Array(vec![BokehValue::Str(c.clone()), BokehValue::Float(off)]))
+                .collect(),
         )
-        .attr("selection_policy", BokehObject::new("UnionRenderers", policy_id).into_value())
-        .attr("data", BokehValue::Map(vec![
+    };
+
+    build_cds_from_entries(
+        id_gen,
+        vec![
             ("x".into(), BokehValue::Array(categories.iter().map(|s| BokehValue::Str(s.clone())).collect())),
-            ("upper_y0".into(), BokehValue::Array(upper_y0.to_vec())),
-            ("upper_y1".into(), BokehValue::Array(upper_y1.to_vec())),
-            ("lower_y0".into(), BokehValue::Array(lower_y0.to_vec())),
-            ("lower_y1".into(), BokehValue::Array(lower_y1.to_vec())),
-            ("upper_val".into(), BokehValue::Array(upper_vals.iter().map(|&v| BokehValue::Float(v)).collect())),
-            ("lower_val".into(), BokehValue::Array(lower_vals.iter().map(|&v| BokehValue::Float(v)).collect())),
-            ("cap_upper_x0".into(), BokehValue::Array(cap_upper_x0)),
-            ("cap_upper_x1".into(), BokehValue::Array(cap_upper_x1)),
-            ("cap_lower_x0".into(), BokehValue::Array(cap_lower_x0)),
-            ("cap_lower_x1".into(), BokehValue::Array(cap_lower_x1)),
-        ]))
+            ("upper_y0".into(), to_floats(q3_vals)),
+            ("upper_y1".into(), to_floats(upper_vals)),
+            ("lower_y0".into(), to_floats(lower_vals)),
+            ("lower_y1".into(), to_floats(q1_vals)),
+            ("upper_val".into(), to_floats(upper_vals)),
+            ("lower_val".into(), to_floats(lower_vals)),
+            ("cap_upper_x0".into(), cat_with_offset(-CAP_HW)),
+            ("cap_upper_x1".into(), cat_with_offset(CAP_HW)),
+            ("cap_lower_x0".into(), cat_with_offset(-CAP_HW)),
+            ("cap_lower_x1".into(), cat_with_offset(CAP_HW)),
+        ],
+    )
 }
 
 fn build_segment_glyph(id_gen: &mut IdGen, x0: &str, y0: &str, x1: &str, y1: &str, color: &str) -> BokehObject {

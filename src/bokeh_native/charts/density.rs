@@ -11,10 +11,11 @@ use super::super::figure::{build_figure, build_glyph_renderer, AxisBuilder, Axis
 use super::super::id_gen::IdGen;
 use super::super::model::{BokehObject, BokehValue};
 use super::super::palette::resolve_palette;
-use super::super::source::{get_f64_column, get_str_column};
+use super::super::source::{build_cds_from_entries, get_f64_column, get_str_column};
 use super::{add_renderers, make_hover_tool, set_axis_labels};
 
 const KDE_GRID_POINTS: usize = 80;
+const VIOLIN_W: f64 = 0.4;
 
 pub fn build_density(
     id_gen: &mut IdGen,
@@ -91,164 +92,157 @@ pub fn build_density(
         if max > global_max { global_max = max; }
         cat_kdes.push(kde);
     }
-    // Width multiplier: half-width of the violin in FactorRange units
-    const VIOLIN_W: f64 = 0.4;
-
     for (i, cat) in cat_order.iter().enumerate() {
         let vals = groups.get(cat).map(|v| v.as_slice()).unwrap_or(&[]);
         let color = &colors[i];
         let kde = &cat_kdes[i];
 
-        let use_sina = vals.len() <= threshold as usize;
-
-        if use_sina {
-            // Sina plot: scatter each point, jitter within KDE envelope
-            let max_kde = kde.iter().cloned().fold(0.0_f64, f64::max).max(1e-12);
-            let mut rng = LcgRng::from_str(cat);
-            let xs: Vec<BokehValue> = vals.iter().map(|&v| {
-                let kde_at_v = interp_kde(kde, &y_grid, v);
-                let half_w = VIOLIN_W * (kde_at_v / max_kde);
-                let jitter = rng.next_f64() * 2.0 * half_w - half_w;
-                BokehValue::Array(vec![BokehValue::Str(cat.clone()), BokehValue::Float(jitter)])
-            }).collect();
-            let ys: Vec<BokehValue> = vals.iter().map(|&v| BokehValue::Float(v)).collect();
-
-            let cds_id = id_gen.next();
-            let sel_id = id_gen.next();
-            let policy_id = id_gen.next();
-            let cds = BokehObject::new("ColumnDataSource", cds_id)
-                .attr(
-                    "selected",
-                    BokehObject::new("Selection", sel_id)
-                        .attr("indices", BokehValue::Array(vec![]))
-                        .attr("line_indices", BokehValue::Array(vec![]))
-                        .into_value(),
-                )
-                .attr("selection_policy", BokehObject::new("UnionRenderers", policy_id).into_value())
-                .attr("data", BokehValue::Map(vec![
-                    ("x".into(), BokehValue::Array(xs)),
-                    ("y".into(), BokehValue::Array(ys)),
-                ]));
-
-            let glyph_id = id_gen.next();
-            let glyph = BokehObject::new("Scatter", glyph_id)
-                .attr("x", BokehValue::field("x"))
-                .attr("y", BokehValue::field("y"))
-                .attr("size", BokehValue::value_of(BokehValue::Float(6.0)))
-                .attr("fill_color", BokehValue::value_of(BokehValue::Str(color.clone())))
-                .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(alpha)))
-                .attr("line_color", BokehValue::value_of(BokehValue::Null))
-                .attr("marker", BokehValue::value_of(BokehValue::Str("circle".into())));
-
-            let nonsel_id = id_gen.next();
-            let nonsel = BokehObject::new("Scatter", nonsel_id)
-                .attr("x", BokehValue::field("x"))
-                .attr("y", BokehValue::field("y"))
-                .attr("size", BokehValue::value_of(BokehValue::Float(6.0)))
-                .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(0.1)))
-                .attr("marker", BokehValue::value_of(BokehValue::Str("circle".into())));
-
-            let renderer = build_glyph_renderer(id_gen, cds.into_value(), glyph, Some(nonsel), filter_ref.clone());
-            add_renderers(&mut figure, vec![renderer]);
+        if vals.len() <= threshold as usize {
+            render_sina_category(id_gen, &mut figure, cat, vals, kde, &y_grid, color, alpha, filter_ref.clone());
         } else {
-            // Violin: mirrored KDE polygon
-            let max_kde = kde.iter().cloned().fold(0.0_f64, f64::max).max(1e-12);
-
-            // Right side: (cat, +normalized_kde) at each y point
-            // Left side: (cat, -normalized_kde) at each y point (reversed)
-            let mut poly_x: Vec<BokehValue> = Vec::new();
-            let mut poly_y: Vec<BokehValue> = Vec::new();
-
-            for j in 0..KDE_GRID_POINTS {
-                let offset = VIOLIN_W * kde[j] / max_kde;
-                poly_x.push(BokehValue::Array(vec![BokehValue::Str(cat.clone()), BokehValue::Float(offset)]));
-                poly_y.push(BokehValue::Float(y_grid[j]));
-            }
-            for j in (0..KDE_GRID_POINTS).rev() {
-                let offset = -VIOLIN_W * kde[j] / max_kde;
-                poly_x.push(BokehValue::Array(vec![BokehValue::Str(cat.clone()), BokehValue::Float(offset)]));
-                poly_y.push(BokehValue::Float(y_grid[j]));
-            }
-
-            let cds_id = id_gen.next();
-            let sel_id = id_gen.next();
-            let policy_id = id_gen.next();
-            let cds = BokehObject::new("ColumnDataSource", cds_id)
-                .attr(
-                    "selected",
-                    BokehObject::new("Selection", sel_id)
-                        .attr("indices", BokehValue::Array(vec![]))
-                        .attr("line_indices", BokehValue::Array(vec![]))
-                        .into_value(),
-                )
-                .attr("selection_policy", BokehObject::new("UnionRenderers", policy_id).into_value())
-                .attr("data", BokehValue::Map(vec![
-                    ("x".into(), BokehValue::Array(poly_x)),
-                    ("y".into(), BokehValue::Array(poly_y)),
-                ]));
-
-            let glyph_id = id_gen.next();
-            let glyph = BokehObject::new("Patch", glyph_id)
-                .attr("x", BokehValue::field("x"))
-                .attr("y", BokehValue::field("y"))
-                .attr("fill_color", BokehValue::value_of(BokehValue::Str(color.clone())))
-                .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(alpha)))
-                .attr("line_color", BokehValue::value_of(BokehValue::Str(color.clone())));
-
-            let nonsel_id = id_gen.next();
-            let nonsel = BokehObject::new("Patch", nonsel_id)
-                .attr("x", BokehValue::field("x"))
-                .attr("y", BokehValue::field("y"))
-                .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(0.1)));
-
-            let renderer = build_glyph_renderer(id_gen, cds.into_value(), glyph, Some(nonsel), filter_ref.clone());
-            add_renderers(&mut figure, vec![renderer]);
-
-            // Median line
-            let median_val = median(vals);
-            let med_x = vec![
-                BokehValue::Array(vec![BokehValue::Str(cat.clone()), BokehValue::Float(-0.2)]),
-                BokehValue::Array(vec![BokehValue::Str(cat.clone()), BokehValue::Float(0.2)]),
-            ];
-            let med_y = vec![BokehValue::Float(median_val), BokehValue::Float(median_val)];
-
-            let med_cds_id = id_gen.next();
-            let sel_id2 = id_gen.next();
-            let policy_id2 = id_gen.next();
-            let med_cds = BokehObject::new("ColumnDataSource", med_cds_id)
-                .attr(
-                    "selected",
-                    BokehObject::new("Selection", sel_id2)
-                        .attr("indices", BokehValue::Array(vec![]))
-                        .attr("line_indices", BokehValue::Array(vec![]))
-                        .into_value(),
-                )
-                .attr("selection_policy", BokehObject::new("UnionRenderers", policy_id2).into_value())
-                .attr("data", BokehValue::Map(vec![
-                    ("x".into(), BokehValue::Array(med_x)),
-                    ("y".into(), BokehValue::Array(med_y)),
-                ]));
-
-            let med_glyph_id = id_gen.next();
-            let med_glyph = BokehObject::new("Line", med_glyph_id)
-                .attr("x", BokehValue::field("x"))
-                .attr("y", BokehValue::field("y"))
-                .attr("line_color", BokehValue::value_of(BokehValue::Str("white".into())))
-                .attr("line_width", BokehValue::value_of(BokehValue::Float(2.0)));
-
-            let med_nonsel_id = id_gen.next();
-            let med_nonsel = BokehObject::new("Line", med_nonsel_id)
-                .attr("x", BokehValue::field("x"))
-                .attr("y", BokehValue::field("y"))
-                .attr("line_alpha", BokehValue::value_of(BokehValue::Float(0.1)));
-
-            let med_renderer = build_glyph_renderer(id_gen, med_cds.into_value(), med_glyph, Some(med_nonsel), None);
-            add_renderers(&mut figure, vec![med_renderer]);
+            render_violin_category(id_gen, &mut figure, cat, vals, kde, &y_grid, color, alpha, filter_ref.clone());
         }
     }
 
     set_axis_labels(&mut figure, "", &cfg.y_label);
     Ok(figure)
+}
+
+/// Sina plot: scatter points jittered within KDE envelope (for small sample sizes).
+fn render_sina_category(
+    id_gen: &mut IdGen,
+    figure: &mut BokehObject,
+    cat: &str,
+    vals: &[f64],
+    kde: &[f64],
+    y_grid: &[f64],
+    color: &str,
+    alpha: f64,
+    filter_ref: Option<BokehValue>,
+) {
+    let max_kde = kde.iter().cloned().fold(0.0_f64, f64::max).max(1e-12);
+    let mut rng = LcgRng::from_str(cat);
+    let xs: Vec<BokehValue> = vals
+        .iter()
+        .map(|&v| {
+            let kde_at_v = interp_kde(kde, y_grid, v);
+            let half_w = VIOLIN_W * (kde_at_v / max_kde);
+            let jitter = rng.next_f64() * 2.0 * half_w - half_w;
+            BokehValue::Array(vec![BokehValue::Str(cat.to_string()), BokehValue::Float(jitter)])
+        })
+        .collect();
+    let ys: Vec<BokehValue> = vals.iter().map(|&v| BokehValue::Float(v)).collect();
+
+    let cds = build_cds_from_entries(
+        id_gen,
+        vec![
+            ("x".into(), BokehValue::Array(xs)),
+            ("y".into(), BokehValue::Array(ys)),
+        ],
+    );
+
+    let glyph = BokehObject::new("Scatter", id_gen.next())
+        .attr("x", BokehValue::field("x"))
+        .attr("y", BokehValue::field("y"))
+        .attr("size", BokehValue::value_of(BokehValue::Float(6.0)))
+        .attr("fill_color", BokehValue::value_of(BokehValue::Str(color.to_string())))
+        .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(alpha)))
+        .attr("line_color", BokehValue::value_of(BokehValue::Null))
+        .attr("marker", BokehValue::value_of(BokehValue::Str("circle".into())));
+
+    let nonsel = BokehObject::new("Scatter", id_gen.next())
+        .attr("x", BokehValue::field("x"))
+        .attr("y", BokehValue::field("y"))
+        .attr("size", BokehValue::value_of(BokehValue::Float(6.0)))
+        .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(0.1)))
+        .attr("marker", BokehValue::value_of(BokehValue::Str("circle".into())));
+
+    let renderer = build_glyph_renderer(id_gen, cds.into_value(), glyph, Some(nonsel), filter_ref);
+    add_renderers(figure, vec![renderer]);
+}
+
+/// Violin plot: mirrored KDE polygon plus median line (for large sample sizes).
+fn render_violin_category(
+    id_gen: &mut IdGen,
+    figure: &mut BokehObject,
+    cat: &str,
+    vals: &[f64],
+    kde: &[f64],
+    y_grid: &[f64],
+    color: &str,
+    alpha: f64,
+    filter_ref: Option<BokehValue>,
+) {
+    let max_kde = kde.iter().cloned().fold(0.0_f64, f64::max).max(1e-12);
+
+    let mut poly_x: Vec<BokehValue> = Vec::new();
+    let mut poly_y: Vec<BokehValue> = Vec::new();
+    for j in 0..KDE_GRID_POINTS {
+        let offset = VIOLIN_W * kde[j] / max_kde;
+        poly_x.push(BokehValue::Array(vec![BokehValue::Str(cat.to_string()), BokehValue::Float(offset)]));
+        poly_y.push(BokehValue::Float(y_grid[j]));
+    }
+    for j in (0..KDE_GRID_POINTS).rev() {
+        let offset = -VIOLIN_W * kde[j] / max_kde;
+        poly_x.push(BokehValue::Array(vec![BokehValue::Str(cat.to_string()), BokehValue::Float(offset)]));
+        poly_y.push(BokehValue::Float(y_grid[j]));
+    }
+
+    let cds = build_cds_from_entries(
+        id_gen,
+        vec![
+            ("x".into(), BokehValue::Array(poly_x)),
+            ("y".into(), BokehValue::Array(poly_y)),
+        ],
+    );
+
+    let glyph = BokehObject::new("Patch", id_gen.next())
+        .attr("x", BokehValue::field("x"))
+        .attr("y", BokehValue::field("y"))
+        .attr("fill_color", BokehValue::value_of(BokehValue::Str(color.to_string())))
+        .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(alpha)))
+        .attr("line_color", BokehValue::value_of(BokehValue::Str(color.to_string())));
+
+    let nonsel = BokehObject::new("Patch", id_gen.next())
+        .attr("x", BokehValue::field("x"))
+        .attr("y", BokehValue::field("y"))
+        .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(0.1)));
+
+    let renderer = build_glyph_renderer(id_gen, cds.into_value(), glyph, Some(nonsel), filter_ref);
+    add_renderers(figure, vec![renderer]);
+
+    // Median line
+    let median_val = median(vals);
+    let med_cds = build_cds_from_entries(
+        id_gen,
+        vec![
+            (
+                "x".into(),
+                BokehValue::Array(vec![
+                    BokehValue::Array(vec![BokehValue::Str(cat.to_string()), BokehValue::Float(-0.2)]),
+                    BokehValue::Array(vec![BokehValue::Str(cat.to_string()), BokehValue::Float(0.2)]),
+                ]),
+            ),
+            (
+                "y".into(),
+                BokehValue::Array(vec![BokehValue::Float(median_val), BokehValue::Float(median_val)]),
+            ),
+        ],
+    );
+
+    let med_glyph = BokehObject::new("Line", id_gen.next())
+        .attr("x", BokehValue::field("x"))
+        .attr("y", BokehValue::field("y"))
+        .attr("line_color", BokehValue::value_of(BokehValue::Str("white".into())))
+        .attr("line_width", BokehValue::value_of(BokehValue::Float(2.0)));
+
+    let med_nonsel = BokehObject::new("Line", id_gen.next())
+        .attr("x", BokehValue::field("x"))
+        .attr("y", BokehValue::field("y"))
+        .attr("line_alpha", BokehValue::value_of(BokehValue::Float(0.1)));
+
+    let med_renderer = build_glyph_renderer(id_gen, med_cds.into_value(), med_glyph, Some(med_nonsel), None);
+    add_renderers(figure, vec![med_renderer]);
 }
 
 // ── Pure-Rust KDE helpers ────────────────────────────────────────────────────

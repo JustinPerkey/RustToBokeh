@@ -13,16 +13,25 @@ use super::model::{BokehObject, BokehValue};
 /// Extra columns (e.g. `_fill_color`) can be injected before calling this
 /// function by adding them to the DataFrame.
 pub fn build_column_data_source(id_gen: &mut IdGen, df: &DataFrame) -> BokehObject {
+    let entries: Vec<(String, BokehValue)> = df
+        .columns()
+        .iter()
+        .map(|col| (col.name().to_string(), series_to_bokeh_array(col)))
+        .collect();
+    build_cds_from_entries(id_gen, entries)
+}
+
+/// Build a Bokeh `ColumnDataSource` from pre-constructed `(column, values)` entries.
+///
+/// Shared helper that wraps the Selection + UnionRenderers boilerplate every
+/// chart builder needs.
+pub fn build_cds_from_entries(
+    id_gen: &mut IdGen,
+    entries: Vec<(String, BokehValue)>,
+) -> BokehObject {
     let cds_id = id_gen.next();
     let sel_id = id_gen.next();
     let policy_id = id_gen.next();
-
-    let mut entries: Vec<(String, BokehValue)> = Vec::new();
-    for col in df.columns() {
-        let col_name = col.name().to_string();
-        let values = series_to_bokeh_array(col);
-        entries.push((col_name, values));
-    }
 
     let selection = BokehObject::with_attrs(
         "Selection",
@@ -32,7 +41,6 @@ pub fn build_column_data_source(id_gen: &mut IdGen, df: &DataFrame) -> BokehObje
             ("line_indices", BokehValue::Array(vec![])),
         ],
     );
-
     let policy = BokehObject::new("UnionRenderers", policy_id);
 
     BokehObject::new("ColumnDataSource", cds_id)

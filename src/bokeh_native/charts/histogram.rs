@@ -9,7 +9,7 @@ use crate::error::ChartError;
 use super::super::figure::{build_figure, build_glyph_renderer, AxisBuilder, AxisType, FigureOutput, XRangeKind, YRangeKind};
 use super::super::id_gen::IdGen;
 use super::super::model::{BokehObject, BokehValue};
-use super::super::source::{build_column_data_source, get_f64_column};
+use super::super::source::{build_cds_from_entries, build_column_data_source, get_f64_column};
 use super::{add_renderers, make_hover_tool, set_axis_labels};
 
 pub fn build_histogram(
@@ -50,94 +50,90 @@ pub fn build_histogram(
         Some(ht),
     );
 
-    let cds = build_column_data_source(id_gen, df);
-    let cds_ref = cds.into_value();
-
-    if matches!(display, HistogramDisplay::Cdf) {
-        // CDF: render as a step line using Line glyph
-        // Pre-compute stepped x (right edges) and y values
-        let right = get_f64_column(df, "right").map_err(ChartError::NativeRender)?;
-        let cdf = get_f64_column(df, "cdf").map_err(ChartError::NativeRender)?;
-
-        let mut step_x: Vec<BokehValue> = Vec::new();
-        let mut step_y: Vec<BokehValue> = Vec::new();
-        // Start at 0
-        if let Some(first_left) = get_f64_column(df, "left").ok().and_then(|v| v.into_iter().next()) {
-            step_x.push(BokehValue::Float(first_left));
-            step_y.push(BokehValue::Float(0.0));
-        }
-        for (x, y) in right.iter().zip(cdf.iter()) {
-            step_x.push(BokehValue::Float(*x));
-            step_y.push(BokehValue::Float(*y));
-        }
-
-        // Build a separate CDS for the step line
-        let step_cds_id = id_gen.next();
-        let sel_id = id_gen.next();
-        let policy_id = id_gen.next();
-        let step_cds = BokehObject::new("ColumnDataSource", step_cds_id)
-            .attr(
-                "selected",
-                BokehObject::new("Selection", sel_id)
-                    .attr("indices", BokehValue::Array(vec![]))
-                    .attr("line_indices", BokehValue::Array(vec![]))
-                    .into_value(),
-            )
-            .attr(
-                "selection_policy",
-                BokehObject::new("UnionRenderers", policy_id).into_value(),
-            )
-            .attr(
-                "data",
-                BokehValue::Map(vec![
-                    ("x".into(), BokehValue::Array(step_x)),
-                    ("y".into(), BokehValue::Array(step_y)),
-                ]),
-            );
-
-        let glyph_id = id_gen.next();
-        let glyph = BokehObject::new("Line", glyph_id)
-            .attr("x", BokehValue::field("x"))
-            .attr("y", BokehValue::field("y"))
-            .attr("line_color", BokehValue::value_of(BokehValue::Str(color.to_string())))
-            .attr("line_width", BokehValue::value_of(BokehValue::Float(2.0)));
-
-        let nonsel_id = id_gen.next();
-        let nonsel = BokehObject::new("Line", nonsel_id)
-            .attr("x", BokehValue::field("x"))
-            .attr("y", BokehValue::field("y"))
-            .attr("line_color", BokehValue::value_of(BokehValue::Str(color.to_string())))
-            .attr("line_alpha", BokehValue::value_of(BokehValue::Float(0.1)));
-
-        let renderer = build_glyph_renderer(id_gen, step_cds.into_value(), glyph, Some(nonsel), filter_ref);
-        add_renderers(&mut figure, vec![renderer]);
+    let renderer = if matches!(display, HistogramDisplay::Cdf) {
+        build_cdf_renderer(id_gen, df, color, filter_ref)?
     } else {
-        // Count or PDF: render as quad bars
-        let glyph_id = id_gen.next();
-        let glyph = BokehObject::new("Quad", glyph_id)
-            .attr("left", BokehValue::field("left"))
-            .attr("right", BokehValue::field("right"))
-            .attr("top", BokehValue::field(y_col))
-            .attr("bottom", BokehValue::value_of(BokehValue::Float(0.0)))
-            .attr("fill_color", BokehValue::value_of(BokehValue::Str(color.to_string())))
-            .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(alpha)))
-            .attr("line_color", BokehValue::value_of(BokehValue::Str(line_color.to_string())));
-
-        let nonsel_id = id_gen.next();
-        let nonsel = BokehObject::new("Quad", nonsel_id)
-            .attr("left", BokehValue::field("left"))
-            .attr("right", BokehValue::field("right"))
-            .attr("top", BokehValue::field(y_col))
-            .attr("bottom", BokehValue::value_of(BokehValue::Float(0.0)))
-            .attr("fill_color", BokehValue::value_of(BokehValue::Str(color.to_string())))
-            .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(0.1)));
-
-        let renderer = build_glyph_renderer(id_gen, cds_ref, glyph, Some(nonsel), filter_ref);
-        add_renderers(&mut figure, vec![renderer]);
-    }
+        let cds_ref = build_column_data_source(id_gen, df).into_value();
+        build_quad_renderer(id_gen, cds_ref, y_col, color, line_color, alpha, filter_ref)
+    };
+    add_renderers(&mut figure, vec![renderer]);
 
     set_axis_labels(&mut figure, &cfg.x_label, y_label);
     Ok(figure)
+}
+
+/// CDF step line: synthesise (left, 0) → (right_i, cdf_i) polyline.
+fn build_cdf_renderer(
+    id_gen: &mut IdGen,
+    df: &DataFrame,
+    color: &str,
+    filter_ref: Option<BokehValue>,
+) -> Result<BokehObject, ChartError> {
+    let right = get_f64_column(df, "right").map_err(ChartError::NativeRender)?;
+    let cdf = get_f64_column(df, "cdf").map_err(ChartError::NativeRender)?;
+
+    let mut step_x: Vec<BokehValue> = Vec::new();
+    let mut step_y: Vec<BokehValue> = Vec::new();
+    if let Some(first_left) = get_f64_column(df, "left").ok().and_then(|v| v.into_iter().next()) {
+        step_x.push(BokehValue::Float(first_left));
+        step_y.push(BokehValue::Float(0.0));
+    }
+    for (x, y) in right.iter().zip(cdf.iter()) {
+        step_x.push(BokehValue::Float(*x));
+        step_y.push(BokehValue::Float(*y));
+    }
+
+    let step_cds = build_cds_from_entries(
+        id_gen,
+        vec![
+            ("x".into(), BokehValue::Array(step_x)),
+            ("y".into(), BokehValue::Array(step_y)),
+        ],
+    );
+
+    let glyph = BokehObject::new("Line", id_gen.next())
+        .attr("x", BokehValue::field("x"))
+        .attr("y", BokehValue::field("y"))
+        .attr("line_color", BokehValue::value_of(BokehValue::Str(color.to_string())))
+        .attr("line_width", BokehValue::value_of(BokehValue::Float(2.0)));
+
+    let nonsel = BokehObject::new("Line", id_gen.next())
+        .attr("x", BokehValue::field("x"))
+        .attr("y", BokehValue::field("y"))
+        .attr("line_color", BokehValue::value_of(BokehValue::Str(color.to_string())))
+        .attr("line_alpha", BokehValue::value_of(BokehValue::Float(0.1)));
+
+    Ok(build_glyph_renderer(id_gen, step_cds.into_value(), glyph, Some(nonsel), filter_ref))
+}
+
+/// Count / PDF bars using Quad glyph.
+fn build_quad_renderer(
+    id_gen: &mut IdGen,
+    cds_ref: BokehValue,
+    y_col: &str,
+    color: &str,
+    line_color: &str,
+    alpha: f64,
+    filter_ref: Option<BokehValue>,
+) -> BokehObject {
+    let glyph = BokehObject::new("Quad", id_gen.next())
+        .attr("left", BokehValue::field("left"))
+        .attr("right", BokehValue::field("right"))
+        .attr("top", BokehValue::field(y_col))
+        .attr("bottom", BokehValue::value_of(BokehValue::Float(0.0)))
+        .attr("fill_color", BokehValue::value_of(BokehValue::Str(color.to_string())))
+        .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(alpha)))
+        .attr("line_color", BokehValue::value_of(BokehValue::Str(line_color.to_string())));
+
+    let nonsel = BokehObject::new("Quad", id_gen.next())
+        .attr("left", BokehValue::field("left"))
+        .attr("right", BokehValue::field("right"))
+        .attr("top", BokehValue::field(y_col))
+        .attr("bottom", BokehValue::value_of(BokehValue::Float(0.0)))
+        .attr("fill_color", BokehValue::value_of(BokehValue::Str(color.to_string())))
+        .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(0.1)));
+
+    build_glyph_renderer(id_gen, cds_ref, glyph, Some(nonsel), filter_ref)
 }
 
 #[cfg(test)]

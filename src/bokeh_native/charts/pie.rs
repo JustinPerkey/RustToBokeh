@@ -11,7 +11,7 @@ use super::super::figure::{build_figure, build_glyph_renderer, AxisBuilder, Axis
 use super::super::id_gen::IdGen;
 use super::super::model::{BokehObject, BokehValue};
 use super::super::palette::resolve_palette;
-use super::super::source::{get_f64_column, get_str_column};
+use super::super::source::{build_cds_from_entries, get_f64_column, get_str_column};
 use super::{add_legend, add_renderers, make_hover_tool};
 
 pub fn build_pie(
@@ -25,19 +25,8 @@ pub fn build_pie(
     let n = labels.len();
 
     let colors = resolve_palette(cfg.palette.as_ref(), n);
-    let total: f64 = values.iter().sum();
     let show_legend = cfg.show_legend.unwrap_or(true);
-
-    // Compute start/end angles
-    let mut start_angles = Vec::with_capacity(n);
-    let mut end_angles = Vec::with_capacity(n);
-    let mut cumulative = -PI / 2.0; // start from top (12 o'clock)
-    for &v in &values {
-        let angle = if total > 0.0 { v / total * 2.0 * PI } else { 0.0 };
-        start_angles.push(cumulative);
-        end_angles.push(cumulative + angle);
-        cumulative += angle;
-    }
+    let (start_angles, end_angles) = compute_wedge_angles(&values);
 
     let ht = make_hover_tool(
         id_gen,
@@ -57,105 +46,97 @@ pub fn build_pie(
         Some(ht),
     );
 
-    // Build a shared CDS with all data (one row per slice)
-    let cds_data: Vec<(String, BokehValue)> = vec![
-        (cfg.label_col.clone(), BokehValue::Array(labels.iter().map(|s| BokehValue::Str(s.clone())).collect())),
-        (cfg.value_col.clone(), BokehValue::Array(values.iter().map(|&v| BokehValue::Float(v)).collect())),
-        ("start_angle".into(), BokehValue::Array(start_angles.iter().map(|&a| BokehValue::Float(a)).collect())),
-        ("end_angle".into(), BokehValue::Array(end_angles.iter().map(|&a| BokehValue::Float(a)).collect())),
-        ("color".into(), BokehValue::Array(colors.iter().map(|c| BokehValue::Str(c.clone())).collect())),
-    ];
-
-    let cds_id = id_gen.next();
-    let sel_id = id_gen.next();
-    let policy_id = id_gen.next();
-    let cds = BokehObject::new("ColumnDataSource", cds_id.clone())
-        .attr(
-            "selected",
-            BokehObject::new("Selection", sel_id)
-                .attr("indices", BokehValue::Array(vec![]))
-                .attr("line_indices", BokehValue::Array(vec![]))
-                .into_value(),
-        )
-        .attr("selection_policy", BokehObject::new("UnionRenderers", policy_id).into_value())
-        .attr("data", BokehValue::Map(cds_data));
+    let cds = build_cds_from_entries(
+        id_gen,
+        vec![
+            (cfg.label_col.clone(), BokehValue::Array(labels.iter().map(|s| BokehValue::Str(s.clone())).collect())),
+            (cfg.value_col.clone(), BokehValue::Array(values.iter().map(|&v| BokehValue::Float(v)).collect())),
+            ("start_angle".into(), BokehValue::Array(start_angles.iter().map(|&a| BokehValue::Float(a)).collect())),
+            ("end_angle".into(), BokehValue::Array(end_angles.iter().map(|&a| BokehValue::Float(a)).collect())),
+            ("color".into(), BokehValue::Array(colors.iter().map(|c| BokehValue::Str(c.clone())).collect())),
+        ],
+    );
+    let cds_id = cds.id.clone();
 
     let inner_r = cfg.inner_radius.unwrap_or(0.0);
     let outer_r = 0.9_f64;
 
     let mut renderers: Vec<BokehObject> = Vec::new();
     let mut legend_items: Vec<BokehValue> = Vec::new();
-
     for i in 0..n {
-        // Each slice gets its own CDSView with IndexFilter(indices=[i])
-        let filter_id = id_gen.next();
-        let filter = BokehObject::new("IndexFilter", filter_id.clone())
-            .attr("indices", BokehValue::Array(vec![BokehValue::Int(i as i64)]));
-
-        let glyph_id = id_gen.next();
-        let glyph = BokehObject::new("AnnularWedge", glyph_id)
-            .attr("x", BokehValue::value_of(BokehValue::Float(0.0)))
-            .attr("y", BokehValue::value_of(BokehValue::Float(0.0)))
-            .attr("outer_radius", BokehValue::value_of(BokehValue::Float(outer_r)))
-            .attr("inner_radius", BokehValue::value_of(BokehValue::Float(inner_r)))
-            .attr("start_angle", BokehValue::field("start_angle"))
-            .attr("end_angle", BokehValue::field("end_angle"))
-            .attr("fill_color", BokehValue::field("color"))
-            .attr("line_color", BokehValue::value_of(BokehValue::Str("white".into())));
-
-        let nonsel_id = id_gen.next();
-        let nonsel = BokehObject::new("AnnularWedge", nonsel_id)
-            .attr("x", BokehValue::value_of(BokehValue::Float(0.0)))
-            .attr("y", BokehValue::value_of(BokehValue::Float(0.0)))
-            .attr("outer_radius", BokehValue::value_of(BokehValue::Float(outer_r)))
-            .attr("inner_radius", BokehValue::value_of(BokehValue::Float(inner_r)))
-            .attr("start_angle", BokehValue::field("start_angle"))
-            .attr("end_angle", BokehValue::field("end_angle"))
-            .attr("fill_color", BokehValue::field("color"))
-            .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(0.3)))
-            .attr("line_color", BokehValue::value_of(BokehValue::Str("white".into())));
-
-        // First slice embeds the CDS inline; rest use reference
-        let cds_ref = if i == 0 {
-            cds.clone().into_value()
-        } else {
-            BokehValue::ref_of(&cds_id)
-        };
-
-        let renderer = build_glyph_renderer(
-            id_gen,
-            cds_ref,
-            glyph,
-            Some(nonsel),
-            Some(filter.into_value()),
-        );
-        let renderer_id = renderer.id.clone();
-        renderers.push(renderer);
-
+        let cds_ref = if i == 0 { cds.clone().into_value() } else { BokehValue::ref_of(&cds_id) };
+        let renderer = build_slice_renderer(id_gen, cds_ref, i, inner_r, outer_r);
         if show_legend {
-            let item_id = id_gen.next();
-            let item = BokehObject::new("LegendItem", item_id)
-                .attr("label", BokehValue::value_of(BokehValue::Str(labels[i].clone())))
-                .attr("renderers", BokehValue::Array(vec![BokehValue::ref_of(&renderer_id)]));
-            legend_items.push(item.into_value());
+            legend_items.push(build_slice_legend_item(id_gen, &labels[i], &renderer.id).into_value());
         }
+        renderers.push(renderer);
     }
-
     add_renderers(&mut figure, renderers);
 
     if show_legend && !legend_items.is_empty() {
         let side = cfg.legend_side.as_deref().unwrap_or("right");
-        let legend_id = id_gen.next();
-        let legend = BokehObject::new("Legend", legend_id)
+        let legend = BokehObject::new("Legend", id_gen.next())
             .attr("items", BokehValue::Array(legend_items))
             .attr("location", BokehValue::Str(side.into()));
         add_legend(&mut figure, legend);
     }
 
-    // Hide axes for pie charts
     hide_axes(&mut figure);
-
     Ok(figure)
+}
+
+fn compute_wedge_angles(values: &[f64]) -> (Vec<f64>, Vec<f64>) {
+    let total: f64 = values.iter().sum();
+    let mut starts = Vec::with_capacity(values.len());
+    let mut ends = Vec::with_capacity(values.len());
+    let mut cumulative = -PI / 2.0; // start from top (12 o'clock)
+    for &v in values {
+        let angle = if total > 0.0 { v / total * 2.0 * PI } else { 0.0 };
+        starts.push(cumulative);
+        ends.push(cumulative + angle);
+        cumulative += angle;
+    }
+    (starts, ends)
+}
+
+fn build_slice_renderer(
+    id_gen: &mut IdGen,
+    cds_ref: BokehValue,
+    slice_idx: usize,
+    inner_r: f64,
+    outer_r: f64,
+) -> BokehObject {
+    let filter = BokehObject::new("IndexFilter", id_gen.next())
+        .attr("indices", BokehValue::Array(vec![BokehValue::Int(slice_idx as i64)]));
+
+    let glyph = BokehObject::new("AnnularWedge", id_gen.next())
+        .attr("x", BokehValue::value_of(BokehValue::Float(0.0)))
+        .attr("y", BokehValue::value_of(BokehValue::Float(0.0)))
+        .attr("outer_radius", BokehValue::value_of(BokehValue::Float(outer_r)))
+        .attr("inner_radius", BokehValue::value_of(BokehValue::Float(inner_r)))
+        .attr("start_angle", BokehValue::field("start_angle"))
+        .attr("end_angle", BokehValue::field("end_angle"))
+        .attr("fill_color", BokehValue::field("color"))
+        .attr("line_color", BokehValue::value_of(BokehValue::Str("white".into())));
+
+    let nonsel = BokehObject::new("AnnularWedge", id_gen.next())
+        .attr("x", BokehValue::value_of(BokehValue::Float(0.0)))
+        .attr("y", BokehValue::value_of(BokehValue::Float(0.0)))
+        .attr("outer_radius", BokehValue::value_of(BokehValue::Float(outer_r)))
+        .attr("inner_radius", BokehValue::value_of(BokehValue::Float(inner_r)))
+        .attr("start_angle", BokehValue::field("start_angle"))
+        .attr("end_angle", BokehValue::field("end_angle"))
+        .attr("fill_color", BokehValue::field("color"))
+        .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(0.3)))
+        .attr("line_color", BokehValue::value_of(BokehValue::Str("white".into())));
+
+    build_glyph_renderer(id_gen, cds_ref, glyph, Some(nonsel), Some(filter.into_value()))
+}
+
+fn build_slice_legend_item(id_gen: &mut IdGen, label: &str, renderer_id: &str) -> BokehObject {
+    BokehObject::new("LegendItem", id_gen.next())
+        .attr("label", BokehValue::value_of(BokehValue::Str(label.to_string())))
+        .attr("renderers", BokehValue::Array(vec![BokehValue::ref_of(renderer_id)]))
 }
 
 #[cfg(test)]
