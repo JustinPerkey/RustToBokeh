@@ -7,9 +7,12 @@ A Rust library for building interactive multi-page [Bokeh](https://bokeh.org/) d
 ```
 Rust (Polars DataFrames)
         │  serialize to Arrow IPC
-        ▼  PyO3 FFI
-Python (Bokeh + Jinja2)
-        │  render charts, apply filters
+        ▼
+   ┌────┴─────┐
+   │          │
+Native      Python (PyO3 → Bokeh + Jinja2)
+   │          │
+   └────┬─────┘
         ▼
   output/*.html  (one file per page, with navigation)
 ```
@@ -17,9 +20,11 @@ Python (Bokeh + Jinja2)
 1. **Build DataFrames** in Rust using Polars — one DataFrame per data source.
 2. **Register data** with `Dashboard::add_df()`, which serializes each DataFrame to Arrow IPC bytes.
 3. **Define pages** with `PageBuilder`, adding chart specs and optional interactive filters.
-4. **Call `Dashboard::render()`** — PyO3 acquires the Python GIL, passes everything to the embedded `render.py`, and writes one HTML file per page.
+4. **Render** — pick a backend:
+   - `Dashboard::render_native(BokehResources::Cdn)` — pure-Rust renderer, emits Bokeh's JSON document model directly. No Python at runtime.
+   - `Dashboard::render()` (feature `python`) — PyO3 acquires the GIL, passes everything to the embedded `render.py`, writes one HTML file per page.
 
-The Python script and HTML template are embedded into the binary at compile time using `include_str!()`, so the final executable has no runtime file dependencies beyond a Python interpreter and the required packages.
+The Python script and HTML template are embedded into the binary at compile time using `include_str!()`, so when using the Python backend the executable has no runtime file dependencies beyond a Python interpreter and the required packages. The native backend needs nothing at runtime.
 
 ## Quick Start
 
@@ -152,9 +157,20 @@ dash.add_df("by_region", &mut region_df)?;
 dash.add_page(overview_page()?);
 dash.add_page(detail_page()?);
 
-// Render all pages to HTML
-dash.render()?;
+// Render all pages to HTML — pick a backend
+dash.render_native(BokehResources::Cdn)?;   // pure Rust, no Python
+// or
+dash.render()?;                              // PyO3 → Python (feature `python`)
 ```
+
+### Rendering Backends
+
+| Method | Runtime | Feature flag | Notes |
+|---|---|---|---|
+| `render_native(BokehResources)` | Pure Rust | (default) | Emits Bokeh's JSON document model directly. `BokehResources::Cdn` loads JS/CSS from cdn.bokeh.org; `BokehResources::Inline` embeds them (requires `bokeh-inline` feature). |
+| `render()` | PyO3 → embedded Python | `python` | Uses the embedded `render.py` and vendored Python interpreter. Equivalent output; useful when native gaps matter or for debugging. |
+
+Both backends consume the same `Dashboard` state and produce one HTML file per page.
 
 **Navigation styles:**
 
@@ -436,10 +452,14 @@ All fallible operations return `Result<T, ChartError>`. The error type covers:
 ```
 RustToBokeh/
 ├── src/
-│   ├── lib.rs                # Library root: Dashboard, NavStyle, serialize_df()
+│   ├── lib.rs                # Library root: NavStyle, serialize_df(), module decls + re-exports
+│   ├── dashboard.rs          # Dashboard builder (add_df, add_page, render, render_native)
 │   ├── stats.rs              # Statistical helpers: compute_histogram(), compute_box_stats(), compute_box_outliers()
 │   ├── python_config.rs      # Vendored Python interpreter discovery
-│   ├── render.rs             # PyO3 bridge to Python (private)
+│   ├── render/               # PyO3 bridge to Python (private, feature `python`)
+│   │   ├── mod.rs            # render_dashboard() entry + frame/nav/page builders
+│   │   ├── chart_config.rs   # PyO3 serialisation for ChartConfig + palette/tooltip/axis
+│   │   └── module.rs         # PyO3 serialisation for PageModule + ColumnFormat + FilterConfig
 │   ├── error.rs              # ChartError enum
 │   ├── prelude.rs            # Convenience re-exports
 │   ├── pages.rs              # Page and PageBuilder
@@ -464,6 +484,36 @@ RustToBokeh/
 │   │       ├── tooltip.rs
 │   │       ├── axis.rs
 │   │       └── filters.rs
+│   ├── bokeh_native/         # Pure-Rust Bokeh HTML renderer (no Python)
+│   │   ├── mod.rs            # BokehResources, render_native_dashboard() entry
+│   │   ├── page.rs           # Per-page assembly (charts + filters + modules → HTML)
+│   │   ├── placeholder.rs    # CDS-ID placeholder rewriting in filter widget callbacks
+│   │   ├── modules_html.rs   # HTML rendering for paragraph and table modules
+│   │   ├── document.rs       # BokehDocument root collection + embed-script emission
+│   │   ├── model.rs          # BokehObject/BokehValue JSON representation
+│   │   ├── id_gen.rs         # UUID generation
+│   │   ├── html.rs           # Jinja-style page template + escape helpers
+│   │   ├── nav.rs            # Horizontal/vertical navigation HTML
+│   │   ├── palette.rs        # Named Bokeh palette lookup
+│   │   ├── source.rs         # ColumnDataSource builder from Polars DataFrame
+│   │   ├── axis.rs           # AxisBuilder for LinearAxis / CategoricalAxis / DatetimeAxis
+│   │   ├── figure/           # Figure builder (axes, toolbar, glyph renderer)
+│   │   │   ├── mod.rs        # build_figure() + XRangeKind/YRangeKind
+│   │   │   ├── ranges.rs     # Range1d / DataRange1d / FactorRange builders
+│   │   │   ├── tools.rs      # Toolbar tool builders (pan, zoom, hover, …)
+│   │   │   └── glyph.rs      # GlyphRenderer + CDSView helper
+│   │   ├── filters/          # Filter widget + Bokeh filter model builders
+│   │   │   ├── mod.rs        # FilterOutput, build_filter_widgets(), combine_filters()
+│   │   │   ├── range.rs      # RangeSlider → BooleanFilter
+│   │   │   ├── select.rs     # Select dropdown with "(All)" → BooleanFilter
+│   │   │   ├── group.rs      # Select dropdown → Bokeh GroupFilter
+│   │   │   ├── threshold.rs  # Switch toggle → BooleanFilter
+│   │   │   ├── top_n.rs      # Slider → IndexFilter (top/bottom N)
+│   │   │   ├── date_range.rs # DatetimeRangeSlider → BooleanFilter
+│   │   │   └── range_tool.rs # Overview chart + RangeTool → shared Range1d
+│   │   └── charts/           # Per-chart-type native renderers
+│   │       ├── mod.rs, grouped_bar.rs, line.rs, hbar.rs, scatter.rs,
+│   │       ├── pie.rs, histogram.rs, box_plot.rs, density.rs
 │   └── bin/
 │       └── example_dashboard/
 │           ├── main.rs       # Dashboard setup (register data, add pages, render)
