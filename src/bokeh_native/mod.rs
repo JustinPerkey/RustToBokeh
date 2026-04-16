@@ -39,6 +39,7 @@ pub mod palette;
 pub mod source;
 
 mod modules_html;
+mod html_css_scripts;
 mod page;
 mod placeholder;
 
