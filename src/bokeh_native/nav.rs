@@ -25,9 +25,10 @@ pub fn build_nav_html(
     current_slug: &str,
 ) -> String {
     let tree = build_tree(pages, current_slug);
+    let home_slug = pages.first().map(|p| p.slug.as_str()).unwrap_or("");
 
     if nav_style == "vertical" {
-        build_vertical_nav(&tree, report_title, current_slug)
+        build_vertical_nav(&tree, report_title, current_slug, home_slug)
     } else {
         build_horizontal_nav(&tree, report_title, current_slug)
     }
@@ -176,15 +177,23 @@ fn build_h_dd_sub_node(node: &NavNode, current_slug: &str) -> String {
 
 // ── Vertical nav ──────────────────────────────────────────────────────────────
 
-fn build_vertical_nav(tree: &NavNode, report_title: &str, current_slug: &str) -> String {
+fn build_vertical_nav(tree: &NavNode, report_title: &str, current_slug: &str, home_slug: &str) -> String {
     let mut html = String::from(r#"<nav class="nav-vertical">"#);
 
     if !report_title.is_empty() {
-        html.push_str(&format!(
-            r#"<div class="nav-report-title">{}</div>"#,
+        let title_inner = if !home_slug.is_empty() {
+            format!(
+                r#"<a href="{home}.html" style="color:inherit;text-decoration:none;">{title}</a>"#,
+                home = home_slug,
+                title = escape_html(report_title),
+            )
+        } else {
             escape_html(report_title)
-        ));
+        };
+        html.push_str(&format!(r#"<div class="nav-report-title">{title_inner}</div>"#));
     }
+
+    html.push_str(r#"<div class="nav-search"><input type="search" id="nav-search-input" class="nav-search-input" placeholder="Search&#x2026;" autocomplete="off"></div>"#);
 
     html.push_str(r#"<div class="nav-uncategorized">"#);
     for page in &tree.pages {
