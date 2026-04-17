@@ -438,11 +438,13 @@ def build_pie(spec, source_cache, view=None):
 
     legend_side = spec.get("legend_side", "right")
 
+    # x_range is wider than y_range to compensate for the rectangular aspect
+    # ratio (1.6:1) so the pie wedges render as a circle, not an ellipse.
     kw = {
         "title": spec["title"],
         "toolbar_location": "above",
         "height": spec["height"] if spec.get("height") else 400,
-        "x_range": (-1.2, 1.2),
+        "x_range": (-1.6, 1.6),
         "y_range": (-1.2, 1.2),
     }
     if spec.get("width"):
@@ -450,6 +452,7 @@ def build_pie(spec, source_cache, view=None):
         kw["sizing_mode"] = "fixed"
     else:
         kw["sizing_mode"] = "stretch_width"
+        kw["aspect_ratio"] = 1.6
 
     hover = _build_hover_tool(spec)
     if hover is None:
