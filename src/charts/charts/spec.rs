@@ -7,6 +7,7 @@ use super::histogram::HistogramConfig;
 use super::line::LineConfig;
 use super::pie::PieConfig;
 use super::scatter::ScatterConfig;
+use crate::handle::DfHandle;
 
 /// Fluent builder for constructing [`ChartSpec`] instances.
 ///
@@ -57,10 +58,10 @@ impl ChartSpecBuilder {
     /// Prefer the typed constructors ([`bar`](Self::bar), [`line`](Self::line),
     /// etc.) for a more ergonomic API.
     #[must_use]
-    pub fn new(title: &str, source_key: &str, config: ChartConfig) -> Self {
+    pub fn new(title: &str, source: &DfHandle, config: ChartConfig) -> Self {
         Self {
             title: title.into(),
-            source_key: source_key.into(),
+            source_key: source.name().into(),
             config,
             grid: GridCell {
                 row: 0,
@@ -79,18 +80,18 @@ impl ChartSpecBuilder {
     /// distinguished by a second grouping column and coloured by palette.
     /// See [`GroupedBarConfig`] for all configuration options.
     #[must_use]
-    pub fn bar(title: &str, key: &str, config: GroupedBarConfig) -> Self {
-        Self::new(title, key, ChartConfig::GroupedBar(config))
+    pub fn bar(title: &str, source: &DfHandle, config: GroupedBarConfig) -> Self {
+        Self::new(title, source, ChartConfig::GroupedBar(config))
     }
 
     /// Create a multi-series line chart spec.
     ///
     /// Each column listed in [`LineConfig::y_cols`] becomes a separate line.
-    /// Line and scatter charts that share the same `key` on a page share one
-    /// `ColumnDataSource`, enabling linked hover and selection.
+    /// Line and scatter charts that share the same source handle on a page
+    /// share one `ColumnDataSource`, enabling linked hover and selection.
     #[must_use]
-    pub fn line(title: &str, key: &str, config: LineConfig) -> Self {
-        Self::new(title, key, ChartConfig::Line(config))
+    pub fn line(title: &str, source: &DfHandle, config: LineConfig) -> Self {
+        Self::new(title, source, ChartConfig::Line(config))
     }
 
     /// Create a horizontal bar chart spec.
@@ -98,61 +99,61 @@ impl ChartSpecBuilder {
     /// Useful for ranked or labelled categorical data where category names
     /// are long strings. See [`HBarConfig`] for all configuration options.
     #[must_use]
-    pub fn hbar(title: &str, key: &str, config: HBarConfig) -> Self {
-        Self::new(title, key, ChartConfig::HBar(config))
+    pub fn hbar(title: &str, source: &DfHandle, config: HBarConfig) -> Self {
+        Self::new(title, source, ChartConfig::HBar(config))
     }
 
     /// Create a scatter plot spec.
     ///
-    /// Scatter charts that share the same `key` with line charts on the same
-    /// page share a `ColumnDataSource`, so selecting points in one chart
-    /// highlights the corresponding points in all others.
+    /// Scatter charts that share the same source handle with line charts on
+    /// the same page share a `ColumnDataSource`, so selecting points in one
+    /// chart highlights the corresponding points in all others.
     #[must_use]
-    pub fn scatter(title: &str, key: &str, config: ScatterConfig) -> Self {
-        Self::new(title, key, ChartConfig::Scatter(config))
+    pub fn scatter(title: &str, source: &DfHandle, config: ScatterConfig) -> Self {
+        Self::new(title, source, ChartConfig::Scatter(config))
     }
 
     /// Create a pie or donut chart spec.
     ///
     /// Set [`PieConfig::inner_radius`] to render a donut instead of a solid pie.
     #[must_use]
-    pub fn pie(title: &str, key: &str, config: PieConfig) -> Self {
-        Self::new(title, key, ChartConfig::Pie(config))
+    pub fn pie(title: &str, source: &DfHandle, config: PieConfig) -> Self {
+        Self::new(title, source, ChartConfig::Pie(config))
     }
 
     /// Create a histogram spec.
     ///
-    /// The DataFrame referenced by `key` must be a pre-computed histogram
+    /// The DataFrame referenced by `source` must be a pre-computed histogram
     /// produced by [`compute_histogram`](crate::compute_histogram), which
     /// provides `left`, `right`, `count`, `pdf`, and `cdf` columns.
     /// [`HistogramConfig`] selects which statistic to render (count, PDF, CDF).
     #[must_use]
-    pub fn histogram(title: &str, key: &str, config: HistogramConfig) -> Self {
-        Self::new(title, key, ChartConfig::Histogram(config))
+    pub fn histogram(title: &str, source: &DfHandle, config: HistogramConfig) -> Self {
+        Self::new(title, source, ChartConfig::Histogram(config))
     }
 
     /// Create a box-and-whisker plot spec.
     ///
-    /// The DataFrame referenced by `key` should contain pre-computed box
+    /// The DataFrame referenced by `source` should contain pre-computed box
     /// statistics. Use [`compute_box_stats`](crate::compute_box_stats) to
     /// produce a compatible DataFrame from raw category + value data.
     #[must_use]
-    pub fn box_plot(title: &str, key: &str, config: BoxPlotConfig) -> Self {
-        Self::new(title, key, ChartConfig::BoxPlot(config))
+    pub fn box_plot(title: &str, source: &DfHandle, config: BoxPlotConfig) -> Self {
+        Self::new(title, source, ChartConfig::BoxPlot(config))
     }
 
     /// Create a density plot spec (violin or sina, auto-selected).
     ///
-    /// The DataFrame referenced by `key` should be in long format with one row
-    /// per observation: a categorical column (X grouping) and a numeric column
-    /// (Y values). The renderer automatically chooses **sina** (jittered
-    /// scatter) when each category has few data points, or **violin** (filled
-    /// KDE polygon) when a category is densely populated. The switch-over
-    /// threshold defaults to 30 points and is configurable via
-    /// [`DensityConfig::point_threshold`].
+    /// The DataFrame referenced by `source` should be in long format with one
+    /// row per observation: a categorical column (X grouping) and a numeric
+    /// column (Y values). The renderer automatically chooses **sina**
+    /// (jittered scatter) when each category has few data points, or
+    /// **violin** (filled KDE polygon) when a category is densely populated.
+    /// The switch-over threshold defaults to 30 points and is configurable
+    /// via [`DensityConfig::point_threshold`].
     #[must_use]
-    pub fn density(title: &str, key: &str, config: DensityConfig) -> Self {
-        Self::new(title, key, ChartConfig::Density(config))
+    pub fn density(title: &str, source: &DfHandle, config: DensityConfig) -> Self {
+        Self::new(title, source, ChartConfig::Density(config))
     }
 
     /// Set the grid position and column span.
@@ -219,6 +220,7 @@ mod tests {
     use crate::charts::charts::line::LineConfig;
     use crate::charts::charts::pie::PieConfig;
     use crate::charts::charts::scatter::ScatterConfig;
+    use crate::handle::DfHandle;
 
     // ── ChartConfig::chart_type_str ───────────────────────────────────────────
 
@@ -311,7 +313,7 @@ mod tests {
             .y_label("Value")
             .build()
             .unwrap();
-        let spec = ChartSpecBuilder::box_plot("Salary by Dept", "salary_box", cfg).build();
+        let spec = ChartSpecBuilder::box_plot("Salary by Dept", &DfHandle::new("salary_box"), cfg).build();
         assert_eq!(spec.config.chart_type_str(), "box_plot");
         assert_eq!(spec.title, "Salary by Dept");
         assert_eq!(spec.source_key, "salary_box");
@@ -324,7 +326,7 @@ mod tests {
             .value("amount")
             .build()
             .unwrap();
-        let spec = ChartSpecBuilder::pie("Market Share", "market_share", cfg).build();
+        let spec = ChartSpecBuilder::pie("Market Share", &DfHandle::new("market_share"), cfg).build();
         assert_eq!(spec.config.chart_type_str(), "pie");
         assert_eq!(spec.title, "Market Share");
         assert_eq!(spec.source_key, "market_share");
@@ -340,7 +342,7 @@ mod tests {
             .x_label("X")
             .build()
             .unwrap();
-        let spec = ChartSpecBuilder::hbar("My Chart", "my_data", cfg).build();
+        let spec = ChartSpecBuilder::hbar("My Chart", &DfHandle::new("my_data"), cfg).build();
         assert_eq!(spec.title, "My Chart");
         assert_eq!(spec.source_key, "my_data");
         assert_eq!(spec.grid.row, 0);
@@ -357,7 +359,7 @@ mod tests {
             .x_label("X")
             .build()
             .unwrap();
-        let spec = ChartSpecBuilder::hbar("Chart", "data", cfg)
+        let spec = ChartSpecBuilder::hbar("Chart", &DfHandle::new("data"), cfg)
             .at(2, 1, 3)
             .build();
         assert_eq!(spec.grid.row, 2);
@@ -373,7 +375,7 @@ mod tests {
             .x_label("X")
             .build()
             .unwrap();
-        let spec = ChartSpecBuilder::hbar("Chart", "data", cfg)
+        let spec = ChartSpecBuilder::hbar("Chart", &DfHandle::new("data"), cfg)
             .filtered()
             .build();
         assert!(spec.filtered);
@@ -388,7 +390,7 @@ mod tests {
             .y_label("Y")
             .build()
             .unwrap();
-        let spec = ChartSpecBuilder::bar("Bar Chart", "src", cfg).build();
+        let spec = ChartSpecBuilder::bar("Bar Chart", &DfHandle::new("src"), cfg).build();
         assert_eq!(spec.config.chart_type_str(), "grouped_bar");
     }
 
@@ -400,7 +402,7 @@ mod tests {
             .y_label("Y")
             .build()
             .unwrap();
-        let spec = ChartSpecBuilder::line("Line Chart", "src", cfg).build();
+        let spec = ChartSpecBuilder::line("Line Chart", &DfHandle::new("src"), cfg).build();
         assert_eq!(spec.config.chart_type_str(), "line_multi");
     }
 
@@ -413,7 +415,7 @@ mod tests {
             .y_label("Y")
             .build()
             .unwrap();
-        let spec = ChartSpecBuilder::scatter("Scatter", "src", cfg).build();
+        let spec = ChartSpecBuilder::scatter("Scatter", &DfHandle::new("src"), cfg).build();
         assert_eq!(spec.config.chart_type_str(), "scatter");
     }
 
@@ -440,7 +442,7 @@ mod tests {
             .y_label("Salary (k USD)")
             .build()
             .unwrap();
-        let spec = ChartSpecBuilder::density("Salary by Dept", "salary_raw", cfg).build();
+        let spec = ChartSpecBuilder::density("Salary by Dept", &DfHandle::new("salary_raw"), cfg).build();
         assert_eq!(spec.config.chart_type_str(), "density");
         assert_eq!(spec.title, "Salary by Dept");
         assert_eq!(spec.source_key, "salary_raw");
@@ -453,7 +455,7 @@ mod tests {
         let cfg = HBarConfig::builder()
             .category("c").value("v").x_label("X")
             .build().unwrap();
-        let spec = ChartSpecBuilder::hbar("Chart", "data", cfg).build();
+        let spec = ChartSpecBuilder::hbar("Chart", &DfHandle::new("data"), cfg).build();
         assert!(spec.width.is_none());
         assert!(spec.height.is_none());
     }
@@ -463,7 +465,7 @@ mod tests {
         let cfg = HBarConfig::builder()
             .category("c").value("v").x_label("X")
             .build().unwrap();
-        let spec = ChartSpecBuilder::hbar("Chart", "data", cfg)
+        let spec = ChartSpecBuilder::hbar("Chart", &DfHandle::new("data"), cfg)
             .dimensions(800, 600)
             .build();
         assert_eq!(spec.width, Some(800));
@@ -475,7 +477,7 @@ mod tests {
         let cfg = HBarConfig::builder()
             .category("c").value("v").x_label("X")
             .build().unwrap();
-        let spec = ChartSpecBuilder::hbar("Chart", "data", cfg)
+        let spec = ChartSpecBuilder::hbar("Chart", &DfHandle::new("data"), cfg)
             .at(1, 0, 2)
             .filtered()
             .dimensions(1200, 400)

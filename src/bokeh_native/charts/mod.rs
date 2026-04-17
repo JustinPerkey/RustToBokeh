@@ -240,6 +240,7 @@ mod tests {
         box_plot::BoxPlotConfig,
         density::DensityConfig,
     };
+    use crate::handle::DfHandle;
 
     fn find_attr<'a>(obj: &'a BokehObject, key: &str) -> Option<&'a BokehValue> {
         obj.attributes.iter().find(|(k, _)| k == key).map(|(_, v)| v)
@@ -256,7 +257,7 @@ mod tests {
     #[test]
     fn dispatch_scatter() {
         let frames = make_frames("s", df!["x" => [1.0], "y" => [2.0]].unwrap());
-        let spec = ChartSpecBuilder::scatter("T", "s",
+        let spec = ChartSpecBuilder::scatter("T", &DfHandle::new("s"),
             ScatterConfig::builder().x("x").y("y").x_label("X").y_label("Y").build().unwrap()
         ).build();
         let mut id_gen = IdGen::new();
@@ -267,7 +268,7 @@ mod tests {
     #[test]
     fn dispatch_line() {
         let frames = make_frames("l", df!["x" => [1.0], "a" => [2.0]].unwrap());
-        let spec = ChartSpecBuilder::line("T", "l",
+        let spec = ChartSpecBuilder::line("T", &DfHandle::new("l"),
             LineConfig::builder().x("x").y_cols(&["a"]).y_label("Y").build().unwrap()
         ).build();
         let mut id_gen = IdGen::new();
@@ -278,7 +279,7 @@ mod tests {
     #[test]
     fn dispatch_hbar() {
         let frames = make_frames("h", df!["c" => ["A"], "v" => [10.0]].unwrap());
-        let spec = ChartSpecBuilder::hbar("T", "h",
+        let spec = ChartSpecBuilder::hbar("T", &DfHandle::new("h"),
             HBarConfig::builder().category("c").value("v").x_label("X").build().unwrap()
         ).build();
         let mut id_gen = IdGen::new();
@@ -292,7 +293,7 @@ mod tests {
             "left" => [0.0], "right" => [10.0], "count" => [5.0],
             "pdf" => [0.1], "cdf" => [1.0],
         ].unwrap());
-        let spec = ChartSpecBuilder::histogram("T", "hi",
+        let spec = ChartSpecBuilder::histogram("T", &DfHandle::new("hi"),
             HistogramConfig::builder().x_label("X").build().unwrap()
         ).build();
         let mut id_gen = IdGen::new();
@@ -305,7 +306,7 @@ mod tests {
         let frames = make_frames("gb", df![
             "q" => ["Q1", "Q1"], "p" => ["A", "B"], "v" => [10.0, 20.0],
         ].unwrap());
-        let spec = ChartSpecBuilder::bar("T", "gb",
+        let spec = ChartSpecBuilder::bar("T", &DfHandle::new("gb"),
             GroupedBarConfig::builder().x("q").group("p").value("v").y_label("Y").build().unwrap()
         ).build();
         let mut id_gen = IdGen::new();
@@ -316,7 +317,7 @@ mod tests {
     #[test]
     fn dispatch_pie() {
         let frames = make_frames("p", df!["l" => ["A", "B"], "v" => [30.0, 70.0]].unwrap());
-        let spec = ChartSpecBuilder::pie("T", "p",
+        let spec = ChartSpecBuilder::pie("T", &DfHandle::new("p"),
             PieConfig::builder().label("l").value("v").build().unwrap()
         ).build();
         let mut id_gen = IdGen::new();
@@ -330,7 +331,7 @@ mod tests {
             "category" => ["A"], "q1" => [25.0], "q2" => [50.0],
             "q3" => [75.0], "lower" => [10.0], "upper" => [90.0],
         ].unwrap());
-        let spec = ChartSpecBuilder::box_plot("T", "bp",
+        let spec = ChartSpecBuilder::box_plot("T", &DfHandle::new("bp"),
             BoxPlotConfig::builder()
                 .category("category").q1("q1").q2("q2").q3("q3")
                 .lower("lower").upper("upper").y_label("Y")
@@ -344,7 +345,7 @@ mod tests {
     #[test]
     fn dispatch_density() {
         let frames = make_frames("d", df!["cat" => ["A", "B"], "val" => [10.0, 20.0]].unwrap());
-        let spec = ChartSpecBuilder::density("T", "d",
+        let spec = ChartSpecBuilder::density("T", &DfHandle::new("d"),
             DensityConfig::builder().category("cat").value("val").y_label("Y").build().unwrap()
         ).build();
         let mut id_gen = IdGen::new();
@@ -355,7 +356,7 @@ mod tests {
     #[test]
     fn dispatch_missing_source_key_returns_error() {
         let frames: HashMap<String, DataFrame> = HashMap::new();
-        let spec = ChartSpecBuilder::scatter("T", "missing",
+        let spec = ChartSpecBuilder::scatter("T", &DfHandle::new("missing"),
             ScatterConfig::builder().x("x").y("y").x_label("X").y_label("Y").build().unwrap()
         ).build();
         let mut id_gen = IdGen::new();

@@ -1,5 +1,7 @@
 use rust_to_bokeh::prelude::*;
 
+use crate::handles::Handles;
+
 type C = ChartSpecBuilder;
 type Line = LineConfig;
 type Scat = ScatterConfig;
@@ -22,7 +24,7 @@ const JAN_30_2024_MS: f64 = 1_706_572_800_000.0;
 /// - `LineConfig` with a datetime X axis (`TimeScale::Days`)
 /// - `ScatterConfig` sharing the same `ColumnDataSource` (linked selection)
 /// - Hierarchical nav category `"Reference/Time Series"`
-pub fn page_range_tool_demo() -> Result<Page, ChartError> {
+pub fn page_range_tool_demo(h: &Handles) -> Result<Page, ChartError> {
     PageBuilder::new("range-tool-demo", "RangeTool Navigator", "RangeTool", 2)
         .category("Reference/Time Series")
         .paragraph(
@@ -38,11 +40,11 @@ pub fn page_range_tool_demo() -> Result<Page, ChartError> {
             .at(0, 0, 2)
             .build(),
         )
-        .chart(sensor_line_chart(1, 0, 2)?)
-        .chart(temp_humidity_scatter(2, 0, 1, true)?)
-        .chart(temp_pressure_scatter(2, 1, 1, true)?)
+        .chart(sensor_line_chart(h, 1, 0, 2)?)
+        .chart(temp_humidity_scatter(h, 2, 0, 1, true)?)
+        .chart(temp_pressure_scatter(h, 2, 1, 1, true)?)
         .table(
-            Tbl::new("Sensor Readings", "sensor_events")
+            Tbl::new("Sensor Readings", &h.sensor_events)
                 .column(TC::text("sensor", "Sensor"))
                 .column(TC::number("temperature", "Temp (°C)", 1))
                 .column(TC::number("humidity", "Humidity (%)", 1))
@@ -51,7 +53,7 @@ pub fn page_range_tool_demo() -> Result<Page, ChartError> {
                 .build(),
         )
         .filter(FilterSpec::range_tool(
-            "sensor_events",
+            &h.sensor_events,
             "timestamp_ms",
             "temperature",
             "Navigator — drag or resize to zoom",
@@ -60,7 +62,7 @@ pub fn page_range_tool_demo() -> Result<Page, ChartError> {
             Some(TimeScale::Days),
         ))
         .filter(FilterSpec::select(
-            "sensor_events",
+            &h.sensor_events,
             "sensor",
             "Sensor",
             vec!["Alpha", "Beta", "Gamma"],
@@ -76,7 +78,7 @@ pub fn page_range_tool_demo() -> Result<Page, ChartError> {
 /// - `LineConfig` with a datetime X axis (`TimeScale::Days`)
 /// - `ScatterConfig` sharing the same `ColumnDataSource` (linked selection)
 /// - Hierarchical nav category `"Reference/Time Series"`
-pub fn page_time_series_events() -> Result<Page, ChartError> {
+pub fn page_time_series_events(h: &Handles) -> Result<Page, ChartError> {
     PageBuilder::new("time-series-events", "Sensor Time Series", "Time Series", 2)
         .category("Reference/Time Series")
         .paragraph(
@@ -91,11 +93,11 @@ pub fn page_time_series_events() -> Result<Page, ChartError> {
             .at(0, 0, 2)
             .build(),
         )
-        .chart(sensor_line_chart(1, 0, 2)?)
-        .chart(temp_humidity_scatter(2, 0, 1, true)?)
-        .chart(temp_pressure_scatter(2, 1, 1, true)?)
+        .chart(sensor_line_chart(h, 1, 0, 2)?)
+        .chart(temp_humidity_scatter(h, 2, 0, 1, true)?)
+        .chart(temp_pressure_scatter(h, 2, 1, 1, true)?)
         .filter(FilterSpec::date_range(
-            "sensor_events",
+            &h.sensor_events,
             "timestamp_ms",
             "Date Range",
             JAN_1_2024_MS,
@@ -104,7 +106,7 @@ pub fn page_time_series_events() -> Result<Page, ChartError> {
             TimeScale::Days,
         ))
         .filter(FilterSpec::select(
-            "sensor_events",
+            &h.sensor_events,
             "sensor",
             "Sensor",
             vec!["Alpha", "Beta", "Gamma"],
@@ -112,7 +114,7 @@ pub fn page_time_series_events() -> Result<Page, ChartError> {
         .build()
 }
 
-fn sensor_line_chart(row: usize, col: usize, col_span: usize) -> Result<ChartSpec, ChartError> {
+fn sensor_line_chart(h: &Handles, row: usize, col: usize, col_span: usize) -> Result<ChartSpec, ChartError> {
     let cfg = Line::builder()
         .x("timestamp_ms")
         .y_cols(&["temperature", "humidity"])
@@ -127,10 +129,10 @@ fn sensor_line_chart(row: usize, col: usize, col_span: usize) -> Result<ChartSpe
                 .build(),
         )
         .build()?;
-    Ok(C::line("Sensor Readings Over Time", "sensor_events", cfg).at(row, col, col_span).build())
+    Ok(C::line("Sensor Readings Over Time", &h.sensor_events, cfg).at(row, col, col_span).build())
 }
 
-fn temp_humidity_scatter(row: usize, col: usize, col_span: usize, filtered: bool) -> Result<ChartSpec, ChartError> {
+fn temp_humidity_scatter(h: &Handles, row: usize, col: usize, col_span: usize, filtered: bool) -> Result<ChartSpec, ChartError> {
     let cfg = Scat::builder()
         .x("temperature")
         .y("humidity")
@@ -145,12 +147,12 @@ fn temp_humidity_scatter(row: usize, col: usize, col_span: usize, filtered: bool
                 .build(),
         )
         .build()?;
-    let mut b = C::scatter("Temperature vs Humidity", "sensor_events", cfg).at(row, col, col_span);
+    let mut b = C::scatter("Temperature vs Humidity", &h.sensor_events, cfg).at(row, col, col_span);
     if filtered { b = b.filtered(); }
     Ok(b.build())
 }
 
-fn temp_pressure_scatter(row: usize, col: usize, col_span: usize, filtered: bool) -> Result<ChartSpec, ChartError> {
+fn temp_pressure_scatter(h: &Handles, row: usize, col: usize, col_span: usize, filtered: bool) -> Result<ChartSpec, ChartError> {
     let cfg = Scat::builder()
         .x("temperature")
         .y("pressure")
@@ -164,7 +166,7 @@ fn temp_pressure_scatter(row: usize, col: usize, col_span: usize, filtered: bool
                 .build(),
         )
         .build()?;
-    let mut b = C::scatter("Temperature vs Pressure", "sensor_events", cfg).at(row, col, col_span);
+    let mut b = C::scatter("Temperature vs Pressure", &h.sensor_events, cfg).at(row, col, col_span);
     if filtered { b = b.filtered(); }
     Ok(b.build())
 }

@@ -241,6 +241,7 @@ impl PageBuilder {
 mod tests {
     use super::*;
     use crate::charts::{ChartSpecBuilder, FilterSpec, HBarConfig};
+    use crate::handle::DfHandle;
     use crate::modules::{ParagraphSpec, TableColumn, TableSpec};
 
     fn hbar_spec(row: usize, col: usize, span: usize) -> ChartSpec {
@@ -250,7 +251,7 @@ mod tests {
             .x_label("X")
             .build()
             .unwrap();
-        ChartSpecBuilder::hbar("Chart", "data", cfg)
+        ChartSpecBuilder::hbar("Chart", &DfHandle::new("data"), cfg)
             .at(row, col, span)
             .build()
     }
@@ -286,7 +287,7 @@ mod tests {
     fn build_page_with_filter() {
         let page = PageBuilder::new("p", "P", "P", 1)
             .chart(hbar_spec(0, 0, 1))
-            .filter(FilterSpec::range("data", "v", "Val", 0.0, 100.0, 1.0))
+            .filter(FilterSpec::range(&DfHandle::new("data"), "v", "Val", 0.0, 100.0, 1.0))
             .build()
             .unwrap();
         assert_eq!(page.filters.len(), 1);
@@ -324,7 +325,7 @@ mod tests {
 
     #[test]
     fn build_page_with_table() {
-        let tbl = TableSpec::new("My Table", "data")
+        let tbl = TableSpec::new("My Table", &DfHandle::new("data"))
             .column(TableColumn::text("name", "Name"))
             .at(0, 0, 1)
             .build();
@@ -370,7 +371,7 @@ mod tests {
             .x_label("X")
             .build()
             .unwrap();
-        let spec = ChartSpecBuilder::hbar("C", "d", cfg).at(0, 0, 0).build();
+        let spec = ChartSpecBuilder::hbar("C", &DfHandle::new("d"), cfg).at(0, 0, 0).build();
         assert!(matches!(
             PageBuilder::new("p", "P", "P", 2).chart(spec).build(),
             Err(ChartError::GridValidation(_))

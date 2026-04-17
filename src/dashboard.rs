@@ -1,10 +1,13 @@
 //! High-level [`Dashboard`] builder — collects `DataFrames` and pages, then
 //! renders everything via either the native path or the Python path.
 
+use std::sync::Arc;
+
 use polars::prelude::DataFrame;
 
 use crate::bokeh_native::{self, BokehResources};
 use crate::error::ChartError;
+use crate::handle::DfHandle;
 use crate::pages::Page;
 use crate::{serialize_df, NavStyle};
 
@@ -88,12 +91,19 @@ impl Dashboard {
 
     /// Register a `DataFrame` under the given key. Serialized to Arrow IPC bytes immediately.
     ///
+    /// Returns a typed [`DfHandle`] for referencing this frame from
+    /// [`ChartSpecBuilder`](crate::charts::ChartSpecBuilder),
+    /// [`FilterSpec`](crate::charts::FilterSpec), and
+    /// [`TableSpec`](crate::modules::TableSpec).
+    ///
     /// # Errors
     ///
     /// Returns [`ChartError::Serialization`] if the `DataFrame` cannot be serialized.
-    pub fn add_df(&mut self, key: &str, df: &mut DataFrame) -> Result<&mut Self, ChartError> {
-        self.frames.push((key.into(), serialize_df(df)?));
-        Ok(self)
+    pub fn add_df(&mut self, key: &str, df: &mut DataFrame) -> Result<DfHandle, ChartError> {
+        let id = u32::try_from(self.frames.len()).unwrap_or(u32::MAX);
+        let name: Arc<str> = Arc::from(key);
+        self.frames.push((name.to_string(), serialize_df(df)?));
+        Ok(DfHandle { id, name })
     }
 
     /// Add a pre-built [`Page`] to the dashboard. Pages render in insertion order.
@@ -205,7 +215,8 @@ mod tests {
         ]
         .unwrap();
         let mut dash = Dashboard::new();
-        dash.add_df("my_data", &mut df).unwrap();
+        let h = dash.add_df("my_data", &mut df).unwrap();
+        assert_eq!(h.name(), "my_data");
         assert_eq!(dash.frames.len(), 1);
         assert_eq!(dash.frames[0].0, "my_data");
         assert!(!dash.frames[0].1.is_empty());
@@ -216,21 +227,22 @@ mod tests {
         let mut df1 = df!["a" => [1i64]].unwrap();
         let mut df2 = df!["b" => [2i64]].unwrap();
         let mut dash = Dashboard::new();
-        dash.add_df("first", &mut df1).unwrap();
-        dash.add_df("second", &mut df2).unwrap();
+        let h1 = dash.add_df("first", &mut df1).unwrap();
+        let h2 = dash.add_df("second", &mut df2).unwrap();
+        assert_eq!(h1.name(), "first");
+        assert_eq!(h2.name(), "second");
+        assert_ne!(h1.id, h2.id);
         assert_eq!(dash.frames.len(), 2);
-        assert_eq!(dash.frames[0].0, "first");
-        assert_eq!(dash.frames[1].0, "second");
     }
 
     #[test]
-    fn dashboard_add_df_returns_self_for_chaining() {
+    fn dashboard_add_df_returns_handle() {
         let mut df = df!["a" => [1i64]].unwrap();
         let mut dash = Dashboard::new();
-        dash.add_df("k1", &mut df)
-            .unwrap()
-            .add_df("k2", &mut df)
-            .unwrap();
+        let h1 = dash.add_df("k1", &mut df).unwrap();
+        let h2 = dash.add_df("k2", &mut df).unwrap();
+        assert_eq!(h1.name(), "k1");
+        assert_eq!(h2.name(), "k2");
         assert_eq!(dash.frames.len(), 2);
     }
 
@@ -247,7 +259,7 @@ mod tests {
             .unwrap();
         let page = PageBuilder::new("overview", "Overview", "Ov", 1)
             .chart(
-                ChartSpecBuilder::hbar("Chart", "data", cfg)
+                ChartSpecBuilder::hbar("Chart", &crate::handle::DfHandle::new("data"), cfg)
                     .at(0, 0, 1)
                     .build(),
             )
@@ -273,7 +285,7 @@ mod tests {
                 .build()
                 .unwrap();
             PageBuilder::new(slug, "Title", "Label", 1)
-                .chart(ChartSpecBuilder::hbar("C", "d", cfg).at(0, 0, 1).build())
+                .chart(ChartSpecBuilder::hbar("C", &crate::handle::DfHandle::new("d"), cfg).at(0, 0, 1).build())
                 .build()
                 .unwrap()
         };

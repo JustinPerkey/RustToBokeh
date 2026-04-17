@@ -1,4 +1,5 @@
 use super::time_scale::{DateStep, TimeScale};
+use crate::handle::DfHandle;
 
 /// Configuration for a single interactive filter widget.
 ///
@@ -128,7 +129,7 @@ impl FilterSpec {
     /// in increments of `step`.
     #[must_use]
     pub fn range(
-        source_key: &str,
+        source: &DfHandle,
         column: &str,
         label: &str,
         min: f64,
@@ -136,7 +137,7 @@ impl FilterSpec {
         step: f64,
     ) -> Self {
         Self {
-            source_key: source_key.into(),
+            source_key: source.name().into(),
             column: column.into(),
             label: label.into(),
             config: FilterConfig::Range { min, max, step },
@@ -148,9 +149,9 @@ impl FilterSpec {
     /// The dropdown lists each value in `options` plus an "All" entry at the
     /// top. Selecting "All" removes the filter; selecting a specific value
     /// keeps only rows matching that value.
-    pub fn select(source_key: &str, column: &str, label: &str, options: Vec<&str>) -> Self {
+    pub fn select(source: &DfHandle, column: &str, label: &str, options: Vec<&str>) -> Self {
         Self {
-            source_key: source_key.into(),
+            source_key: source.name().into(),
             column: column.into(),
             label: label.into(),
             config: FilterConfig::Select {
@@ -163,9 +164,9 @@ impl FilterSpec {
     ///
     /// Uses Bokeh's `GroupFilter` to show only rows belonging to the selected
     /// group. The first option is selected by default.
-    pub fn group(source_key: &str, column: &str, label: &str, options: Vec<&str>) -> Self {
+    pub fn group(source: &DfHandle, column: &str, label: &str, options: Vec<&str>) -> Self {
         Self {
-            source_key: source_key.into(),
+            source_key: source.name().into(),
             column: column.into(),
             label: label.into(),
             config: FilterConfig::Group {
@@ -180,9 +181,9 @@ impl FilterSpec {
     /// on whether the column value is above (`above = true`) or below
     /// (`above = false`) the given `value`.
     #[must_use]
-    pub fn threshold(source_key: &str, column: &str, label: &str, value: f64, above: bool) -> Self {
+    pub fn threshold(source: &DfHandle, column: &str, label: &str, value: f64, above: bool) -> Self {
         Self {
-            source_key: source_key.into(),
+            source_key: source.name().into(),
             column: column.into(),
             label: label.into(),
             config: FilterConfig::Threshold { value, above },
@@ -197,14 +198,14 @@ impl FilterSpec {
     /// `false`, the lowest.
     #[must_use]
     pub fn top_n(
-        source_key: &str,
+        source: &DfHandle,
         column: &str,
         label: &str,
         max_n: usize,
         descending: bool,
     ) -> Self {
         Self {
-            source_key: source_key.into(),
+            source_key: source.name().into(),
             column: column.into(),
             label: label.into(),
             config: FilterConfig::TopN { max_n, descending },
@@ -224,7 +225,7 @@ impl FilterSpec {
     /// * `scale` — controls how handle labels are formatted on the widget.
     #[must_use]
     pub fn date_range(
-        source_key: &str,
+        source: &DfHandle,
         column: &str,
         label: &str,
         min_ms: f64,
@@ -233,7 +234,7 @@ impl FilterSpec {
         scale: TimeScale,
     ) -> Self {
         Self {
-            source_key: source_key.into(),
+            source_key: source.name().into(),
             column: column.into(),
             label: label.into(),
             config: FilterConfig::DateRange { min_ms, max_ms, step, scale },
@@ -262,7 +263,7 @@ impl FilterSpec {
     /// zooms the axis, it does not hide rows via `CDSView`.
     #[must_use]
     pub fn range_tool(
-        source_key: &str,
+        source: &DfHandle,
         x_column: &str,
         y_column: &str,
         label: &str,
@@ -271,7 +272,7 @@ impl FilterSpec {
         time_scale: Option<TimeScale>,
     ) -> Self {
         Self {
-            source_key: source_key.into(),
+            source_key: source.name().into(),
             column: x_column.into(),
             label: label.into(),
             config: FilterConfig::RangeTool {
@@ -292,7 +293,7 @@ mod tests {
 
     #[test]
     fn filter_spec_range_stores_config() {
-        let f = FilterSpec::range("src", "col", "Label", 10.0, 100.0, 5.0);
+        let f = FilterSpec::range(&DfHandle::new("src"), "col", "Label", 10.0, 100.0, 5.0);
         assert_eq!(f.source_key, "src");
         assert_eq!(f.column, "col");
         assert_eq!(f.label, "Label");
@@ -308,7 +309,7 @@ mod tests {
 
     #[test]
     fn filter_spec_select_stores_config() {
-        let f = FilterSpec::select("src", "col", "Label", vec!["A", "B", "C"]);
+        let f = FilterSpec::select(&DfHandle::new("src"), "col", "Label", vec!["A", "B", "C"]);
         match f.config {
             FilterConfig::Select { options } => {
                 assert_eq!(options, vec!["A", "B", "C"]);
@@ -319,7 +320,7 @@ mod tests {
 
     #[test]
     fn filter_spec_group_stores_config() {
-        let f = FilterSpec::group("src", "col", "Label", vec!["X", "Y"]);
+        let f = FilterSpec::group(&DfHandle::new("src"), "col", "Label", vec!["X", "Y"]);
         match f.config {
             FilterConfig::Group { options } => {
                 assert_eq!(options, vec!["X", "Y"]);
@@ -330,7 +331,7 @@ mod tests {
 
     #[test]
     fn filter_spec_threshold_stores_config() {
-        let f = FilterSpec::threshold("src", "col", "Label", 50.0, true);
+        let f = FilterSpec::threshold(&DfHandle::new("src"), "col", "Label", 50.0, true);
         match f.config {
             FilterConfig::Threshold { value, above } => {
                 assert_eq!(value, 50.0);
@@ -342,7 +343,7 @@ mod tests {
 
     #[test]
     fn filter_spec_top_n_stores_config() {
-        let f = FilterSpec::top_n("src", "col", "Label", 10, false);
+        let f = FilterSpec::top_n(&DfHandle::new("src"), "col", "Label", 10, false);
         match f.config {
             FilterConfig::TopN { max_n, descending } => {
                 assert_eq!(max_n, 10);
@@ -355,7 +356,7 @@ mod tests {
     #[test]
     fn filter_spec_range_tool_stores_config() {
         let f = FilterSpec::range_tool(
-            "sensor_events",
+            &DfHandle::new("sensor_events"),
             "timestamp_ms",
             "temperature",
             "Navigator",

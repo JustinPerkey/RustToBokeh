@@ -1,5 +1,7 @@
 use rust_to_bokeh::prelude::*;
 
+use crate::handles::Handles;
+
 type C = ChartSpecBuilder;
 type Line = LineConfig;
 type Scat = ScatterConfig;
@@ -9,7 +11,7 @@ type Para = ParagraphSpec;
 type Tbl = TableSpec;
 type TC = TableColumn;
 
-pub fn page_module_showcase() -> Result<Page, ChartError> {
+pub fn page_module_showcase(h: &Handles) -> Result<Page, ChartError> {
     PageBuilder::new("module-showcase", "Module Showcase", "Showcase", 2)
         .category("Reference")
         .paragraph(
@@ -28,7 +30,7 @@ pub fn page_module_showcase() -> Result<Page, ChartError> {
             .build(),
         )
         .table(
-            Tbl::new("Monthly Revenue & Expenses", "monthly_revenue")
+            Tbl::new("Monthly Revenue & Expenses", &h.monthly_revenue)
                 .column(TC::text("month", "Month"))
                 .column(TC::text("category", "Category"))
                 .column(TC::currency("value", "Amount (k)", "$", 1))
@@ -38,7 +40,7 @@ pub fn page_module_showcase() -> Result<Page, ChartError> {
         .chart(
             C::line(
                 "Revenue Trend",
-                "monthly_trends",
+                &h.monthly_trends,
                 Line::builder()
                     .x("month")
                     .y_cols(&["revenue", "expenses", "profit"])
@@ -49,14 +51,14 @@ pub fn page_module_showcase() -> Result<Page, ChartError> {
             .build(),
         )
         .table(
-            Tbl::new("Project Status", "project_status")
+            Tbl::new("Project Status", &h.project_status)
                 .column(TC::text("project", "Project"))
                 .column(TC::percent("completion", "Completion %", 0))
                 .at(2, 0, 1)
                 .build(),
         )
         .table(
-            Tbl::new("Performance Snapshot", "scatter_performance")
+            Tbl::new("Performance Snapshot", &h.scatter_performance)
                 .column(TC::text("tier", "Tier"))
                 .column(TC::currency("revenue", "Revenue (k)", "$", 0))
                 .column(TC::number("profit", "Profit (k)", 1))
@@ -68,7 +70,7 @@ pub fn page_module_showcase() -> Result<Page, ChartError> {
         .build()
 }
 
-pub fn page_chart_customization() -> Result<Page, ChartError> {
+pub fn page_chart_customization(h: &Handles) -> Result<Page, ChartError> {
     PageBuilder::new(
         "chart-customization",
         "Chart Customization",
@@ -76,14 +78,14 @@ pub fn page_chart_customization() -> Result<Page, ChartError> {
         2,
     )
     .category("Reference")
-    .chart(styled_scatter()?)
-    .chart(styled_hbar()?)
-    .chart(styled_line()?)
-    .chart(styled_grouped_bar()?)
+    .chart(styled_scatter(h)?)
+    .chart(styled_hbar(h)?)
+    .chart(styled_line(h)?)
+    .chart(styled_grouped_bar(h)?)
     .build()
 }
 
-fn styled_scatter() -> Result<ChartSpec, ChartError> {
+fn styled_scatter(h: &Handles) -> Result<ChartSpec, ChartError> {
     let cfg = Scat::builder()
         .x("revenue")
         .y("profit")
@@ -116,13 +118,13 @@ fn styled_scatter() -> Result<ChartSpec, ChartError> {
                 .build(),
         )
         .build()?;
-    Ok(C::scatter("Revenue vs Profit (styled)", "scatter_performance", cfg)
+    Ok(C::scatter("Revenue vs Profit (styled)", &h.scatter_performance, cfg)
         .at(0, 0, 1)
         .dimensions(550, 380)
         .build())
 }
 
-fn styled_hbar() -> Result<ChartSpec, ChartError> {
+fn styled_hbar(h: &Handles) -> Result<ChartSpec, ChartError> {
     let cfg = HB::builder()
         .category("company")
         .value("share")
@@ -142,10 +144,10 @@ fn styled_hbar() -> Result<ChartSpec, ChartError> {
                 .build(),
         )
         .build()?;
-    Ok(C::hbar("Market Share % (styled)", "market_share", cfg).at(0, 1, 1).build())
+    Ok(C::hbar("Market Share % (styled)", &h.market_share, cfg).at(0, 1, 1).build())
 }
 
-fn styled_line() -> Result<ChartSpec, ChartError> {
+fn styled_line(h: &Handles) -> Result<ChartSpec, ChartError> {
     let cfg = Line::builder()
         .x("month")
         .y_cols(&["revenue", "profit", "expenses"])
@@ -159,12 +161,12 @@ fn styled_line() -> Result<ChartSpec, ChartError> {
         .point_size(9.0)
         .y_axis(AxisConfig::builder().tick_format("$0,0").build())
         .build()?;
-    Ok(C::line("Revenue & Profit Trends (styled)", "monthly_trends", cfg)
+    Ok(C::line("Revenue & Profit Trends (styled)", &h.monthly_trends, cfg)
         .at(1, 0, 1)
         .build())
 }
 
-fn styled_grouped_bar() -> Result<ChartSpec, ChartError> {
+fn styled_grouped_bar(h: &Handles) -> Result<ChartSpec, ChartError> {
     let cfg = Bar::builder()
         .x("quarter")
         .group("product")
@@ -174,7 +176,7 @@ fn styled_grouped_bar() -> Result<ChartSpec, ChartError> {
         .bar_width(0.65)
         .y_axis(AxisConfig::builder().tick_format("$0,0").build())
         .build()?;
-    Ok(C::bar("Quarterly Products (styled)", "quarterly_products", cfg)
+    Ok(C::bar("Quarterly Products (styled)", &h.quarterly_products, cfg)
         .at(1, 1, 1)
         .build())
 }
