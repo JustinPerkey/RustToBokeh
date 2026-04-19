@@ -25,7 +25,7 @@ pub(super) fn build_top_n_filter(
     let cb_id = id_gen.next();
     let callback = BokehObject::new("CustomJS", cb_id)
         .attr("args", BokehValue::Map(vec![
-            ("idx_filter".into(), idx_filter.clone().into_value()),
+            ("idx_filter".into(), BokehValue::ref_of(&idx_id)),
             ("source".into(), BokehValue::Ref(cds_placeholder_id)),
             ("col".into(), BokehValue::Str(filter.column.clone())),
             ("descending".into(), BokehValue::Bool(descending)),

@@ -12,7 +12,7 @@ use super::super::id_gen::IdGen;
 use super::super::model::{BokehObject, BokehValue};
 use super::super::palette::resolve_palette;
 use super::super::source::{build_cds_from_entries, get_f64_column, get_str_column};
-use super::{add_renderers, make_hover_tool, set_axis_labels};
+use super::{add_renderers, set_axis_labels};
 
 const KDE_GRID_POINTS: usize = 80;
 const VIOLIN_W: f64 = 0.4;
@@ -50,11 +50,9 @@ pub fn build_density(
         resolve_palette(None, n_cats)
     };
 
-    let ht = make_hover_tool(
-        id_gen,
-        None,
-        &[cfg.category_col.as_str(), cfg.value_col.as_str()],
-    );
+    // No default hover tool: internal per-category CDSes use "x"/"y" column
+    // names, not cfg.category_col/value_col, so any default tooltip would
+    // show "???" for every hover hit.
 
     let factors: Vec<BokehValue> = cat_order.iter().map(|s| BokehValue::Str(s.clone())).collect();
 
@@ -67,7 +65,7 @@ pub fn build_density(
         YRangeKind::DataRange,
         AxisBuilder::x(AxisType::Categorical),
         AxisBuilder::y(AxisType::Linear).config(cfg.y_axis.as_ref()),
-        Some(ht),
+        None,
     );
 
     // Compute global y range for KDE grid

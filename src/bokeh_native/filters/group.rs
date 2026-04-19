@@ -24,7 +24,7 @@ pub(super) fn build_group_filter(
     let cb_id = id_gen.next();
     let callback = BokehObject::new("CustomJS", cb_id)
         .attr("args", BokehValue::Map(vec![
-            ("gf".into(), gf.clone().into_value()),
+            ("gf".into(), BokehValue::ref_of(&gf_id)),
             ("source".into(), BokehValue::Ref(cds_placeholder_id)),
         ]))
         .attr("code", BokehValue::Str(

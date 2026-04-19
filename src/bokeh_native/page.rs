@@ -142,6 +142,17 @@ pub(super) fn render_page(
         doc.add_root_no_div(fo.widget.clone());
     }
 
+    // ── 4b. Add filter model objects (BooleanFilter, IndexFilter, GroupFilter)
+    //        as roots BEFORE chart figures. CDSViews reference them via Refs;
+    //        BokehJS resolves Refs in root-declaration order so models must
+    //        appear before any Ref to them.
+    for fo in &patched_cds_filters {
+        doc.add_root_no_div(fo.filter_obj.clone());
+    }
+    for fo in &patched_range_tools {
+        doc.add_root_no_div(fo.filter_obj.clone());
+    }
+
     // ── 5. Add chart figures FIRST so nested CDS models are registered
     //      before any filter widget Ref to them is decoded. (BokehJS decodes
     //      roots in order; a Ref to an unknown ID aborts.)

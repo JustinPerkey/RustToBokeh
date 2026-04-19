@@ -44,11 +44,30 @@ pub fn build_box_plot(
     // FactorRange from categories
     let factors: Vec<BokehValue> = categories.iter().map(|s| BokehValue::Str(s.clone())).collect();
 
-    let ht = make_hover_tool(
+    // Build CDS and renderers first so we know the box renderer ID, allowing
+    // the HoverTool to be scoped to that renderer only (avoids "???" on whisker
+    // and median CDSes whose columns differ from the tooltip fields).
+    let whisker_cds = build_whisker_cds(id_gen, &categories, &q1_vals, &q3_vals, &lower_vals, &upper_vals);
+    let whisker_cds_id = whisker_cds.id.clone();
+    let box_cds = build_box_cds(id_gen, &cfg.category_col, &categories, &q1_vals, &q2_vals, &q3_vals, &lower_vals, &upper_vals, &colors);
+
+    let whisker_rs = build_whisker_renderers(id_gen, whisker_cds, &whisker_cds_id, filter_ref.clone());
+    let box_renderer = build_box_renderer(id_gen, box_cds, &cfg.category_col, alpha, filter_ref.clone());
+    let box_renderer_id = box_renderer.id.clone();
+    let med_renderer = build_median_renderer(id_gen, &categories, &q2_vals, filter_ref.clone());
+
+    let mut ht = make_hover_tool(
         id_gen,
         cfg.tooltips.as_ref(),
         &[cfg.category_col.as_str(), cfg.q1_col.as_str(), cfg.q2_col.as_str(), cfg.q3_col.as_str()],
     );
+    // Scope hover to the IQR box renderer; whisker/median CDSes use different columns.
+    for (k, v) in &mut ht.attributes {
+        if k == "renderers" {
+            *v = BokehValue::Array(vec![BokehValue::ref_of(&box_renderer_id)]);
+            break;
+        }
+    }
 
     let FigureOutput { mut figure, .. } = build_figure(
         id_gen,
@@ -61,22 +80,6 @@ pub fn build_box_plot(
         AxisBuilder::y(AxisType::Linear).config(cfg.y_axis.as_ref()),
         Some(ht),
     );
-
-    // Whisker CDS: shared across 4 segment renderers (upper/lower stem, upper/lower cap)
-    let whisker_cds = build_whisker_cds(id_gen, &categories, &q1_vals, &q3_vals, &lower_vals, &upper_vals);
-    let whisker_cds_id = whisker_cds.id.clone();
-
-    // Box CDS: per-category IQR + colors
-    let box_cds = build_box_cds(id_gen, &cfg.category_col, &categories, &q1_vals, &q2_vals, &q3_vals, &lower_vals, &upper_vals, &colors);
-
-    // Whisker + cap renderers share one CDS
-    let whisker_rs = build_whisker_renderers(id_gen, whisker_cds, &whisker_cds_id, filter_ref.clone());
-
-    // IQR box renderer
-    let box_renderer = build_box_renderer(id_gen, box_cds, &cfg.category_col, alpha, filter_ref.clone());
-
-    // Median segment
-    let med_renderer = build_median_renderer(id_gen, &categories, &q2_vals, filter_ref.clone());
 
     let mut all_renderers = whisker_rs;
     all_renderers.push(box_renderer);

@@ -24,7 +24,7 @@ pub(super) fn build_range_filter(
     let cb_id = id_gen.next();
     let callback = BokehObject::new("CustomJS", cb_id)
         .attr("args", BokehValue::Map(vec![
-            ("bf".into(), bf.clone().into_value()),
+            ("bf".into(), BokehValue::ref_of(&bf_id)),
             ("source".into(), BokehValue::Ref(cds_placeholder_id)),
             ("col".into(), BokehValue::Str(filter.column.clone())),
         ]))
