@@ -146,6 +146,7 @@ fn find_attr_test<'a>(obj: &'a BokehObject, key: &str) -> Option<&'a BokehValue>
 mod tests {
     use super::*;
     use polars::prelude::*;
+    use crate::handle::DfHandle;
 
     fn make_frames(key: &str, df: DataFrame) -> HashMap<String, DataFrame> {
         let mut m = HashMap::new();
@@ -167,7 +168,7 @@ mod tests {
         let df = test_df();
         let frames = make_frames("src", df);
         let filters = vec![
-            FilterSpec::range("src", "value", "Value Range", 10.0, 50.0, 5.0),
+            FilterSpec::range(&DfHandle::new("src"), "value", "Value Range", 10.0, 50.0, 5.0),
         ];
         let mut id_gen = IdGen::new();
         let (cds_filters, rt_filters) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
@@ -187,7 +188,7 @@ mod tests {
     fn range_filter_slider_has_correct_bounds() {
         let df = test_df();
         let frames = make_frames("src", df);
-        let filters = vec![FilterSpec::range("src", "value", "Range", 10.0, 50.0, 5.0)];
+        let filters = vec![FilterSpec::range(&DfHandle::new("src"), "value", "Range", 10.0, 50.0, 5.0)];
         let mut id_gen = IdGen::new();
         let (cds, _) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
         let json = serde_json::to_string(&cds[0].widget).unwrap();
@@ -199,7 +200,7 @@ mod tests {
     fn range_filter_boolean_array_all_true_initially() {
         let df = test_df();
         let frames = make_frames("src", df);
-        let filters = vec![FilterSpec::range("src", "value", "Range", 0.0, 100.0, 1.0)];
+        let filters = vec![FilterSpec::range(&DfHandle::new("src"), "value", "Range", 0.0, 100.0, 1.0)];
         let mut id_gen = IdGen::new();
         let (cds, _) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
 
@@ -217,7 +218,7 @@ mod tests {
     fn range_filter_customjs_references_column() {
         let df = test_df();
         let frames = make_frames("src", df);
-        let filters = vec![FilterSpec::range("src", "value", "Range", 0.0, 100.0, 1.0)];
+        let filters = vec![FilterSpec::range(&DfHandle::new("src"), "value", "Range", 0.0, 100.0, 1.0)];
         let mut id_gen = IdGen::new();
         let (cds, _) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
         let json = serde_json::to_string(&cds[0].widget).unwrap();
@@ -232,7 +233,7 @@ mod tests {
         let df = test_df();
         let frames = make_frames("src", df);
         let filters = vec![
-            FilterSpec::select("src", "category", "Category", vec!["A", "B"]),
+            FilterSpec::select(&DfHandle::new("src"), "category", "Category", vec!["A", "B"]),
         ];
         let mut id_gen = IdGen::new();
         let (cds, _) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
@@ -245,7 +246,7 @@ mod tests {
     fn select_filter_has_all_option() {
         let df = test_df();
         let frames = make_frames("src", df);
-        let filters = vec![FilterSpec::select("src", "category", "Cat", vec!["A", "B"])];
+        let filters = vec![FilterSpec::select(&DfHandle::new("src"), "category", "Cat", vec!["A", "B"])];
         let mut id_gen = IdGen::new();
         let (cds, _) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
         let json = serde_json::to_string(&cds[0].widget).unwrap();
@@ -256,7 +257,7 @@ mod tests {
     fn select_filter_default_value_is_all() {
         let df = test_df();
         let frames = make_frames("src", df);
-        let filters = vec![FilterSpec::select("src", "category", "Cat", vec!["X"])];
+        let filters = vec![FilterSpec::select(&DfHandle::new("src"), "category", "Cat", vec!["X"])];
         let mut id_gen = IdGen::new();
         let (cds, _) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
         if let Some(BokehValue::Str(val)) = find_attr_test(&cds[0].widget, "value") {
@@ -271,7 +272,7 @@ mod tests {
         let df = test_df();
         let frames = make_frames("src", df);
         let filters = vec![
-            FilterSpec::group("src", "category", "Group", vec!["A", "B"]),
+            FilterSpec::group(&DfHandle::new("src"), "category", "Group", vec!["A", "B"]),
         ];
         let mut id_gen = IdGen::new();
         let (cds, _) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
@@ -284,7 +285,7 @@ mod tests {
     fn group_filter_default_is_first_option() {
         let df = test_df();
         let frames = make_frames("src", df);
-        let filters = vec![FilterSpec::group("src", "category", "Grp", vec!["A", "B"])];
+        let filters = vec![FilterSpec::group(&DfHandle::new("src"), "category", "Grp", vec!["A", "B"])];
         let mut id_gen = IdGen::new();
         let (cds, _) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
         if let Some(BokehValue::Str(val)) = find_attr_test(&cds[0].widget, "value") {
@@ -296,7 +297,7 @@ mod tests {
     fn group_filter_has_column_name() {
         let df = test_df();
         let frames = make_frames("src", df);
-        let filters = vec![FilterSpec::group("src", "category", "Grp", vec!["A"])];
+        let filters = vec![FilterSpec::group(&DfHandle::new("src"), "category", "Grp", vec!["A"])];
         let mut id_gen = IdGen::new();
         let (cds, _) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
         if let Some(BokehValue::Str(col)) = find_attr_test(&cds[0].filter_obj, "column_name") {
@@ -308,7 +309,7 @@ mod tests {
     fn group_filter_no_all_option() {
         let df = test_df();
         let frames = make_frames("src", df);
-        let filters = vec![FilterSpec::group("src", "category", "Grp", vec!["A", "B"])];
+        let filters = vec![FilterSpec::group(&DfHandle::new("src"), "category", "Grp", vec!["A", "B"])];
         let mut id_gen = IdGen::new();
         let (cds, _) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
         let json = serde_json::to_string(&cds[0].widget).unwrap();
@@ -322,7 +323,7 @@ mod tests {
         let df = test_df();
         let frames = make_frames("src", df);
         let filters = vec![
-            FilterSpec::threshold("src", "value", "High Only", 30.0, true),
+            FilterSpec::threshold(&DfHandle::new("src"), "value", "High Only", 30.0, true),
         ];
         let mut id_gen = IdGen::new();
         let (cds, _) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
@@ -336,7 +337,7 @@ mod tests {
     fn threshold_switch_starts_inactive() {
         let df = test_df();
         let frames = make_frames("src", df);
-        let filters = vec![FilterSpec::threshold("src", "value", "T", 30.0, true)];
+        let filters = vec![FilterSpec::threshold(&DfHandle::new("src"), "value", "T", 30.0, true)];
         let mut id_gen = IdGen::new();
         let (cds, _) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
         if let Some(BokehValue::Bool(active)) = find_attr_test(&cds[0].widget, "active") {
@@ -351,7 +352,7 @@ mod tests {
         let df = test_df();
         let frames = make_frames("src", df);
         let filters = vec![
-            FilterSpec::top_n("src", "value", "Top N", 5, true),
+            FilterSpec::top_n(&DfHandle::new("src"), "value", "Top N", 5, true),
         ];
         let mut id_gen = IdGen::new();
         let (cds, _) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
@@ -364,7 +365,7 @@ mod tests {
     fn top_n_index_filter_initially_includes_all_rows() {
         let df = test_df();
         let frames = make_frames("src", df);
-        let filters = vec![FilterSpec::top_n("src", "value", "Top N", 5, true)];
+        let filters = vec![FilterSpec::top_n(&DfHandle::new("src"), "value", "Top N", 5, true)];
         let mut id_gen = IdGen::new();
         let (cds, _) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
         if let Some(BokehValue::Array(indices)) = find_attr_test(&cds[0].filter_obj, "indices") {
@@ -376,7 +377,7 @@ mod tests {
     fn top_n_slider_max_is_correct() {
         let df = test_df();
         let frames = make_frames("src", df);
-        let filters = vec![FilterSpec::top_n("src", "value", "Top N", 10, false)];
+        let filters = vec![FilterSpec::top_n(&DfHandle::new("src"), "value", "Top N", 10, false)];
         let mut id_gen = IdGen::new();
         let (cds, _) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
         if let Some(BokehValue::Int(end)) = find_attr_test(&cds[0].widget, "end") {
@@ -395,7 +396,7 @@ mod tests {
         let frames = make_frames("src", df);
         let filters = vec![
             FilterSpec::date_range(
-                "src", "timestamp_ms", "Date Range",
+                &DfHandle::new("src"), "timestamp_ms", "Date Range",
                 1000.0, 3000.0,
                 crate::charts::DateStep::Day,
                 crate::charts::TimeScale::Days,
@@ -418,7 +419,7 @@ mod tests {
         ].unwrap();
         let frames = make_frames("src", df);
         let filters = vec![
-            FilterSpec::range_tool("src", "x", "y", "Navigator", 1.0, 5.0, None),
+            FilterSpec::range_tool(&DfHandle::new("src"), "x", "y", "Navigator", 1.0, 5.0, None),
         ];
         let mut id_gen = IdGen::new();
         let (cds, rt) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
@@ -436,7 +437,7 @@ mod tests {
         let df = df!["x" => [1.0, 2.0], "y" => [10.0, 20.0]].unwrap();
         let frames = make_frames("src", df);
         let filters = vec![
-            FilterSpec::range_tool("src", "x", "y", "Nav", 1.0, 2.0, None),
+            FilterSpec::range_tool(&DfHandle::new("src"), "x", "y", "Nav", 1.0, 2.0, None),
         ];
         let mut id_gen = IdGen::new();
         let (_, rt) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
@@ -451,7 +452,7 @@ mod tests {
         let df = df!["x" => [1.0, 2.0], "y" => [10.0, 20.0]].unwrap();
         let frames = make_frames("src", df);
         let filters = vec![
-            FilterSpec::range_tool("src", "x", "y", "Nav", 1.0, 2.0, None),
+            FilterSpec::range_tool(&DfHandle::new("src"), "x", "y", "Nav", 1.0, 2.0, None),
         ];
         let mut id_gen = IdGen::new();
         let (_, rt) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
@@ -463,7 +464,7 @@ mod tests {
     #[test]
     fn missing_source_key_returns_error() {
         let frames: HashMap<String, DataFrame> = HashMap::new();
-        let filters = vec![FilterSpec::range("missing", "value", "R", 0.0, 1.0, 0.1)];
+        let filters = vec![FilterSpec::range(&DfHandle::new("missing"), "value", "R", 0.0, 1.0, 0.1)];
         let mut id_gen = IdGen::new();
         let result = build_filter_widgets(&mut id_gen, &filters, &frames);
         assert!(result.is_err());
@@ -535,9 +536,9 @@ mod tests {
         let df = test_df();
         let frames = make_frames("src", df);
         let filters = vec![
-            FilterSpec::range("src", "value", "Range", 0.0, 100.0, 1.0),
-            FilterSpec::select("src", "category", "Category", vec!["A", "B"]),
-            FilterSpec::threshold("src", "value", "High", 30.0, true),
+            FilterSpec::range(&DfHandle::new("src"), "value", "Range", 0.0, 100.0, 1.0),
+            FilterSpec::select(&DfHandle::new("src"), "category", "Category", vec!["A", "B"]),
+            FilterSpec::threshold(&DfHandle::new("src"), "value", "High", 30.0, true),
         ];
         let mut id_gen = IdGen::new();
         let (cds, _) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
@@ -553,7 +554,7 @@ mod tests {
     fn filter_callbacks_reference_cds_placeholder() {
         let df = test_df();
         let frames = make_frames("mydata", df);
-        let filters = vec![FilterSpec::range("mydata", "value", "R", 0.0, 100.0, 1.0)];
+        let filters = vec![FilterSpec::range(&DfHandle::new("mydata"), "value", "R", 0.0, 100.0, 1.0)];
         let mut id_gen = IdGen::new();
         let (cds, _) = build_filter_widgets(&mut id_gen, &filters, &frames).unwrap();
         let json = serde_json::to_string(&cds[0].widget).unwrap();

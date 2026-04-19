@@ -13,6 +13,7 @@
 //! | [`PageModule::Table`] | Formatted data table rendered from a registered DataFrame |
 
 use crate::charts::{ChartSpec, GridCell};
+use crate::handle::DfHandle;
 
 // ── PageModule ────────────────────────────────────────────────────────────────
 
@@ -271,14 +272,14 @@ impl TableSpec {
     /// # Arguments
     ///
     /// * `title` — Heading displayed above the table.
-    /// * `source_key` — Key of the `DataFrame` registered with
+    /// * `source` — Handle returned by
     ///   [`Dashboard::add_df`](crate::Dashboard::add_df).
     #[must_use]
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(title: &str, source_key: &str) -> TableSpecBuilder {
+    pub fn new(title: &str, source: &DfHandle) -> TableSpecBuilder {
         TableSpecBuilder {
             title: title.into(),
-            source_key: source_key.into(),
+            source_key: source.name().into(),
             columns: Vec::new(),
             grid: GridCell {
                 row: 0,
@@ -408,7 +409,7 @@ mod tests {
 
     #[test]
     fn table_spec_default_grid() {
-        let spec = TableSpec::new("My Table", "data_key").build();
+        let spec = TableSpec::new("My Table", &DfHandle::new("data_key")).build();
         assert_eq!(spec.title, "My Table");
         assert_eq!(spec.source_key, "data_key");
         assert!(spec.columns.is_empty());
@@ -419,7 +420,7 @@ mod tests {
 
     #[test]
     fn table_spec_with_columns() {
-        let spec = TableSpec::new("T", "src")
+        let spec = TableSpec::new("T", &DfHandle::new("src"))
             .column(TableColumn::text("a", "A"))
             .column(TableColumn::number("b", "B", 2))
             .build();
@@ -430,7 +431,7 @@ mod tests {
 
     #[test]
     fn table_spec_at_sets_grid() {
-        let spec = TableSpec::new("T", "src").at(1, 0, 3).build();
+        let spec = TableSpec::new("T", &DfHandle::new("src")).at(1, 0, 3).build();
         assert_eq!(spec.grid.row, 1);
         assert_eq!(spec.grid.col, 0);
         assert_eq!(spec.grid.col_span, 3);
@@ -447,7 +448,7 @@ mod tests {
             .x_label("X")
             .build()
             .unwrap();
-        let spec = ChartSpecBuilder::hbar("Chart", "data", cfg).build();
+        let spec = ChartSpecBuilder::hbar("Chart", &DfHandle::new("data"), cfg).build();
         let module = PageModule::Chart(spec);
         assert!(matches!(module, PageModule::Chart(_)));
     }
@@ -461,7 +462,7 @@ mod tests {
 
     #[test]
     fn page_module_table_wraps_spec() {
-        let spec = TableSpec::new("T", "src").build();
+        let spec = TableSpec::new("T", &DfHandle::new("src")).build();
         let module = PageModule::Table(spec);
         assert!(matches!(module, PageModule::Table(_)));
     }

@@ -59,6 +59,7 @@ pub mod bokeh_native;
 pub mod charts;
 mod dashboard;
 pub mod error;
+mod handle;
 pub mod modules;
 pub mod pages;
 pub mod prelude;
@@ -79,6 +80,7 @@ pub use charts::{
 };
 pub use dashboard::Dashboard;
 pub use error::ChartError;
+pub use handle::DfHandle;
 pub use modules::{
     ColumnFormat, PageModule, ParagraphSpec, ParagraphSpecBuilder, TableColumn, TableSpec,
     TableSpecBuilder,

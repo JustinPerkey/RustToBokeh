@@ -29,7 +29,7 @@ pub use crate::modules::{
 pub use crate::pages::{Page, PageBuilder};
 pub use crate::{
     compute_box_outliers, compute_box_stats, compute_histogram, serialize_df, BokehResources,
-    Dashboard, NavStyle,
+    Dashboard, DfHandle, NavStyle,
 };
 #[cfg(feature = "python")]
 pub use crate::render_dashboard;

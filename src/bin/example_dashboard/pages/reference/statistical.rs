@@ -1,18 +1,20 @@
 use rust_to_bokeh::prelude::*;
 
+use crate::handles::Handles;
+
 type C = ChartSpecBuilder;
 type Hist = HistogramConfig;
 type BP = BoxPlotConfig;
 type Para = ParagraphSpec;
 type Pie = PieConfig;
 
-pub fn page_pie_donut_charts() -> Result<Page, ChartError> {
+pub fn page_pie_donut_charts(h: &Handles) -> Result<Page, ChartError> {
     PageBuilder::new("pie-donut-charts", "Pie & Donut Charts", "Pie & Donut", 2)
         .category("Reference")
         .chart(
             C::pie(
                 "Market Share",
-                "market_share",
+                &h.market_share,
                 Pie::builder().label("company").value("share").build()?,
             )
             .at(0, 0, 1)
@@ -22,7 +24,7 @@ pub fn page_pie_donut_charts() -> Result<Page, ChartError> {
         .chart(
             C::pie(
                 "Cost Breakdown",
-                "cost_breakdown",
+                &h.cost_breakdown,
                 Pie::builder()
                     .label("category")
                     .value("amount")
@@ -36,13 +38,13 @@ pub fn page_pie_donut_charts() -> Result<Page, ChartError> {
         .build()
 }
 
-pub fn page_histogram_demo() -> Result<Page, ChartError> {
+pub fn page_histogram_demo(h: &Handles) -> Result<Page, ChartError> {
     PageBuilder::new("histogram-demo", "Histogram Demo", "Histogram", 2)
         .category("Reference")
         .chart(
             C::histogram(
                 "Salary Distribution — Count",
-                "salary_hist",
+                &h.salary_hist,
                 Hist::builder()
                     .x_label("Salary (k)")
                     .build()?,
@@ -53,7 +55,7 @@ pub fn page_histogram_demo() -> Result<Page, ChartError> {
         .chart(
             C::histogram(
                 "Salary Distribution — Density (PDF)",
-                "salary_hist",
+                &h.salary_hist,
                 Hist::builder()
                     .x_label("Salary (k)")
                     .display(HistogramDisplay::Pdf)
@@ -66,7 +68,7 @@ pub fn page_histogram_demo() -> Result<Page, ChartError> {
         .chart(
             C::histogram(
                 "Salary Distribution — Cumulative (CDF)",
-                "salary_hist",
+                &h.salary_hist,
                 Hist::builder()
                     .x_label("Salary (k)")
                     .display(HistogramDisplay::Cdf)
@@ -79,13 +81,13 @@ pub fn page_histogram_demo() -> Result<Page, ChartError> {
         .build()
 }
 
-pub fn page_box_plot_demo() -> Result<Page, ChartError> {
+pub fn page_box_plot_demo(h: &Handles) -> Result<Page, ChartError> {
     PageBuilder::new("box-plot-demo", "Box Plot Demo", "Box Plot", 2)
         .category("Reference")
         .chart(
             C::box_plot(
                 "Salary Distribution by Department",
-                "salary_box",
+                &h.salary_box,
                 BP::builder()
                     .category("department")
                     .q1("q1")
@@ -105,7 +107,7 @@ pub fn page_box_plot_demo() -> Result<Page, ChartError> {
         .build()
 }
 
-pub fn page_density_demo() -> Result<Page, ChartError> {
+pub fn page_density_demo(h: &Handles) -> Result<Page, ChartError> {
     PageBuilder::new("density-demo", "Density Plots", "Density", 2)
         .category("Reference")
         .paragraph(
@@ -132,7 +134,7 @@ pub fn page_density_demo() -> Result<Page, ChartError> {
         .chart(
             C::density(
                 "Salary by Department",
-                "salary_raw",
+                &h.salary_raw,
                 DensityConfig::builder()
                     .category("department")
                     .value("salary_k")
@@ -147,7 +149,7 @@ pub fn page_density_demo() -> Result<Page, ChartError> {
         .chart(
             C::density(
                 "Performance Score by Department",
-                "density_scores",
+                &h.density_scores,
                 DensityConfig::builder()
                     .category("dept")
                     .value("score")

@@ -15,6 +15,9 @@ use tempfile::TempDir;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
+/// Construct a `DfHandle` for tests from a raw key.
+fn h(s: &str) -> DfHandle { DfHandle::new(s) }
+
 /// Build a minimal single-row DataFrame for testing.
 fn make_simple_df() -> DataFrame {
     df![
@@ -60,7 +63,7 @@ fn hbar_page_creates_html_file() {
             .chart(
                 ChartSpecBuilder::hbar(
                     "Category Values",
-                    "simple",
+                    &h("simple"),
                     HBarConfig::builder()
                         .category("category")
                         .value("value")
@@ -94,7 +97,7 @@ fn hbar_page_html_contains_bokeh_content() {
             .chart(
                 ChartSpecBuilder::hbar(
                     "Values",
-                    "simple",
+                    &h("simple"),
                     HBarConfig::builder()
                         .category("category")
                         .value("value")
@@ -139,7 +142,7 @@ fn line_page_creates_html_file() {
             .chart(
                 ChartSpecBuilder::line(
                     "Series Over Time",
-                    "ts",
+                    &h("ts"),
                     LineConfig::builder()
                         .x("month")
                         .y_cols(&["series_a", "series_b"])
@@ -172,7 +175,7 @@ fn grouped_bar_page_creates_html_file() {
             .chart(
                 ChartSpecBuilder::bar(
                     "Grouped Bars",
-                    "grouped",
+                    &h("grouped"),
                     GroupedBarConfig::builder()
                         .x("month")
                         .group("category")
@@ -211,7 +214,7 @@ fn scatter_page_creates_html_file() {
             .chart(
                 ChartSpecBuilder::scatter(
                     "X vs Y",
-                    "scatter_data",
+                    &h("scatter_data"),
                     ScatterConfig::builder()
                         .x("x_vals")
                         .y("y_vals")
@@ -253,7 +256,7 @@ fn multi_page_dashboard_creates_one_file_per_page() {
         dash.add_page(
             PageBuilder::new(slug, slug, slug, 1)
                 .chart(
-                    ChartSpecBuilder::hbar("Chart", "data", cfg)
+                    ChartSpecBuilder::hbar("Chart", &h("data"), cfg)
                         .at(0, 0, 1)
                         .build(),
                 )
@@ -289,7 +292,7 @@ fn multi_page_nav_links_reference_other_pages() {
             .unwrap();
         dash.add_page(
             PageBuilder::new(slug, title, title, 1)
-                .chart(ChartSpecBuilder::hbar("C", "data", cfg).at(0, 0, 1).build())
+                .chart(ChartSpecBuilder::hbar("C", &h("data"), cfg).at(0, 0, 1).build())
                 .build()
                 .unwrap(),
         );
@@ -329,7 +332,7 @@ fn output_dir_created_automatically() {
             .chart(
                 ChartSpecBuilder::hbar(
                     "C",
-                    "data",
+                    &h("data"),
                     HBarConfig::builder()
                         .category("category")
                         .value("value")
@@ -365,7 +368,7 @@ fn custom_output_dir_does_not_pollute_cwd() {
             .chart(
                 ChartSpecBuilder::hbar(
                     "C",
-                    "data",
+                    &h("data"),
                     HBarConfig::builder()
                         .category("category")
                         .value("value")
@@ -408,7 +411,7 @@ fn page_with_range_filter_creates_html() {
             .chart(
                 ChartSpecBuilder::hbar(
                     "Filtered Chart",
-                    "data",
+                    &h("data"),
                     HBarConfig::builder()
                         .category("category")
                         .value("value")
@@ -421,7 +424,7 @@ fn page_with_range_filter_creates_html() {
                 .build(),
             )
             .filter(FilterSpec::range(
-                "data",
+                &h("data"),
                 "value",
                 "Value Range",
                 0.0,
@@ -450,7 +453,7 @@ fn page_with_select_filter_creates_html() {
             .chart(
                 ChartSpecBuilder::hbar(
                     "Chart",
-                    "data",
+                    &h("data"),
                     HBarConfig::builder()
                         .category("category")
                         .value("value")
@@ -463,7 +466,7 @@ fn page_with_select_filter_creates_html() {
                 .build(),
             )
             .filter(FilterSpec::select(
-                "data",
+                &h("data"),
                 "category",
                 "Category",
                 vec!["Alpha", "Beta", "Gamma"],
@@ -494,7 +497,7 @@ fn vertical_nav_style_creates_html_file() {
             .chart(
                 ChartSpecBuilder::hbar(
                     "Chart",
-                    "data",
+                    &h("data"),
                     HBarConfig::builder()
                         .category("category")
                         .value("value")
@@ -535,7 +538,7 @@ fn page_with_paragraph_and_chart_creates_html() {
             .chart(
                 ChartSpecBuilder::hbar(
                     "Chart",
-                    "data",
+                    &h("data"),
                     HBarConfig::builder()
                         .category("category")
                         .value("value")
@@ -570,7 +573,7 @@ fn page_with_table_module_creates_html() {
     dash.add_page(
         PageBuilder::new("table-page", "Table Page", "Table", 1)
             .table(
-                TableSpec::new("Simple Table", "data")
+                TableSpec::new("Simple Table", &h("data"))
                     .column(TableColumn::text("category", "Category"))
                     .column(TableColumn::number("value", "Value", 1))
                     .at(0, 0, 1)
@@ -602,7 +605,7 @@ fn dashboard_title_appears_in_html() {
             .chart(
                 ChartSpecBuilder::hbar(
                     "Chart",
-                    "data",
+                    &h("data"),
                     HBarConfig::builder()
                         .category("category")
                         .value("value")
@@ -640,7 +643,7 @@ fn native_cdn_creates_html_file() {
             .chart(
                 ChartSpecBuilder::hbar(
                     "Values",
-                    "data",
+                    &h("data"),
                     HBarConfig::builder()
                         .category("category")
                         .value("value")
@@ -673,7 +676,7 @@ fn native_cdn_html_references_bokeh_cdn() {
             .chart(
                 ChartSpecBuilder::hbar(
                     "Chart",
-                    "data",
+                    &h("data"),
                     HBarConfig::builder()
                         .category("category")
                         .value("value")
@@ -723,7 +726,7 @@ fn native_cdn_multi_page_creates_all_files() {
             .unwrap();
         dash.add_page(
             PageBuilder::new(slug, slug, slug, 1)
-                .chart(ChartSpecBuilder::hbar("C", "data", cfg).at(0, 0, 1).build())
+                .chart(ChartSpecBuilder::hbar("C", &h("data"), cfg).at(0, 0, 1).build())
                 .build()
                 .unwrap(),
         );
@@ -758,7 +761,7 @@ fn native_cdn_nav_links_cross_reference_pages() {
             .unwrap();
         dash.add_page(
             PageBuilder::new(slug, title, title, 1)
-                .chart(ChartSpecBuilder::hbar("C", "data", cfg).at(0, 0, 1).build())
+                .chart(ChartSpecBuilder::hbar("C", &h("data"), cfg).at(0, 0, 1).build())
                 .build()
                 .unwrap(),
         );
@@ -788,7 +791,7 @@ fn native_cdn_output_dir_created_automatically() {
             .chart(
                 ChartSpecBuilder::hbar(
                     "C",
-                    "data",
+                    &h("data"),
                     HBarConfig::builder()
                         .category("category")
                         .value("value")
@@ -820,7 +823,7 @@ fn make_inline_dash(out: &str) -> Dashboard {
             .chart(
                 ChartSpecBuilder::hbar(
                     "Chart",
-                    "data",
+                    &h("data"),
                     HBarConfig::builder()
                         .category("category")
                         .value("value")
@@ -934,7 +937,7 @@ fn categorised_pages_all_created() {
         dash.add_page(
             PageBuilder::new(slug, slug, slug, 1)
                 .category(cat)
-                .chart(ChartSpecBuilder::hbar("C", "data", cfg).at(0, 0, 1).build())
+                .chart(ChartSpecBuilder::hbar("C", &h("data"), cfg).at(0, 0, 1).build())
                 .build()
                 .unwrap(),
         );
@@ -969,7 +972,7 @@ fn native_cdn_line_chart() {
             .chart(
                 ChartSpecBuilder::line(
                     "Series Over Time",
-                    "ts",
+                    &h("ts"),
                     LineConfig::builder()
                         .x("month")
                         .y_cols(&["series_a", "series_b"])
@@ -1006,7 +1009,7 @@ fn native_cdn_grouped_bar_chart() {
             .chart(
                 ChartSpecBuilder::bar(
                     "Grouped Bars",
-                    "grouped",
+                    &h("grouped"),
                     GroupedBarConfig::builder()
                         .x("month")
                         .group("category")
@@ -1046,7 +1049,7 @@ fn native_cdn_scatter_chart() {
             .chart(
                 ChartSpecBuilder::scatter(
                     "X vs Y",
-                    "scatter_data",
+                    &h("scatter_data"),
                     ScatterConfig::builder()
                         .x("x_vals")
                         .y("y_vals")
@@ -1081,7 +1084,7 @@ fn native_cdn_pie_chart() {
             .chart(
                 ChartSpecBuilder::pie(
                     "Share",
-                    "pie_data",
+                    &h("pie_data"),
                     PieConfig::builder()
                         .label("category")
                         .value("value")
@@ -1118,7 +1121,7 @@ fn native_cdn_histogram_chart() {
             .chart(
                 ChartSpecBuilder::histogram(
                     "Salary Distribution",
-                    "hist_data",
+                    &h("hist_data"),
                     HistogramConfig::builder()
                         .x_label("Salary")
                         .build()
@@ -1156,7 +1159,7 @@ fn native_cdn_box_plot_chart() {
             .chart(
                 ChartSpecBuilder::box_plot(
                     "Salary by Dept",
-                    "box_data",
+                    &h("box_data"),
                     BoxPlotConfig::builder()
                         .category("department")
                         .q1("q1")
@@ -1199,7 +1202,7 @@ fn native_cdn_density_chart() {
             .chart(
                 ChartSpecBuilder::density(
                     "Score Density",
-                    "density_data",
+                    &h("density_data"),
                     DensityConfig::builder()
                         .category("group")
                         .value("score")
@@ -1237,11 +1240,11 @@ fn native_cdn_range_filter() {
         PageBuilder::new("range-f", "Range Filter", "RF", 1)
             .chart(
                 ChartSpecBuilder::hbar(
-                    "Chart", "data",
+                    "Chart", &h("data"),
                     HBarConfig::builder().category("category").value("value").x_label("V").build().unwrap(),
                 ).at(0, 0, 1).filtered().build(),
             )
-            .filter(FilterSpec::range("data", "value", "Value Range", 0.0, 50.0, 1.0))
+            .filter(FilterSpec::range(&h("data"), "value", "Value Range", 0.0, 50.0, 1.0))
             .build()
             .unwrap(),
     );
@@ -1266,11 +1269,11 @@ fn native_cdn_select_filter() {
         PageBuilder::new("select-f", "Select Filter", "SF", 1)
             .chart(
                 ChartSpecBuilder::hbar(
-                    "Chart", "data",
+                    "Chart", &h("data"),
                     HBarConfig::builder().category("category").value("value").x_label("V").build().unwrap(),
                 ).at(0, 0, 1).filtered().build(),
             )
-            .filter(FilterSpec::select("data", "category", "Pick", vec!["Alpha", "Beta", "Gamma"]))
+            .filter(FilterSpec::select(&h("data"), "category", "Pick", vec!["Alpha", "Beta", "Gamma"]))
             .build()
             .unwrap(),
     );
@@ -1294,11 +1297,11 @@ fn native_cdn_group_filter() {
         PageBuilder::new("group-f", "Group Filter", "GF", 1)
             .chart(
                 ChartSpecBuilder::hbar(
-                    "Chart", "data",
+                    "Chart", &h("data"),
                     HBarConfig::builder().category("category").value("value").x_label("V").build().unwrap(),
                 ).at(0, 0, 1).filtered().build(),
             )
-            .filter(FilterSpec::group("data", "category", "Group By", vec!["Alpha", "Beta", "Gamma"]))
+            .filter(FilterSpec::group(&h("data"), "category", "Group By", vec!["Alpha", "Beta", "Gamma"]))
             .build()
             .unwrap(),
     );
@@ -1321,11 +1324,11 @@ fn native_cdn_threshold_filter() {
         PageBuilder::new("threshold-f", "Threshold Filter", "TF", 1)
             .chart(
                 ChartSpecBuilder::hbar(
-                    "Chart", "data",
+                    "Chart", &h("data"),
                     HBarConfig::builder().category("category").value("value").x_label("V").build().unwrap(),
                 ).at(0, 0, 1).filtered().build(),
             )
-            .filter(FilterSpec::threshold("data", "value", "High Values", 15.0, true))
+            .filter(FilterSpec::threshold(&h("data"), "value", "High Values", 15.0, true))
             .build()
             .unwrap(),
     );
@@ -1348,11 +1351,11 @@ fn native_cdn_top_n_filter() {
         PageBuilder::new("topn-f", "TopN Filter", "TN", 1)
             .chart(
                 ChartSpecBuilder::hbar(
-                    "Chart", "data",
+                    "Chart", &h("data"),
                     HBarConfig::builder().category("category").value("value").x_label("V").build().unwrap(),
                 ).at(0, 0, 1).filtered().build(),
             )
-            .filter(FilterSpec::top_n("data", "value", "Top N", 3, true))
+            .filter(FilterSpec::top_n(&h("data"), "value", "Top N", 3, true))
             .build()
             .unwrap(),
     );
@@ -1381,12 +1384,12 @@ fn native_cdn_date_range_filter() {
         PageBuilder::new("date-f", "Date Filter", "DF", 1)
             .chart(
                 ChartSpecBuilder::hbar(
-                    "Chart", "data",
+                    "Chart", &h("data"),
                     HBarConfig::builder().category("category").value("value").x_label("V").build().unwrap(),
                 ).at(0, 0, 1).filtered().build(),
             )
             .filter(FilterSpec::date_range(
-                "data", "ts_ms", "Date Range",
+                &h("data"), "ts_ms", "Date Range",
                 1_700_000_000_000.0, 1_700_200_000_000.0,
                 DateStep::Day, TimeScale::Days,
             ))
@@ -1412,12 +1415,12 @@ fn native_cdn_multiple_filters_on_same_source() {
         PageBuilder::new("multi-f", "Multi Filter", "MF", 1)
             .chart(
                 ChartSpecBuilder::hbar(
-                    "Chart", "data",
+                    "Chart", &h("data"),
                     HBarConfig::builder().category("category").value("value").x_label("V").build().unwrap(),
                 ).at(0, 0, 1).filtered().build(),
             )
-            .filter(FilterSpec::range("data", "value", "Range", 0.0, 50.0, 1.0))
-            .filter(FilterSpec::select("data", "category", "Pick", vec!["Alpha", "Beta", "Gamma"]))
+            .filter(FilterSpec::range(&h("data"), "value", "Range", 0.0, 50.0, 1.0))
+            .filter(FilterSpec::select(&h("data"), "category", "Pick", vec!["Alpha", "Beta", "Gamma"]))
             .build()
             .unwrap(),
     );
@@ -1450,7 +1453,7 @@ fn native_cdn_paragraph_module() {
             )
             .chart(
                 ChartSpecBuilder::hbar(
-                    "Chart", "data",
+                    "Chart", &h("data"),
                     HBarConfig::builder().category("category").value("value").x_label("V").build().unwrap(),
                 ).at(1, 0, 1).build(),
             )
@@ -1476,7 +1479,7 @@ fn native_cdn_table_module() {
     dash.add_page(
         PageBuilder::new("table-test", "Table Test", "Table", 1)
             .table(
-                TableSpec::new("Data Table", "data")
+                TableSpec::new("Data Table", &h("data"))
                     .column(TableColumn::text("category", "Category"))
                     .column(TableColumn::number("value", "Value", 1))
                     .at(0, 0, 1)
@@ -1507,7 +1510,7 @@ fn native_cdn_vertical_nav() {
         PageBuilder::new("vert-test", "Vertical Nav", "VNav", 1)
             .chart(
                 ChartSpecBuilder::hbar(
-                    "Chart", "data",
+                    "Chart", &h("data"),
                     HBarConfig::builder().category("category").value("value").x_label("V").build().unwrap(),
                 ).at(0, 0, 1).build(),
             )
@@ -1535,7 +1538,7 @@ fn native_cdn_dashboard_title() {
         PageBuilder::new("title-test", "Page Title", "PT", 1)
             .chart(
                 ChartSpecBuilder::hbar(
-                    "Chart", "data",
+                    "Chart", &h("data"),
                     HBarConfig::builder().category("category").value("value").x_label("V").build().unwrap(),
                 ).at(0, 0, 1).build(),
             )
@@ -1563,7 +1566,7 @@ fn native_cdn_categorised_pages() {
         dash.add_page(
             PageBuilder::new(slug, slug, slug, 1)
                 .category(cat)
-                .chart(ChartSpecBuilder::hbar("C", "data", cfg).at(0, 0, 1).build())
+                .chart(ChartSpecBuilder::hbar("C", &h("data"), cfg).at(0, 0, 1).build())
                 .build()
                 .unwrap(),
         );
@@ -1591,7 +1594,7 @@ fn native_cdn_custom_dimensions() {
         PageBuilder::new("dim-test", "Dimensions", "Dim", 2)
             .chart(
                 ChartSpecBuilder::hbar(
-                    "Chart", "data",
+                    "Chart", &h("data"),
                     HBarConfig::builder().category("category").value("value").x_label("V").build().unwrap(),
                 )
                 .at(0, 0, 1)
@@ -1626,7 +1629,7 @@ fn native_inline_line_chart() {
         PageBuilder::new("line-inline", "Line Inline", "Lines", 1)
             .chart(
                 ChartSpecBuilder::line(
-                    "Series", "ts",
+                    "Series", &h("ts"),
                     LineConfig::builder().x("month").y_cols(&["series_a", "series_b"]).y_label("V").build().unwrap(),
                 ).at(0, 0, 1).build(),
             )
@@ -1654,7 +1657,7 @@ fn native_inline_grouped_bar_chart() {
         PageBuilder::new("bar-inline", "Bar Inline", "Bars", 1)
             .chart(
                 ChartSpecBuilder::bar(
-                    "Grouped Bars", "grouped",
+                    "Grouped Bars", &h("grouped"),
                     GroupedBarConfig::builder().x("month").group("category").value("value").y_label("V").build().unwrap(),
                 ).at(0, 0, 1).build(),
             )
@@ -1681,7 +1684,7 @@ fn native_inline_scatter_chart() {
         PageBuilder::new("scatter-inline", "Scatter Inline", "Sc", 1)
             .chart(
                 ChartSpecBuilder::scatter(
-                    "XY", "sc",
+                    "XY", &h("sc"),
                     ScatterConfig::builder().x("x").y("y").x_label("X").y_label("Y").build().unwrap(),
                 ).at(0, 0, 1).build(),
             )
@@ -1708,7 +1711,7 @@ fn native_inline_pie_chart() {
         PageBuilder::new("pie-inline", "Pie Inline", "Pie", 1)
             .chart(
                 ChartSpecBuilder::pie(
-                    "Share", "pie",
+                    "Share", &h("pie"),
                     PieConfig::builder().label("category").value("value").build().unwrap(),
                 ).at(0, 0, 1).build(),
             )
@@ -1736,7 +1739,7 @@ fn native_inline_histogram_chart() {
         PageBuilder::new("hist-inline", "Hist Inline", "Hist", 1)
             .chart(
                 ChartSpecBuilder::histogram(
-                    "Distribution", "h",
+                    "Distribution", &h("h"),
                     HistogramConfig::builder().x_label("Val").build().unwrap(),
                 ).at(0, 0, 1).build(),
             )
@@ -1769,7 +1772,7 @@ fn native_inline_box_plot_chart() {
         PageBuilder::new("box-inline", "Box Inline", "Box", 1)
             .chart(
                 ChartSpecBuilder::box_plot(
-                    "Stats", "bs",
+                    "Stats", &h("bs"),
                     BoxPlotConfig::builder()
                         .category("dept").q1("q1").q2("q2").q3("q3")
                         .lower("lower").upper("upper").y_label("V")
@@ -1803,7 +1806,7 @@ fn native_inline_density_chart() {
         PageBuilder::new("dens-inline", "Density Inline", "Dens", 1)
             .chart(
                 ChartSpecBuilder::density(
-                    "Density", "d",
+                    "Density", &h("d"),
                     DensityConfig::builder().category("grp").value("v").y_label("V").build().unwrap(),
                 ).at(0, 0, 1).build(),
             )
@@ -1832,11 +1835,11 @@ fn native_inline_filtered_page() {
         PageBuilder::new("filt-inline", "Filtered Inline", "FI", 1)
             .chart(
                 ChartSpecBuilder::hbar(
-                    "Chart", "data",
+                    "Chart", &h("data"),
                     HBarConfig::builder().category("category").value("value").x_label("V").build().unwrap(),
                 ).at(0, 0, 1).filtered().build(),
             )
-            .filter(FilterSpec::range("data", "value", "Range", 0.0, 50.0, 1.0))
+            .filter(FilterSpec::range(&h("data"), "value", "Range", 0.0, 50.0, 1.0))
             .build()
             .unwrap(),
     );
@@ -1864,7 +1867,7 @@ fn native_inline_paragraph_and_table() {
                 ParagraphSpec::new("Inline paragraph.").title("Info").at(0, 0, 1).build(),
             )
             .table(
-                TableSpec::new("Inline Table", "data")
+                TableSpec::new("Inline Table", &h("data"))
                     .column(TableColumn::text("category", "Cat"))
                     .column(TableColumn::number("value", "Val", 1))
                     .at(1, 0, 1)
@@ -1899,7 +1902,7 @@ fn native_inline_multi_page_with_vertical_nav() {
             .category("category").value("value").x_label("V").build().unwrap();
         dash.add_page(
             PageBuilder::new(slug, slug, slug, 1)
-                .chart(ChartSpecBuilder::hbar("C", "data", cfg).at(0, 0, 1).build())
+                .chart(ChartSpecBuilder::hbar("C", &h("data"), cfg).at(0, 0, 1).build())
                 .build()
                 .unwrap(),
         );
@@ -1932,7 +1935,7 @@ fn print_native_json_for_inspection() {
         rust_to_bokeh::PageBuilder::new("test", "Test", "T", 1)
             .chart(
                 rust_to_bokeh::ChartSpecBuilder::hbar(
-                    "Values", "data",
+                    "Values", &h("data"),
                     rust_to_bokeh::HBarConfig::builder()
                         .category("category").value("value").x_label("Val")
                         .build().unwrap()
