@@ -1,7 +1,7 @@
 //! Single-page assembly: builds filter widgets, charts, overview figures,
 //! non-chart modules, wires CDS IDs, and produces the final HTML string.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use polars::prelude::DataFrame;
 
@@ -18,7 +18,7 @@ use super::id_gen::IdGen;
 use super::model::BokehObject;
 use super::modules_html::{render_paragraph_html, render_table_html};
 use super::nav::build_nav_html;
-use super::placeholder::{extract_first_cds_id, replace_placeholder_in_obj};
+use super::placeholder::{extract_first_cds_id, hoist_inline_cds_with_id, replace_placeholder_in_obj};
 
 pub(super) fn render_page(
     page: &Page,
@@ -68,6 +68,18 @@ pub(super) fn render_page(
 
     let mut chart_infos: Vec<ChartInfo> = Vec::new();
     let mut source_key_to_cds_id: HashMap<String, String> = HashMap::new();
+    // Tracks filter model ids that have already been emitted inline so each
+    // one is inlined at exactly one CDSView and referenced via `Ref`
+    // elsewhere. See `combine_filters` docs for why inlining — rather than
+    // adding filter models as doc roots — is required for correct positional
+    // placement of DOMView roots into their target divs.
+    let mut inlined_filter_ids: HashSet<String> = HashSet::new();
+    // RangeTool widgets (Range1d) inline their BooleanFilter in the first
+    // CustomJS callback (see `filters/range_tool.rs`). Pre-register those ids
+    // so chart CDSViews on the same source emit `Ref` instead of re-inlining.
+    for fo in &range_tool_outputs {
+        inlined_filter_ids.insert(fo.filter_id.clone());
+    }
 
     for module in &page.modules {
         let PageModule::Chart(spec) = module else { continue };
@@ -77,7 +89,7 @@ pub(super) fn render_page(
                 .get(&spec.source_key)
                 .map(|v| v.as_slice())
                 .unwrap_or(&[]);
-            Some(combine_filters(&mut id_gen, objs))
+            Some(combine_filters(&mut id_gen, objs, &mut inlined_filter_ids))
         } else {
             None
         };
@@ -137,20 +149,41 @@ pub(super) fn render_page(
     // duplicate IDs as the same model instance, so the widget callback
     // mutates the same filter the chart observes.
 
-    // ── 4. Add Range1d widgets (range tool) to doc ──────────────────────────
+    // ── 4. Filter model objects (BooleanFilter, IndexFilter, GroupFilter) are
+    //        NOT added as doc roots. BokehJS's `add_document_standalone` pairs
+    //        `doc.all_roots[i]` with `render_items.roots[root_ids[i]]` by index,
+    //        so every non-DOMView root shifts every subsequent DOMView root off
+    //        its intended div. Instead, the filter_obj is inlined at its Ref
+    //        sites: `combine_filters` inlines it into each chart's CDSView
+    //        filter attribute, and `Document.from_json` registers the model on
+    //        first decode. Widget CustomJS `args` Refs to the same id resolve
+    //        against that registration because widgets are added after figures
+    //        in doc.roots order.
+
+    // ── 4b. Hoist the ColumnDataSource that Range1d's CustomJS args reference.
+    //        The CDS is built inline inside a chart Figure (added in step 5),
+    //        but the Range1d widget (added in step 4c) carries CustomJS args
+    //        with a Ref to this CDS. BokehJS would otherwise see the Ref
+    //        before the Figure-nested inline definition, raising
+    //        "reference <id> isn't known". Lifting the CDS to its own root
+    //        ahead of the Range1d makes the Ref backward-resolvable; the
+    //        Figure now references it via Ref instead of inlining it.
+    let mut hidden_divs: Vec<String> = Vec::new();
     for fo in &patched_range_tools {
-        doc.add_root_no_div(fo.widget.clone());
+        let Some(target_cds_id) = source_key_to_cds_id.get(&fo.source_key) else {
+            continue;
+        };
+        for info in &mut chart_infos {
+            if let Some(cds) = hoist_inline_cds_with_id(&mut info.fig, target_cds_id) {
+                hidden_divs.push(doc.add_hidden_root(cds));
+                break;
+            }
+        }
     }
 
-    // ── 4b. Add filter model objects (BooleanFilter, IndexFilter, GroupFilter)
-    //        as roots BEFORE chart figures. CDSViews reference them via Refs;
-    //        BokehJS resolves Refs in root-declaration order so models must
-    //        appear before any Ref to them.
-    for fo in &patched_cds_filters {
-        doc.add_root_no_div(fo.filter_obj.clone());
-    }
+    // ── 4c. Add Range1d widgets (range tool) to doc ─────────────────────────
     for fo in &patched_range_tools {
-        doc.add_root_no_div(fo.filter_obj.clone());
+        hidden_divs.push(doc.add_hidden_root(fo.widget.clone()));
     }
 
     // ── 5. Add chart figures FIRST so nested CDS models are registered
@@ -226,6 +259,18 @@ pub(super) fn render_page(
 
     grid_items.sort_by_key(|i| (i.grid_row, i.grid_col));
 
+    // ── 8b. Verify document invariants before serialization ─────────────────
+    //        Catches duplicate inline defs and dangling Refs that would make
+    //        BokehJS silently render nothing (see commit a90e73d).
+    let report = doc.verify();
+    if !report.is_ok() {
+        return Err(ChartError::NativeRender(format!(
+            "page '{}' produced an invalid Bokeh document: {}",
+            page.slug,
+            report.summary()
+        )));
+    }
+
     // ── 9. Generate embed script ─────────────────────────────────────────────
     let docs_json = doc.to_docs_json(&mut id_gen);
     let render_items = doc.to_render_items();
@@ -246,6 +291,7 @@ pub(super) fn render_page(
         grid_items,
         filter_widgets: filter_widget_items,
         range_tool_overviews: range_overview_divs,
+        hidden_divs,
     };
 
     Ok(render_page_html(&page_data))

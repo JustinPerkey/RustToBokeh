@@ -42,6 +42,7 @@ mod modules_html;
 mod html_css_scripts;
 mod page;
 mod placeholder;
+mod verifier;
 
 use std::collections::HashMap;
 use std::io::Cursor;

@@ -1,11 +1,11 @@
 //! Bokeh document model: assembles `docs_json` and `render_items`.
 
 use serde_json;
-use std::collections::HashMap;
 use uuid::Uuid;
 
 use super::id_gen::IdGen;
 use super::model::BokehObject;
+use super::verifier::{verify_document, VerifyReport};
 
 /// A Bokeh document containing all model roots for one page.
 pub struct BokehDocument {
@@ -32,9 +32,21 @@ impl BokehDocument {
         div_id
     }
 
-    /// Add a root model without creating a div (for widget layout helpers).
-    pub fn add_root_no_div(&mut self, obj: BokehObject) {
+    /// Add a root model that isn't a DOMView (BooleanFilter, CDS hoisted for
+    /// cross-root refs, Range1d widget, etc.). A UUID is still allocated and
+    /// recorded in `root_div_map` so `render_items.roots` and `root_ids`
+    /// match `all_roots` 1-for-1. The returned UUID must be emitted as a
+    /// hidden `<div>` in the page HTML — BokehJS's `embed.embed_items` calls
+    /// `document.getElementById(uuid)` for every entry in `root_ids` and
+    /// throws if the element is missing, even for models it later skips
+    /// because they aren't DOMViews. Keeping `all_roots` and render_items
+    /// aligned by index is what prevents DOMView roots (charts, widgets)
+    /// from being placed into the wrong target divs.
+    pub fn add_hidden_root(&mut self, obj: BokehObject) -> String {
+        let div_id = Uuid::new_v4().to_string();
+        self.root_div_map.push((obj.id.clone(), div_id.clone()));
         self.roots.push(obj);
+        div_id
     }
 
     /// Serialize to the `docs_json` string (single-quote-escaped for embedding in JS).
@@ -68,18 +80,23 @@ impl BokehDocument {
     }
 
     /// Serialize to the `render_items` JSON array string.
+    ///
+    /// Uses `serde_json::Map` (order-preserving with `preserve_order` feature)
+    /// so the `roots` JSON object key order matches `root_ids`. BokehJS's
+    /// `embed_items` iterates the `roots` object and must see ids in the
+    /// same order their root models were added, otherwise model→div mapping
+    /// skews across charts.
     pub fn to_render_items(&self) -> String {
-        let roots_obj: HashMap<&str, &str> = self
-            .root_div_map
-            .iter()
-            .map(|(mid, did)| (mid.as_str(), did.as_str()))
-            .collect();
+        let mut roots_obj = serde_json::Map::with_capacity(self.root_div_map.len());
+        for (mid, did) in &self.root_div_map {
+            roots_obj.insert(mid.clone(), serde_json::Value::String(did.clone()));
+        }
 
         let root_ids: Vec<&str> = self.root_div_map.iter().map(|(mid, _)| mid.as_str()).collect();
 
         let item = serde_json::json!({
             "docid": &self.doc_id,
-            "roots": roots_obj,
+            "roots": serde_json::Value::Object(roots_obj),
             "root_ids": root_ids,
         });
 
@@ -94,6 +111,12 @@ impl BokehDocument {
     /// Number of roots in the document.
     pub fn root_count(&self) -> usize {
         self.roots.len()
+    }
+
+    /// Validate that every model ID is defined inline at most once and every
+    /// `Ref` resolves to an inline definition.
+    pub fn verify(&self) -> VerifyReport {
+        verify_document(&self.roots)
     }
 }
 

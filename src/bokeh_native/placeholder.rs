@@ -66,3 +66,47 @@ fn replace_placeholder(val: &mut BokehValue, placeholder: &str, real_id: &str) {
         _ => {}
     }
 }
+
+/// Find the inline `ColumnDataSource` with the given ID inside a figure (in its
+/// renderers' `data_source` slot), extract it out, and replace the inline
+/// definition with a `Ref` to the same ID. Returns the extracted CDS so the
+/// caller can add it as a separate document root, making the ID backward-
+/// resolvable for later Refs (e.g. from a Range1d widget's CustomJS args).
+///
+/// Returns `None` if no inline CDS with that ID is found.
+pub(super) fn hoist_inline_cds_with_id(
+    fig: &mut BokehObject,
+    target_id: &str,
+) -> Option<BokehObject> {
+    for (key, val) in &mut fig.attributes {
+        if key == "renderers" {
+            if let BokehValue::Array(renderers) = val {
+                for renderer in renderers.iter_mut() {
+                    if let Some(extracted) = hoist_from_renderer(renderer, target_id) {
+                        return Some(extracted);
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+fn hoist_from_renderer(val: &mut BokehValue, target_id: &str) -> Option<BokehObject> {
+    if let BokehValue::Object(obj) = val {
+        if obj.name == "GlyphRenderer" {
+            for (k, v) in &mut obj.attributes {
+                if k == "data_source" {
+                    if let BokehValue::Object(cds) = v {
+                        if cds.id == target_id {
+                            let extracted = cds.clone();
+                            *v = BokehValue::Ref(target_id.to_string());
+                            return Some(*extracted);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}

@@ -10,7 +10,7 @@
 //! [`range_tool`]. This file exposes the shared [`FilterOutput`] type and the
 //! public entry points [`build_filter_widgets`] and [`combine_filters`].
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use polars::prelude::DataFrame;
 
 use crate::charts::{FilterConfig, FilterSpec};
@@ -76,29 +76,46 @@ pub fn build_filter_widgets(
 }
 
 /// For a set of filter outputs targeting the same source_key, build a
-/// combined filter value using cross-references (Refs).
+/// combined filter value for a chart's CDSView `filter` attribute.
 ///
-/// Filter objects must be added to the document as roots before chart figures
-/// so that BokehJS can resolve Refs when decoding in root order.
+/// Filter models are NOT added as doc roots — BokehJS's
+/// `add_document_standalone` pairs `all_roots[i]` with `render_items.roots`
+/// by index, so any non-DOMView root shifts every subsequent DOMView root
+/// off its intended div. Instead, each filter model is inlined at its first
+/// reference site and replaced with a `Ref` at all later sites. BokehJS'
+/// `_decode_object_ref` registers the model on first decode, so later Refs
+/// (including from the filter widget's CustomJS args) resolve correctly.
 ///
-/// When `filter_objs` is empty, returns an inline `AllIndices` (fresh each call).
-/// When 1 filter: returns `Ref(filter_id)`.
-/// When >1 filters: returns inline `IntersectionFilter{ operands: [Ref, ...] }`.
+/// `inlined_ids` tracks which filter model IDs have already been emitted
+/// inline within this page; callers must share one set across every call.
+///
+/// When `filter_objs` is empty, returns a fresh inline `AllIndices`.
+/// When 1 filter: inline first time, Ref after.
+/// When >1 filters: inline `IntersectionFilter{ operands: [inline-or-Ref, ...] }`.
 pub fn combine_filters(
     id_gen: &mut IdGen,
     filter_objs: &[BokehObject],
+    inlined_ids: &mut HashSet<String>,
 ) -> BokehValue {
+    fn emit(obj: &BokehObject, inlined_ids: &mut HashSet<String>) -> BokehValue {
+        if inlined_ids.insert(obj.id.clone()) {
+            obj.clone().into_value()
+        } else {
+            obj.to_ref()
+        }
+    }
+
     match filter_objs.len() {
         0 => {
             let aid = id_gen.next();
             BokehObject::new("AllIndices", aid).into_value()
         }
-        1 => filter_objs[0].to_ref(),
+        1 => emit(&filter_objs[0], inlined_ids),
         _ => {
             let isect_id = id_gen.next();
             let operands: Vec<BokehValue> = filter_objs
                 .iter()
-                .map(|obj| obj.to_ref())
+                .map(|obj| emit(obj, inlined_ids))
                 .collect();
             BokehObject::new("IntersectionFilter", isect_id)
                 .attr("operands", BokehValue::Array(operands))
@@ -473,7 +490,8 @@ mod tests {
     #[test]
     fn combine_zero_filters_produces_all_indices() {
         let mut id_gen = IdGen::new();
-        let result = combine_filters(&mut id_gen, &[]);
+        let mut inlined: HashSet<String> = HashSet::new();
+        let result = combine_filters(&mut id_gen, &[], &mut inlined);
         if let BokehValue::Object(obj) = result {
             assert_eq!(obj.name, "AllIndices");
         } else {
@@ -482,30 +500,30 @@ mod tests {
     }
 
     #[test]
-    fn combine_one_filter_returns_ref() {
+    fn combine_one_filter_inlines_first_then_refs() {
         let mut id_gen = IdGen::new();
+        let mut inlined: HashSet<String> = HashSet::new();
         let bf = BokehObject::new("BooleanFilter", "bf1".into())
             .attr("booleans", BokehValue::Array(vec![BokehValue::Bool(true)]));
-        let result = combine_filters(&mut id_gen, &[bf]);
-        if let BokehValue::Ref(id) = result {
-            assert_eq!(id, "bf1");
-        } else {
-            panic!("expected Ref to BooleanFilter");
-        }
+        let first = combine_filters(&mut id_gen, std::slice::from_ref(&bf), &mut inlined);
+        assert!(matches!(first, BokehValue::Object(ref o) if o.name == "BooleanFilter"));
+        let second = combine_filters(&mut id_gen, std::slice::from_ref(&bf), &mut inlined);
+        assert!(matches!(second, BokehValue::Ref(ref id) if id == "bf1"));
     }
 
     #[test]
-    fn combine_two_filters_produces_intersection_with_refs() {
+    fn combine_two_filters_produces_intersection_with_inline_operands() {
         let mut id_gen = IdGen::new();
+        let mut inlined: HashSet<String> = HashSet::new();
         let bf1 = BokehObject::new("BooleanFilter", "bf1".into());
         let bf2 = BokehObject::new("BooleanFilter", "bf2".into());
-        let result = combine_filters(&mut id_gen, &[bf1, bf2]);
+        let result = combine_filters(&mut id_gen, &[bf1, bf2], &mut inlined);
         if let BokehValue::Object(obj) = result {
             assert_eq!(obj.name, "IntersectionFilter");
             if let Some(BokehValue::Array(operands)) = find_attr_test(&obj, "operands") {
                 assert_eq!(operands.len(), 2);
-                assert!(matches!(&operands[0], BokehValue::Ref(id) if id == "bf1"));
-                assert!(matches!(&operands[1], BokehValue::Ref(id) if id == "bf2"));
+                assert!(matches!(&operands[0], BokehValue::Object(o) if o.id == "bf1"));
+                assert!(matches!(&operands[1], BokehValue::Object(o) if o.id == "bf2"));
             } else {
                 panic!("expected operands array");
             }
@@ -515,19 +533,37 @@ mod tests {
     }
 
     #[test]
-    fn combine_three_filters_intersection_has_three_ref_operands() {
+    fn combine_three_filters_intersection_inlines_all_on_first_call() {
         let mut id_gen = IdGen::new();
+        let mut inlined: HashSet<String> = HashSet::new();
         let filters: Vec<BokehObject> = (0..3)
             .map(|i| BokehObject::new("BooleanFilter", format!("bf{i}")))
             .collect();
-        let result = combine_filters(&mut id_gen, &filters);
+        let result = combine_filters(&mut id_gen, &filters, &mut inlined);
         if let BokehValue::Object(obj) = result {
             assert_eq!(obj.name, "IntersectionFilter");
             if let Some(BokehValue::Array(operands)) = find_attr_test(&obj, "operands") {
                 assert_eq!(operands.len(), 3);
                 for op in operands {
-                    assert!(matches!(op, BokehValue::Ref(_)));
+                    assert!(matches!(op, BokehValue::Object(_)));
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn combine_second_call_uses_refs_for_already_inlined_operands() {
+        let mut id_gen = IdGen::new();
+        let mut inlined: HashSet<String> = HashSet::new();
+        let filters: Vec<BokehObject> = (0..2)
+            .map(|i| BokehObject::new("BooleanFilter", format!("bf{i}")))
+            .collect();
+        let _first = combine_filters(&mut id_gen, &filters, &mut inlined);
+        let second = combine_filters(&mut id_gen, &filters, &mut inlined);
+        if let BokehValue::Object(obj) = second {
+            if let Some(BokehValue::Array(operands)) = find_attr_test(&obj, "operands") {
+                assert!(matches!(&operands[0], BokehValue::Ref(id) if id == "bf0"));
+                assert!(matches!(&operands[1], BokehValue::Ref(id) if id == "bf1"));
             }
         }
     }
