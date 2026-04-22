@@ -16,6 +16,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Vendor
+      run: bash scripts/setup_vendor.sh
     - name: Build
       run: cargo build --verbose
     - name: Run tests
