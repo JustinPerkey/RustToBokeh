@@ -109,7 +109,9 @@ fn build_horizontal_nav(tree: &NavNode, report_title: &str, current_slug: &str) 
         html.push_str(&build_h_dd_node(child, current_slug));
     }
 
-    html.push_str("</div></div></nav>");
+    html.push_str("</div>");
+    html.push_str(&build_theme_switcher_html());
+    html.push_str("</div></nav>");
     html
 }
 
@@ -211,6 +213,7 @@ fn build_vertical_nav(tree: &NavNode, report_title: &str, current_slug: &str, ho
         html.push_str(&build_v_node(child, current_slug));
     }
 
+    html.push_str(&build_theme_switcher_html());
     html.push_str("</nav>");
     html
 }
@@ -240,6 +243,14 @@ fn build_v_node(node: &NavNode, current_slug: &str) -> String {
 
     html.push_str("</div></details>");
     html
+}
+
+// ── Theme switcher ────────────────────────────────────────────────────────────
+
+fn build_theme_switcher_html() -> String {
+    String::from(
+        r##"<div class="theme-switcher"><button class="theme-switcher-trigger" id="theme-switcher-trigger" aria-label="Change theme" aria-haspopup="menu"><span class="theme-switcher-trigger-swatch" aria-hidden="true"></span><span>Theme</span><span class="caret" aria-hidden="true">▾</span></button><div class="theme-switcher-menu" id="theme-switcher-menu" role="menu"><button class="theme-option" data-theme="default" role="menuitem"><span class="theme-option-swatch" aria-hidden="true"></span>Classic</button><button class="theme-option" data-theme="graphite" role="menuitem"><span class="theme-option-swatch" aria-hidden="true"></span>Graphite</button><button class="theme-option" data-theme="forest" role="menuitem"><span class="theme-option-swatch" aria-hidden="true"></span>Forest</button><button class="theme-option" data-theme="oxide" role="menuitem"><span class="theme-option-swatch" aria-hidden="true"></span>Oxide</button><button class="theme-option" data-theme="lab" role="menuitem"><span class="theme-option-swatch" aria-hidden="true"></span>Lab</button></div></div>"##,
+    )
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -12,6 +12,7 @@ pub const INLINE_CSS: &str = r#"<style>
             --c-text-dark: #2c3e50; --c-text: #333; --c-text-mute: #666; --c-text-faint: #999;
             --c-bg: oklch(98% 0.006 240); --c-surface: #fff; --c-border: #dde2e8; --c-border-soft: #e9ecef;
             --c-sidebar-bg: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+            --c-nav-text: #555; --c-nav-text-sub: #444; --c-divider: #eee;
             --grad-accent: linear-gradient(90deg, var(--c-primary) 0%, var(--c-accent) 100%);
             --c-badge-polars: #CE422B; --c-badge-polars-bg: #fdefeb;
             --c-badge-arrow: #1F8A8A; --c-badge-arrow-bg: #e6f5f5;
@@ -76,7 +77,7 @@ pub const INLINE_CSS: &str = r#"<style>
             height: var(--nav-h);
             font-size: var(--fs-sm);
             font-weight: 500;
-            color: #555;
+            color: var(--c-nav-text);
             white-space: nowrap;
             border-bottom: 3px solid transparent;
             flex-shrink: 0;
@@ -88,7 +89,7 @@ pub const INLINE_CSS: &str = r#"<style>
         .nav-horizontal .nav-dd-trigger {
             display: flex; align-items: center; gap: var(--s-1); padding: 0 var(--s-4); height: var(--nav-h);
             border: none; background: none; font-family: inherit; font-size: var(--fs-sm);
-            font-weight: 500; color: #555; white-space: nowrap; cursor: pointer;
+            font-weight: 500; color: var(--c-nav-text); white-space: nowrap; cursor: pointer;
             border-bottom: 3px solid transparent;
             transition: color 0.15s, border-color 0.15s, background 0.15s;
         }
@@ -101,15 +102,15 @@ pub const INLINE_CSS: &str = r#"<style>
             border-radius: var(--r-md); box-shadow: var(--sh-lg);
             min-width: 190px; z-index: 1000; padding: var(--s-1) 0;
         }
-        .nav-horizontal .nav-dd-item { display: block; padding: var(--s-2) var(--s-5); font-size: var(--fs-sm); font-weight: 500; color: #444; text-decoration: none; white-space: nowrap; transition: background 0.1s, color 0.1s; }
+        .nav-horizontal .nav-dd-item { display: block; padding: var(--s-2) var(--s-5); font-size: var(--fs-sm); font-weight: 500; color: var(--c-nav-text-sub); text-decoration: none; white-space: nowrap; transition: background 0.1s, color 0.1s; }
         .nav-horizontal .nav-dd-item:hover { background: var(--c-primary-tint); color: var(--c-primary); }
         .nav-horizontal .nav-dd-item.active { background: var(--c-primary-tint); color: var(--c-primary); font-weight: 700; }
-        .nav-horizontal .nav-dd-divider { border: none; border-top: 1px solid #eee; margin: var(--s-1) 0; }
+        .nav-horizontal .nav-dd-divider { border: none; border-top: 1px solid var(--c-divider); margin: var(--s-1) 0; }
         .nav-horizontal .nav-dd-sub { position: relative; }
         .nav-horizontal .nav-dd-sub-trigger {
             display: flex; justify-content: space-between; align-items: center; width: 100%;
             padding: var(--s-2) var(--s-4) var(--s-2) var(--s-5); border: none; background: none; font-family: inherit;
-            font-size: var(--fs-sm); font-weight: 500; color: #444; white-space: nowrap; cursor: pointer;
+            font-size: var(--fs-sm); font-weight: 500; color: var(--c-nav-text-sub); white-space: nowrap; cursor: pointer;
             transition: background 0.1s, color 0.1s; text-align: left;
         }
         .nav-horizontal .nav-dd-sub-trigger .caret { font-size: var(--fs-xs); opacity: 0.55; }
@@ -158,7 +159,7 @@ pub const INLINE_CSS: &str = r#"<style>
         .filter-widget { flex: 1; min-width: 200px; }
         .switch-label { display: flex; align-items: center; gap: var(--s-3); font-size: var(--fs-base); color: var(--c-text-dark); cursor: pointer; }
         .paragraph-module { height: 100%; box-sizing: border-box; }
-        .paragraph-module p { color: #555; line-height: 1.7; margin: 0 0 var(--s-3); font-size: var(--fs-md); }
+        .paragraph-module p { color: var(--c-text); line-height: 1.7; margin: 0 0 var(--s-3); font-size: var(--fs-md); }
         .paragraph-module p:last-child { margin-bottom: 0; }
         .table-module { overflow: hidden; }
         .table-wrapper { overflow-x: auto; max-height: 420px; overflow-y: auto; }
@@ -168,7 +169,145 @@ pub const INLINE_CSS: &str = r#"<style>
         .table-module tbody tr:hover { background: var(--c-primary-pale); }
         .table-module tbody td { padding: var(--s-2) var(--s-3); border-bottom: 1px solid var(--c-border-soft); color: var(--c-text-dark); }
         .module-title { color: var(--c-text-dark); font-size: var(--fs-lg); margin: 0 0 var(--s-3); padding-bottom: var(--s-2); border-bottom: 1px solid var(--c-primary-pale); font-weight: 600; }
+        /* ── Theme: Graphite ───────────────────────────────────────────────── */
+        [data-theme="graphite"] {
+            --c-primary: oklch(50% 0.04 240); --c-primary-deep: oklch(40% 0.04 240);
+            --c-primary-tint: oklch(96% 0.01 240); --c-primary-border: oklch(80% 0.02 240);
+            --c-primary-pale: oklch(93% 0.008 240);
+            --c-accent: oklch(58% 0.13 200); --c-accent-pale: oklch(95% 0.02 200); --c-accent-deep: oklch(45% 0.12 200);
+            --c-text-dark: oklch(26% 0.015 240); --c-text: oklch(36% 0.01 240);
+            --c-text-mute: oklch(52% 0.008 240); --c-text-faint: oklch(68% 0.005 240);
+            --c-bg: oklch(98% 0.004 240); --c-surface: oklch(99.5% 0.002 240);
+            --c-border: oklch(88% 0.008 240); --c-border-soft: oklch(93% 0.005 240);
+            --c-sidebar-bg: linear-gradient(180deg, oklch(28% 0.015 240) 0%, oklch(33% 0.015 240) 100%);
+            --c-nav-text: oklch(38% 0.01 240); --c-nav-text-sub: oklch(30% 0.01 240);
+            --c-divider: oklch(92% 0.005 240);
+        }
+        /* ── Theme: Forest ─────────────────────────────────────────────────── */
+        [data-theme="forest"] {
+            --c-primary: oklch(42% 0.09 155); --c-primary-deep: oklch(32% 0.09 155);
+            --c-primary-tint: oklch(96% 0.02 140); --c-primary-border: oklch(75% 0.06 150);
+            --c-primary-pale: oklch(92% 0.025 145);
+            --c-accent: oklch(68% 0.14 75); --c-accent-pale: oklch(95% 0.03 75); --c-accent-deep: oklch(52% 0.13 65);
+            --c-text-dark: oklch(24% 0.02 155); --c-text: oklch(34% 0.015 155);
+            --c-text-mute: oklch(50% 0.01 155); --c-text-faint: oklch(68% 0.008 155);
+            --c-bg: oklch(98% 0.006 130); --c-surface: oklch(99.5% 0.003 130);
+            --c-border: oklch(87% 0.015 140); --c-border-soft: oklch(93% 0.008 140);
+            --c-sidebar-bg: linear-gradient(180deg, oklch(24% 0.03 155) 0%, oklch(29% 0.035 155) 100%);
+            --c-nav-text: oklch(36% 0.02 155); --c-nav-text-sub: oklch(28% 0.02 155);
+            --c-divider: oklch(92% 0.01 140);
+        }
+        /* ── Theme: Oxide ──────────────────────────────────────────────────── */
+        [data-theme="oxide"] {
+            --c-primary: oklch(48% 0.13 30); --c-primary-deep: oklch(38% 0.14 28);
+            --c-primary-tint: oklch(96% 0.015 40); --c-primary-border: oklch(78% 0.08 35);
+            --c-primary-pale: oklch(93% 0.025 38);
+            --c-accent: oklch(56% 0.09 180); --c-accent-pale: oklch(95% 0.025 180); --c-accent-deep: oklch(42% 0.08 180);
+            --c-text-dark: oklch(26% 0.02 30); --c-text: oklch(36% 0.015 30);
+            --c-text-mute: oklch(52% 0.01 30); --c-text-faint: oklch(70% 0.008 30);
+            --c-bg: oklch(97% 0.008 40); --c-surface: oklch(99.5% 0.003 40);
+            --c-border: oklch(87% 0.015 35); --c-border-soft: oklch(93% 0.01 35);
+            --c-sidebar-bg: linear-gradient(180deg, oklch(26% 0.04 30) 0%, oklch(31% 0.045 30) 100%);
+            --c-nav-text: oklch(38% 0.02 30); --c-nav-text-sub: oklch(30% 0.02 30);
+            --c-divider: oklch(92% 0.01 35);
+        }
+        /* ── Theme: Lab ────────────────────────────────────────────────────── */
+        [data-theme="lab"] {
+            --c-primary: oklch(38% 0.015 250); --c-primary-deep: oklch(28% 0.015 250);
+            --c-primary-tint: oklch(96% 0.003 250); --c-primary-border: oklch(82% 0.008 250);
+            --c-primary-pale: oklch(93% 0.004 250);
+            --c-accent: oklch(62% 0.19 35); --c-accent-pale: oklch(95% 0.035 35); --c-accent-deep: oklch(50% 0.18 32);
+            --c-text-dark: oklch(22% 0.01 250); --c-text: oklch(32% 0.008 250);
+            --c-text-mute: oklch(50% 0.005 250); --c-text-faint: oklch(68% 0.004 250);
+            --c-bg: oklch(98% 0.002 250); --c-surface: oklch(100% 0 0);
+            --c-border: oklch(88% 0.004 250); --c-border-soft: oklch(94% 0.002 250);
+            --c-sidebar-bg: linear-gradient(180deg, oklch(22% 0.005 250) 0%, oklch(26% 0.006 250) 100%);
+            --c-nav-text: oklch(36% 0.008 250); --c-nav-text-sub: oklch(26% 0.008 250);
+            --c-divider: oklch(93% 0.003 250);
+        }
+        /* ── Theme switcher ────────────────────────────────────────────────── */
+        .theme-switcher { position: relative; flex-shrink: 0; }
+        .nav-horizontal .theme-switcher { margin-left: auto; display: flex; align-items: stretch; }
+        .nav-vertical .theme-switcher { padding: var(--s-3) var(--s-4); border-top: 1px solid rgba(255,255,255,0.10); margin-top: var(--s-3); }
+        .theme-switcher-trigger { display: flex; align-items: center; gap: var(--s-2); border: none; background: none; font-family: inherit; font-size: var(--fs-sm); font-weight: 500; cursor: pointer; padding: 0 var(--s-4); transition: color 0.15s, background 0.15s; }
+        .nav-horizontal .theme-switcher-trigger { height: var(--nav-h); color: var(--c-nav-text); border-bottom: 3px solid transparent; border-left: 1px solid var(--c-border); }
+        .nav-horizontal .theme-switcher-trigger:hover { color: var(--c-primary); background: var(--c-primary-tint); border-bottom-color: var(--c-primary-border); }
+        .nav-vertical .theme-switcher-trigger { width: 100%; padding: var(--s-2) var(--s-3); color: rgba(255,255,255,0.72); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: var(--r-sm); }
+        .nav-vertical .theme-switcher-trigger:hover { background: rgba(255,255,255,0.12); color: white; }
+        .theme-switcher-trigger-swatch { width: 14px; height: 14px; border-radius: 50%; background: linear-gradient(135deg, var(--c-primary) 0% 50%, var(--c-accent) 50% 100%); border: 1px solid rgba(0,0,0,0.15); flex-shrink: 0; }
+        .theme-switcher-trigger .caret { font-size: var(--fs-xs); opacity: 0.6; }
+        .theme-switcher-menu { display: none; position: fixed; background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-md); box-shadow: var(--sh-lg); min-width: 180px; z-index: 1100; padding: var(--s-1) 0; }
+        .theme-switcher-menu.open { display: block; }
+        .theme-option { display: flex; align-items: center; gap: var(--s-3); width: 100%; padding: var(--s-2) var(--s-4); border: none; background: none; font-family: inherit; font-size: var(--fs-sm); font-weight: 500; color: var(--c-nav-text-sub); cursor: pointer; text-align: left; transition: background 0.1s, color 0.1s; }
+        .theme-option:hover { background: var(--c-primary-tint); color: var(--c-primary); }
+        .theme-option.active { background: var(--c-primary-tint); color: var(--c-primary); font-weight: 700; }
+        .theme-option-swatch { width: 18px; height: 18px; border-radius: var(--r-sm); border: 1px solid var(--c-border); flex-shrink: 0; overflow: hidden; position: relative; }
+        .theme-option-swatch::before, .theme-option-swatch::after { content: ""; position: absolute; top: 0; bottom: 0; width: 50%; }
+        .theme-option-swatch::before { left: 0; background: var(--sw-primary); }
+        .theme-option-swatch::after { right: 0; background: var(--sw-accent); }
+        .theme-option[data-theme="default"]  { --sw-primary: #4C72B0; --sw-accent: #E8923C; }
+        .theme-option[data-theme="graphite"] { --sw-primary: oklch(50% 0.04 240); --sw-accent: oklch(58% 0.13 200); }
+        .theme-option[data-theme="forest"]   { --sw-primary: oklch(42% 0.09 155); --sw-accent: oklch(68% 0.14 75); }
+        .theme-option[data-theme="oxide"]    { --sw-primary: oklch(48% 0.13 30);  --sw-accent: oklch(56% 0.09 180); }
+        .theme-option[data-theme="lab"]      { --sw-primary: oklch(38% 0.015 250); --sw-accent: oklch(62% 0.19 35); }
     </style>"#;
+
+// Inline script placed in <head> to apply saved theme before first paint (avoids FOUC).
+pub const THEME_HEAD_SCRIPT: &str = r#"<script>
+    (function () {
+        try {
+            var t = localStorage.getItem('rtb-theme');
+            if (t && t !== 'default') document.documentElement.setAttribute('data-theme', t);
+        } catch (e) {}
+    })();
+    </script>"#;
+
+// Theme switcher handler JS — placed in body after nav. Toggles menu, applies theme, persists.
+pub const THEME_SWITCHER_SCRIPT: &str = r#"    <script>
+    (function () {
+        var THEMES = ['default', 'graphite', 'forest', 'oxide', 'lab'];
+        var root = document.documentElement;
+        var trigger = document.getElementById('theme-switcher-trigger');
+        var menu = document.getElementById('theme-switcher-menu');
+        if (!trigger || !menu) return;
+        function current() {
+            var t = root.getAttribute('data-theme');
+            return (t && THEMES.indexOf(t) !== -1) ? t : 'default';
+        }
+        function apply(theme) {
+            if (theme === 'default') root.removeAttribute('data-theme');
+            else root.setAttribute('data-theme', theme);
+            try { localStorage.setItem('rtb-theme', theme); } catch (e) {}
+            menu.querySelectorAll('.theme-option').forEach(function (b) {
+                b.classList.toggle('active', b.getAttribute('data-theme') === theme);
+            });
+        }
+        apply(current());
+        function openMenu() {
+            var r = trigger.getBoundingClientRect();
+            menu.style.left = Math.max(8, r.right - 180) + 'px';
+            menu.style.top = (r.bottom + 4) + 'px';
+            if (r.bottom + 260 > window.innerHeight) {
+                menu.style.top = Math.max(8, r.top - menu.offsetHeight - 4) + 'px';
+            }
+            menu.classList.add('open');
+        }
+        function closeMenu() { menu.classList.remove('open'); }
+        trigger.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (menu.classList.contains('open')) closeMenu(); else openMenu();
+        });
+        menu.addEventListener('click', function (e) {
+            var btn = e.target.closest('.theme-option');
+            if (!btn) return;
+            e.stopPropagation();
+            apply(btn.getAttribute('data-theme'));
+            closeMenu();
+        });
+        document.addEventListener('click', closeMenu);
+        window.addEventListener('resize', closeMenu);
+    })();
+    </script>"#;
 
 pub const NAV_DROPDOWN_SCRIPT: &str = r#"    <script>
     (function () {

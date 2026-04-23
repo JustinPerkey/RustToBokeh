@@ -4,7 +4,9 @@
 //! CSS grid with chart/paragraph/table cells, range-tool overview charts, and
 //! the Bokeh embed script.
 
-use crate::bokeh_native::html_css_scripts::{INLINE_CSS, NAV_DROPDOWN_SCRIPT};
+use crate::bokeh_native::html_css_scripts::{
+    INLINE_CSS, NAV_DROPDOWN_SCRIPT, THEME_HEAD_SCRIPT, THEME_SWITCHER_SCRIPT,
+};
 
 /// A chart or module cell in the CSS grid.
 pub struct GridItem {
@@ -95,9 +97,11 @@ pub fn render_page_html(data: &PageHtmlData<'_>) -> String {
     <title>{tab_title}</title>
     {bokeh_resources}
     {inline_css}
+    {theme_head_script}
 </head>
 <body class="{layout_class}">
 {nav_html}
+{theme_switcher_script}
 {nav_dropdown_script}
     <div class="page-content">
         <h1>{page_title}</h1>
@@ -116,8 +120,10 @@ pub fn render_page_html(data: &PageHtmlData<'_>) -> String {
         tab_title = tab_title,
         bokeh_resources = data.bokeh_resources_html,
         inline_css = INLINE_CSS,
+        theme_head_script = THEME_HEAD_SCRIPT,
         layout_class = layout_class,
         nav_html = data.nav_html,
+        theme_switcher_script = THEME_SWITCHER_SCRIPT,
         nav_dropdown_script = NAV_DROPDOWN_SCRIPT,
         page_title = escape_html(data.title),
         range_overview_html = range_overview_html,
