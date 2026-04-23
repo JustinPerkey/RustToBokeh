@@ -45,6 +45,9 @@ pub fn register(dash: &mut Dashboard) -> Result<Handles, ChartError> {
     let mut salary_box_df = compute_box_stats(&salary_raw2, "department", "salary_k")?;
     let salary_box = dash.add_df("salary_box", &mut salary_box_df)?;
 
+    let mut salary_outliers_df = compute_box_outliers(&salary_raw2, "department", "salary_k")?;
+    dash.add_df("salary_outliers", &mut salary_outliers_df)?;
+
     let salary_raw = dash.add_df("salary_raw", &mut data::build_salary_raw())?;
     let density_scores = dash.add_df("density_scores", &mut data::build_density_scores())?;
 
