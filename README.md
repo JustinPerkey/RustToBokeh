@@ -60,7 +60,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ## Prerequisites
 
 - Rust toolchain (1.75+)
-- `curl` or `wget` (for downloading vendored Python)
+- Linux/macOS: `curl` or `wget` and `bash` (for downloading vendored Python)
+- Windows: PowerShell 5.1+ (ships with Windows 10/11) and `tar.exe` (Windows 10 1803+)
 - No system Python installation required when using the vendor setup
 
 ## Setup
@@ -69,17 +70,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 Run the setup script once after cloning. It downloads a standalone CPython 3.12 build from [python-build-standalone](https://github.com/indygreg/python-build-standalone), extracts it to `vendor/python/`, installs all required pip packages, and writes `.cargo/config.toml` so that PyO3 links against the vendored interpreter automatically.
 
+**Linux / macOS / WSL / Git Bash:**
+
 ```bash
 bash scripts/setup_vendor.sh
 ```
 
-Supported platforms: Linux x86_64/aarch64, macOS x86_64/aarch64, Windows x86_64.
+**Windows (native PowerShell, no bash required):**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup_vendor.ps1
+```
+
+Supported platforms: Linux x86_64/aarch64, macOS x86_64/aarch64, Windows x86_64/aarch64.
 
 To force a fresh download (e.g. after upgrading Python), delete `vendor/python/` and re-run the script:
 
 ```bash
 rm -rf vendor/python
 bash scripts/setup_vendor.sh
+```
+
+On Windows:
+
+```powershell
+Remove-Item -Recurse -Force vendor\python
+powershell -ExecutionPolicy Bypass -File scripts\setup_vendor.ps1
 ```
 
 ### Alternative: System Python
@@ -534,7 +550,8 @@ RustToBokeh/
 ├── templates/
 │   └── chart.html            # Jinja2 HTML template (embedded at compile time)
 ├── scripts/
-│   └── setup_vendor.sh       # Downloads standalone Python into vendor/python/
+│   ├── setup_vendor.sh       # Downloads standalone Python into vendor/python/ (bash)
+│   └── setup_vendor.ps1      # Same, native PowerShell (Windows, no bash required)
 ├── build.rs                  # Copies vendored Python DLLs to target dir (Windows)
 ├── output/                   # Generated HTML output (committed for preview)
 ├── Cargo.toml
@@ -555,12 +572,12 @@ RustToBokeh/
 
 | Problem | Likely cause | Fix |
 |---|---|---|
-| `could not find python` at build time | PyO3 cannot locate the interpreter | Run `bash scripts/setup_vendor.sh`; or set `PYO3_PYTHON` explicitly |
-| `ModuleNotFoundError: bokeh` at runtime | Python packages not installed | Re-run `bash scripts/setup_vendor.sh` or `pip install -r requirements.txt` |
+| `could not find python` at build time | PyO3 cannot locate the interpreter | Run `bash scripts/setup_vendor.sh` (or `scripts\setup_vendor.ps1` on Windows); or set `PYO3_PYTHON` explicitly |
+| `ModuleNotFoundError: bokeh` at runtime | Python packages not installed | Re-run the vendor script or `pip install -r requirements.txt` |
 | `IpcWriter` compile error | `ipc` feature not enabled | Ensure `features = ["ipc"]` in the `polars` dependency in `Cargo.toml` |
 | Blank or empty chart | `source_key` mismatch | Match the `source_key` in `ChartSpec` with the key passed to `add_df()` |
 | Template changes not reflected | `include_str!()` embeds at compile time | Recompile after editing `templates/chart.html` or `python/render.py` |
-| Python DLLs not found on Windows | `build.rs` copy step failed | Run `bash scripts/setup_vendor.sh`, then do a clean rebuild |
+| Python DLLs not found on Windows | `build.rs` copy step failed | Run `scripts\setup_vendor.ps1`, then do a clean rebuild |
 | `GridValidation` error | Module overflows grid or modules overlap | Check `.at(row, col, span)` — `col + span` must not exceed `grid_cols`, and no two modules in the same row may overlap |
 | Charts not responding to filters | Chart not marked `.filtered()` | Call `.filtered()` on `ChartSpecBuilder` for every chart that should respond |
 | Histogram chart shows no data | Pre-computation not done | Call `compute_histogram()` before `add_df()` and pass the result |
