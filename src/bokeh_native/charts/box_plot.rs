@@ -6,7 +6,7 @@ use crate::charts::charts::box_plot::BoxPlotConfig;
 use crate::charts::ChartSpec;
 use crate::error::ChartError;
 
-use super::super::figure::{build_figure, build_glyph_renderer, AxisBuilder, AxisType, FigureOutput, XRangeKind, YRangeKind};
+use super::super::figure::{build_figure, build_glyph_renderer, build_hover_tool, AxisBuilder, AxisType, FigureOutput, XRangeKind, YRangeKind};
 use super::super::id_gen::IdGen;
 use super::super::model::{BokehObject, BokehValue};
 use super::super::palette::resolve_palette;
@@ -87,13 +87,56 @@ pub fn build_box_plot(
     add_renderers(&mut figure, all_renderers);
 
     if let Some(outlier_df) = outlier_df {
-        if let Some(out_renderer) = build_outlier_renderer(id_gen, outlier_df, cfg) {
+        if let Some((out_renderer, value_col)) = build_outlier_renderer(id_gen, outlier_df, cfg) {
+            let out_renderer_id = out_renderer.id.clone();
             add_renderers(&mut figure, vec![out_renderer]);
+            let out_hover = build_outlier_hover(id_gen, &cfg.category_col, &value_col, &out_renderer_id);
+            add_tool_to_toolbar(&mut figure, out_hover);
         }
     }
 
     set_axis_labels(&mut figure, "", &cfg.y_label);
     Ok(figure)
+}
+
+fn build_outlier_hover(
+    id_gen: &mut IdGen,
+    category_col: &str,
+    value_label: &str,
+    renderer_id: &str,
+) -> BokehObject {
+    let cat_tip = format!("@{{{category_col}}}");
+    // CDS field for outlier value is hardcoded as "value" in build_outlier_renderer.
+    let val_tip = "@{value}".to_string();
+    let mut ht = build_hover_tool(
+        id_gen,
+        &[(category_col, cat_tip.as_str()), (value_label, val_tip.as_str())],
+        &[],
+    );
+    for (k, v) in &mut ht.attributes {
+        if k == "renderers" {
+            *v = BokehValue::Array(vec![BokehValue::ref_of(renderer_id)]);
+            break;
+        }
+    }
+    ht
+}
+
+fn add_tool_to_toolbar(figure: &mut BokehObject, tool: BokehObject) {
+    for (k, v) in &mut figure.attributes {
+        if k == "toolbar" {
+            if let BokehValue::Object(tb) = v {
+                for (tk, tv) in &mut tb.attributes {
+                    if tk == "tools" {
+                        if let BokehValue::Array(arr) = tv {
+                            arr.push(tool.into_value());
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn build_box_cds(
@@ -211,7 +254,7 @@ fn build_outlier_renderer(
     id_gen: &mut IdGen,
     outlier_df: &DataFrame,
     cfg: &BoxPlotConfig,
-) -> Option<BokehObject> {
+) -> Option<(BokehObject, String)> {
     let out_cats = get_str_column(outlier_df, &cfg.category_col).ok()?;
     let value_col = match cfg.outlier_value_col.as_deref() {
         Some(c) => c.to_string(),
@@ -268,7 +311,8 @@ fn build_outlier_renderer(
         .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(0.1)))
         .attr("marker", BokehValue::value_of(BokehValue::Str("circle".into())));
 
-    Some(build_glyph_renderer(id_gen, out_cds.into_value(), glyph, Some(nonsel), None))
+    let renderer = build_glyph_renderer(id_gen, out_cds.into_value(), glyph, Some(nonsel), None);
+    Some((renderer, value_col))
 }
 
 #[cfg(test)]

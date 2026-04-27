@@ -7,7 +7,7 @@ use crate::charts::charts::density::DensityConfig;
 use crate::charts::ChartSpec;
 use crate::error::ChartError;
 
-use super::super::figure::{build_figure, build_glyph_renderer, AxisBuilder, AxisType, FigureOutput, XRangeKind, YRangeKind};
+use super::super::figure::{build_figure, build_glyph_renderer, build_hover_tool, AxisBuilder, AxisType, FigureOutput, XRangeKind, YRangeKind};
 use super::super::id_gen::IdGen;
 use super::super::model::{BokehObject, BokehValue};
 use super::super::palette::resolve_palette;
@@ -50,9 +50,18 @@ pub fn build_density(
         resolve_palette(None, n_cats)
     };
 
-    // No default hover tool: internal per-category CDSes use "x"/"y" column
-    // names, not cfg.category_col/value_col, so any default tooltip would
-    // show "???" for every hover hit.
+    // Use `$name` (renderer name = category string) and `$y` (data-coord y at
+    // hover position). Both resolve without column lookup, so they work on
+    // Patch glyphs whose categorical x breaks Bokeh's point-in-polygon
+    // hit-testing — which would otherwise leave `@{column}` showing ???.
+    let ht = build_hover_tool(
+        id_gen,
+        &[
+            (cfg.category_col.as_str(), "$name"),
+            (cfg.value_col.as_str(), "$y{0.00}"),
+        ],
+        &[],
+    );
 
     let factors: Vec<BokehValue> = cat_order.iter().map(|s| BokehValue::Str(s.clone())).collect();
 
@@ -65,7 +74,7 @@ pub fn build_density(
         YRangeKind::DataRange,
         AxisBuilder::x(AxisType::Categorical),
         AxisBuilder::y(AxisType::Linear).config(cfg.y_axis.as_ref()),
-        None,
+        Some(ht),
     );
 
     // Compute global y range for KDE grid
@@ -96,9 +105,9 @@ pub fn build_density(
         let kde = &cat_kdes[i];
 
         if vals.len() <= threshold as usize {
-            render_sina_category(id_gen, &mut figure, cat, vals, kde, &y_grid, color, alpha, filter_ref.clone());
+            render_sina_category(id_gen, &mut figure, &cfg.category_col, &cfg.value_col, cat, vals, kde, &y_grid, color, alpha, filter_ref.clone());
         } else {
-            render_violin_category(id_gen, &mut figure, cat, vals, kde, &y_grid, color, alpha, filter_ref.clone());
+            render_violin_category(id_gen, &mut figure, &cfg.category_col, &cfg.value_col, cat, vals, kde, &y_grid, color, alpha, filter_ref.clone());
         }
     }
 
@@ -110,6 +119,8 @@ pub fn build_density(
 fn render_sina_category(
     id_gen: &mut IdGen,
     figure: &mut BokehObject,
+    category_col: &str,
+    value_col: &str,
     cat: &str,
     vals: &[f64],
     kde: &[f64],
@@ -130,12 +141,19 @@ fn render_sina_category(
         })
         .collect();
     let ys: Vec<BokehValue> = vals.iter().map(|&v| BokehValue::Float(v)).collect();
+    let cat_col: Vec<BokehValue> = (0..vals.len())
+        .map(|_| BokehValue::Str(cat.to_string()))
+        .collect();
 
+    // Duplicate y under the user-facing value_col name for tooltip lookup.
+    let val_col_data: Vec<BokehValue> = vals.iter().map(|&v| BokehValue::Float(v)).collect();
     let cds = build_cds_from_entries(
         id_gen,
         vec![
             ("x".into(), BokehValue::Array(xs)),
             ("y".into(), BokehValue::Array(ys)),
+            (category_col.to_string(), BokehValue::Array(cat_col)),
+            (value_col.to_string(), BokehValue::Array(val_col_data)),
         ],
     );
 
@@ -155,7 +173,9 @@ fn render_sina_category(
         .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(0.1)))
         .attr("marker", BokehValue::value_of(BokehValue::Str("circle".into())));
 
-    let renderer = build_glyph_renderer(id_gen, cds.into_value(), glyph, Some(nonsel), filter_ref);
+    let mut renderer = build_glyph_renderer(id_gen, cds.into_value(), glyph, Some(nonsel), filter_ref);
+    // `$name` tooltip variable resolves to this renderer's name → category string.
+    renderer.attributes.push(("name".to_string(), BokehValue::Str(cat.to_string())));
     add_renderers(figure, vec![renderer]);
 }
 
@@ -163,6 +183,8 @@ fn render_sina_category(
 fn render_violin_category(
     id_gen: &mut IdGen,
     figure: &mut BokehObject,
+    category_col: &str,
+    value_col: &str,
     cat: &str,
     vals: &[f64],
     kde: &[f64],
@@ -185,12 +207,24 @@ fn render_violin_category(
         poly_x.push(BokehValue::Array(vec![BokehValue::Str(cat.to_string()), BokehValue::Float(offset)]));
         poly_y.push(BokehValue::Float(y_grid[j]));
     }
+    let poly_cat: Vec<BokehValue> = (0..poly_x.len())
+        .map(|_| BokehValue::Str(cat.to_string()))
+        .collect();
 
+    // Duplicate poly_y under value_col name for hover tooltip.
+    let poly_val: Vec<BokehValue> = (0..KDE_GRID_POINTS * 2)
+        .map(|j| {
+            let yi = if j < KDE_GRID_POINTS { j } else { (KDE_GRID_POINTS * 2) - 1 - j };
+            BokehValue::Float(y_grid[yi])
+        })
+        .collect();
     let cds = build_cds_from_entries(
         id_gen,
         vec![
             ("x".into(), BokehValue::Array(poly_x)),
             ("y".into(), BokehValue::Array(poly_y)),
+            (category_col.to_string(), BokehValue::Array(poly_cat)),
+            (value_col.to_string(), BokehValue::Array(poly_val)),
         ],
     );
 
@@ -206,7 +240,8 @@ fn render_violin_category(
         .attr("y", BokehValue::field("y"))
         .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(0.1)));
 
-    let renderer = build_glyph_renderer(id_gen, cds.into_value(), glyph, Some(nonsel), filter_ref);
+    let mut renderer = build_glyph_renderer(id_gen, cds.into_value(), glyph, Some(nonsel), filter_ref);
+    renderer.attributes.push(("name".to_string(), BokehValue::Str(cat.to_string())));
     add_renderers(figure, vec![renderer]);
 
     // Median line
@@ -225,6 +260,17 @@ fn render_violin_category(
                 "y".into(),
                 BokehValue::Array(vec![BokehValue::Float(median_val), BokehValue::Float(median_val)]),
             ),
+            (
+                category_col.to_string(),
+                BokehValue::Array(vec![
+                    BokehValue::Str(cat.to_string()),
+                    BokehValue::Str(cat.to_string()),
+                ]),
+            ),
+            (
+                value_col.to_string(),
+                BokehValue::Array(vec![BokehValue::Float(median_val), BokehValue::Float(median_val)]),
+            ),
         ],
     );
 
@@ -239,7 +285,8 @@ fn render_violin_category(
         .attr("y", BokehValue::field("y"))
         .attr("line_alpha", BokehValue::value_of(BokehValue::Float(0.1)));
 
-    let med_renderer = build_glyph_renderer(id_gen, med_cds.into_value(), med_glyph, Some(med_nonsel), None);
+    let mut med_renderer = build_glyph_renderer(id_gen, med_cds.into_value(), med_glyph, Some(med_nonsel), None);
+    med_renderer.attributes.push(("name".to_string(), BokehValue::Str(cat.to_string())));
     add_renderers(figure, vec![med_renderer]);
 }
 

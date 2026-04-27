@@ -196,7 +196,7 @@ mod tests {
     }
 
     #[test]
-    fn scatter_with_fixed_dimensions() {
+    fn scatter_with_dimensions_uses_aspect_ratio() {
         let df = test_df();
         let mut id_gen = IdGen::new();
         let cfg = ScatterConfig::builder().x("x").y("y").x_label("X").y_label("Y").build().unwrap();
@@ -205,9 +205,10 @@ mod tests {
         spec.height = Some(600);
         let fig = build_scatter(&mut id_gen, &spec, &cfg, &df, None, None).unwrap();
         let json = serde_json::to_string(&fig).unwrap();
-        assert!(json.contains("\"fixed\""));
-        assert!(json.contains("800"));
-        assert!(json.contains("600"));
+        // Width hint becomes aspect_ratio; sizing stays stretch_width so chart fills card.
+        assert!(json.contains("aspect_ratio"));
+        assert!(json.contains("stretch_width"));
+        assert!(!json.contains("\"fixed\""));
     }
 
     #[test]

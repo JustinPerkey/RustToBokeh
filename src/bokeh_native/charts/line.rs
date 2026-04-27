@@ -169,12 +169,16 @@ fn build_line_series(
         .attr("marker", BokehValue::value_of(BokehValue::Str("circle".to_string())));
 
     let circle_renderer = build_glyph_renderer(id_gen, circle_cds_ref, circle_glyph, Some(circle_nonsel), filter_ref);
+    let circle_renderer_id = circle_renderer.id.clone();
 
     let legend_item = BokehObject::new("LegendItem", id_gen.next())
         .attr("label", BokehValue::value_of(BokehValue::Str(y_col.to_string())))
         .attr(
             "renderers",
-            BokehValue::Array(vec![BokehValue::ref_of(&line_renderer_id)]),
+            BokehValue::Array(vec![
+                BokehValue::ref_of(&line_renderer_id),
+                BokehValue::ref_of(&circle_renderer_id),
+            ]),
         )
         .into_value();
 

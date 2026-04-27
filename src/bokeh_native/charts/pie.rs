@@ -34,21 +34,21 @@ pub fn build_pie(
         &[cfg.label_col.as_str(), cfg.value_col.as_str()],
     );
 
-    // x_range is wider than y_range so wedges stay circular at a 1.6:1 aspect.
+    // Square data range; match_aspect keeps wedges circular while figure stretches to fill div.
     let FigureOutput { mut figure, .. } = build_figure(
         id_gen,
         &spec.title,
         spec.height.unwrap_or(400),
         spec.width,
-        XRangeKind::Numeric { start: -1.6, end: 1.6 },
+        XRangeKind::Numeric { start: -1.2, end: 1.2 },
         YRangeKind::Numeric { start: -1.2, end: 1.2 },
         AxisBuilder::x(AxisType::Linear),
         AxisBuilder::y(AxisType::Linear),
         Some(ht),
     );
-    if spec.width.is_none() {
-        figure.attributes.push(("aspect_ratio".to_string(), BokehValue::Float(1.6)));
-    }
+    // match_aspect locks plot-frame data axes to 1:1 in screen pixels, keeping
+    // wedges circular regardless of the card aspect ratio.
+    figure.attributes.push(("match_aspect".to_string(), BokehValue::Bool(true)));
 
     let cds = build_cds_from_entries(
         id_gen,
@@ -285,15 +285,15 @@ mod tests {
     }
 
     #[test]
-    fn pie_has_aspect_ratio_when_no_explicit_width() {
+    fn pie_uses_match_aspect_to_keep_wedges_circular() {
         let df = test_df();
         let mut id_gen = IdGen::new();
         let cfg = PieConfig::builder().label("category").value("amount").build().unwrap();
-        let spec = test_spec("AspectRatio");
+        let spec = test_spec("MatchAspect");
         let fig = build_pie(&mut id_gen, &spec, &cfg, &df).unwrap();
         let json = serde_json::to_string(&fig).unwrap();
-        assert!(json.contains("aspect_ratio"), "aspect_ratio should be emitted");
-        assert!(json.contains("1.6"));
+        assert!(json.contains("match_aspect"), "match_aspect needed to keep wedges circular");
+        assert!(json.contains("stretch_width"), "pie should stretch to fill card width");
     }
 }
 

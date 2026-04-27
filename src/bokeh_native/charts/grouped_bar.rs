@@ -1,6 +1,5 @@
 //! Grouped vertical bar chart builder.
 
-use std::collections::HashMap;
 use polars::prelude::DataFrame;
 
 use crate::charts::charts::grouped_bar::GroupedBarConfig;
@@ -28,17 +27,6 @@ pub fn build_grouped_bar(
     let x_cats = unique_preserve_order(&x_vals);
     let groups = unique_preserve_order(&group_vals);
     let colors = resolve_palette(cfg.palette.as_ref(), groups.len());
-
-    let group_color_map: HashMap<&str, &str> = groups
-        .iter()
-        .enumerate()
-        .map(|(i, g)| (g.as_str(), colors[i].as_str()))
-        .collect();
-
-    let fill_colors: Vec<BokehValue> = group_vals
-        .iter()
-        .map(|g| BokehValue::Str(group_color_map.get(g.as_str()).copied().unwrap_or("#4C72B0").to_string()))
-        .collect();
 
     let factor_tuples: Vec<BokehValue> = x_vals
         .iter()
@@ -82,18 +70,56 @@ pub fn build_grouped_bar(
             (cfg.group_col.clone(), BokehValue::Array(group_vals.iter().map(|s| BokehValue::Str(s.clone())).collect())),
             (cfg.value_col.clone(), BokehValue::Array(values.iter().map(|&v| BokehValue::Float(v)).collect())),
             (factor_col.clone(), BokehValue::Array(factor_tuples)),
-            ("_fill_color".into(), BokehValue::Array(fill_colors)),
         ],
     );
+    let cds_id = cds.id.clone();
+    let cds_value = cds.into_value();
 
     let bar_width = cfg.bar_width.unwrap_or(0.9);
-    let renderer = build_bar_renderer(id_gen, cds, &factor_col, &cfg.value_col, bar_width, filter_ref);
-    add_renderers(&mut figure, vec![renderer]);
+    let mut renderers = Vec::new();
+    let mut group_renderer_ids: Vec<String> = Vec::new();
+    for (gi, group) in groups.iter().enumerate() {
+        let indices: Vec<BokehValue> = group_vals
+            .iter()
+            .enumerate()
+            .filter_map(|(i, g)| if g == group { Some(BokehValue::Int(i as i64)) } else { None })
+            .collect();
+        let index_filter = BokehObject::new("IndexFilter", id_gen.next())
+            .attr("indices", BokehValue::Array(indices));
+        let combined_filter = combine_filters(id_gen, index_filter, filter_ref.clone());
 
-    add_group_legend(id_gen, &mut figure, &groups);
+        let cds_ref = if gi == 0 { cds_value.clone() } else { BokehValue::ref_of(&cds_id) };
+        let renderer = build_bar_renderer(
+            id_gen,
+            cds_ref,
+            &factor_col,
+            &cfg.value_col,
+            bar_width,
+            &colors[gi],
+            Some(combined_filter),
+        );
+        group_renderer_ids.push(renderer.id.clone());
+        renderers.push(renderer);
+    }
+    add_renderers(&mut figure, renderers);
+
+    add_group_legend(id_gen, &mut figure, &groups, &group_renderer_ids);
 
     set_axis_labels(&mut figure, "", &cfg.y_label);
     Ok(figure)
+}
+
+fn combine_filters(
+    id_gen: &mut IdGen,
+    index_filter: BokehObject,
+    external: Option<BokehValue>,
+) -> BokehValue {
+    match external {
+        None => index_filter.into_value(),
+        Some(ext) => BokehObject::new("IntersectionFilter", id_gen.next())
+            .attr("operands", BokehValue::Array(vec![index_filter.into_value(), ext]))
+            .into_value(),
+    }
 }
 
 fn unique_preserve_order(vals: &[String]) -> Vec<String> {
@@ -109,10 +135,11 @@ fn unique_preserve_order(vals: &[String]) -> Vec<String> {
 
 fn build_bar_renderer(
     id_gen: &mut IdGen,
-    cds: BokehObject,
+    cds_ref: BokehValue,
     factor_col: &str,
     value_col: &str,
     bar_width: f64,
+    color: &str,
     filter_ref: Option<BokehValue>,
 ) -> BokehObject {
     let glyph = BokehObject::new("VBar", id_gen.next())
@@ -120,7 +147,7 @@ fn build_bar_renderer(
         .attr("top", BokehValue::field(value_col))
         .attr("bottom", BokehValue::value_of(BokehValue::Float(0.0)))
         .attr("width", BokehValue::value_of(BokehValue::Float(bar_width)))
-        .attr("fill_color", BokehValue::field("_fill_color"))
+        .attr("fill_color", BokehValue::value_of(BokehValue::Str(color.to_string())))
         .attr("line_color", BokehValue::value_of(BokehValue::Str("white".to_string())));
 
     let nonsel = BokehObject::new("VBar", id_gen.next())
@@ -128,22 +155,29 @@ fn build_bar_renderer(
         .attr("top", BokehValue::field(value_col))
         .attr("bottom", BokehValue::value_of(BokehValue::Float(0.0)))
         .attr("width", BokehValue::value_of(BokehValue::Float(bar_width)))
-        .attr("fill_color", BokehValue::field("_fill_color"))
+        .attr("fill_color", BokehValue::value_of(BokehValue::Str(color.to_string())))
         .attr("fill_alpha", BokehValue::value_of(BokehValue::Float(0.1)))
         .attr("line_color", BokehValue::value_of(BokehValue::Str("white".to_string())));
 
-    build_glyph_renderer(id_gen, cds.into_value(), glyph, Some(nonsel), filter_ref)
+    build_glyph_renderer(id_gen, cds_ref, glyph, Some(nonsel), filter_ref)
 }
 
-fn add_group_legend(id_gen: &mut IdGen, figure: &mut BokehObject, groups: &[String]) {
+fn add_group_legend(
+    id_gen: &mut IdGen,
+    figure: &mut BokehObject,
+    groups: &[String],
+    renderer_ids: &[String],
+) {
     if groups.is_empty() {
         return;
     }
     let items: Vec<BokehValue> = groups
         .iter()
-        .map(|g| {
+        .zip(renderer_ids.iter())
+        .map(|(g, rid)| {
             BokehObject::new("LegendItem", id_gen.next())
                 .attr("label", BokehValue::value_of(BokehValue::Str(g.clone())))
+                .attr("renderers", BokehValue::Array(vec![BokehValue::ref_of(rid)]))
                 .into_value()
         })
         .collect();
@@ -201,10 +235,13 @@ mod tests {
 
         assert_eq!(fig.name, "Figure");
         if let Some(BokehValue::Array(arr)) = find_attr(&fig, "renderers") {
-            assert_eq!(arr.len(), 1);
-            if let BokehValue::Object(r) = &arr[0] {
-                if let Some(BokehValue::Object(g)) = find_attr(r, "glyph") {
-                    assert_eq!(g.name, "VBar");
+            // 2 groups (A, B) → 2 renderers
+            assert_eq!(arr.len(), 2);
+            for r in arr {
+                if let BokehValue::Object(r) = r {
+                    if let Some(BokehValue::Object(g)) = find_attr(r, "glyph") {
+                        assert_eq!(g.name, "VBar");
+                    }
                 }
             }
         }
@@ -240,16 +277,18 @@ mod tests {
     }
 
     #[test]
-    fn grouped_bar_cds_has_fill_color_column() {
+    fn grouped_bar_legend_items_reference_renderers() {
         let df = test_df();
         let mut id_gen = IdGen::new();
         let cfg = GroupedBarConfig::builder()
             .x("quarter").group("product").value("revenue").y_label("Rev")
             .build().unwrap();
-        let spec = test_spec("FillColor");
+        let spec = test_spec("LegendRenderers");
         let fig = build_grouped_bar(&mut id_gen, &spec, &cfg, &df, None).unwrap();
         let json = serde_json::to_string(&fig).unwrap();
-        assert!(json.contains("_fill_color"));
+        // Legend item must reference renderer for swatch color
+        assert!(json.contains("LegendItem"));
+        assert!(json.contains("\"renderers\""));
     }
 
     #[test]
@@ -265,5 +304,7 @@ mod tests {
         let fig = build_grouped_bar(&mut id_gen, &spec, &cfg, &df, Some(filter.into_value())).unwrap();
         let json = serde_json::to_string(&fig).unwrap();
         assert!(json.contains("BooleanFilter"));
+        // Per-group IndexFilter combined with external filter via IntersectionFilter
+        assert!(json.contains("IntersectionFilter"));
     }
 }

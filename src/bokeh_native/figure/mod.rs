@@ -82,14 +82,17 @@ pub fn build_figure(
     let toolbar = tools::build_toolbar(id_gen, hover_tool);
 
     let fig_id = id_gen.next();
-    let mut fig_attrs: Vec<(&str, BokehValue)> = vec![
-        ("height", BokehValue::Int(height as i64)),
-    ];
-
+    // Always stretch width to fill the card grid cell. If an explicit width was
+    // provided, treat it as an aspect-ratio hint (width / height) rather than a
+    // fixed pixel width — the figure expands horizontally and the height is
+    // computed from the aspect ratio so charts fill their container.
+    let mut fig_attrs: Vec<(&str, BokehValue)> = Vec::new();
     if let Some(w) = width {
-        fig_attrs.push(("width", BokehValue::Int(w as i64)));
-        fig_attrs.push(("sizing_mode", BokehValue::Str("fixed".into())));
+        let aspect = (w as f64) / (height as f64);
+        fig_attrs.push(("aspect_ratio", BokehValue::Float(aspect)));
+        fig_attrs.push(("sizing_mode", BokehValue::Str("stretch_width".into())));
     } else {
+        fig_attrs.push(("height", BokehValue::Int(height as i64)));
         fig_attrs.push(("sizing_mode", BokehValue::Str("stretch_width".into())));
     }
 
@@ -214,10 +217,10 @@ mod tests {
     }
 
     #[test]
-    fn figure_with_fixed_width() {
+    fn figure_with_explicit_width_uses_aspect_ratio() {
         let mut id_gen = IdGen::new();
         let out = build_figure(
-            &mut id_gen, "Fixed", 400, Some(800),
+            &mut id_gen, "Aspect", 400, Some(800),
             XRangeKind::DataRange,
             YRangeKind::DataRange,
             AxisBuilder::x(AxisType::Linear),
@@ -225,8 +228,10 @@ mod tests {
             None,
         );
         let json = serde_json::to_string(&out.figure).unwrap();
-        assert!(json.contains("\"fixed\""));
-        assert!(json.contains("800"));
+        // Width hint becomes aspect_ratio (800/400 = 2.0) and sizing stays stretch_width
+        assert!(json.contains("aspect_ratio"));
+        assert!(json.contains("stretch_width"));
+        assert!(!json.contains("\"fixed\""));
     }
 
     #[test]
